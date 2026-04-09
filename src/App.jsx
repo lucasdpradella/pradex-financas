@@ -18,6 +18,7 @@ const COLORS = ["#6366F1","#22C55E","#F59E0B","#EF4444","#8B5CF6","#EC4899","#14
 const formatBRL = (value) => Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const monthNames = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 const today = new Date().toISOString().split("T")[0];
+const formasPagamento = ["Débito", "Crédito", "Dinheiro", "PIX", "Outros"];
 
 export default function PradexFinancas() {
   const [session, setSession] = useState(null);
@@ -29,8 +30,9 @@ export default function PradexFinancas() {
   const [authLoading, setAuthLoading] = useState(false);
   const [tela, setTela] = useState("dashboard");
   const [tipo, setTipo] = useState("gasto");
-  const [form, setForm] = useState({ descricao: "", valor: "", categoria: "", data_lancamento: today });
+  const [form, setForm] = useState({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "" });
   const [lancamentos, setLancamentos] = useState([]);
+  const [cartoes, setCartoes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [erro, setErro] = useState("");
@@ -40,6 +42,10 @@ export default function PradexFinancas() {
   const [preview, setPreview] = useState([]);
   const [erroIA, setErroIA] = useState("");
   const [importado, setImportado] = useState(false);
+  const [formCartao, setFormCartao] = useState({ nome: "", bandeira: "", dia_fechamento: "", dia_vencimento: "" });
+  const [savingCartao, setSavingCartao] = useState(false);
+  const [erroCartao, setErroCartao] = useState("");
+  const [successCartao, setSuccessCartao] = useState(false);
 
   useEffect(() => { checkSession(); }, []);
 
@@ -76,9 +82,10 @@ export default function PradexFinancas() {
     localStorage.removeItem("sb_token");
     setSession(null);
     setLancamentos([]);
+    setCartoes([]);
   };
 
-  useEffect(() => { if (session) fetchLancamentos(); }, [session]);
+  useEffect(() => { if (session) { fetchLancamentos(); fetchCartoes(); } }, [session]);
 
   const fetchLancamentos = async () => {
     setLoading(true);
@@ -90,21 +97,35 @@ export default function PradexFinancas() {
     setLoading(false);
   };
 
+  const fetchCartoes = async () => {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/cartoes?order=id.asc`, { headers: api(session?.token) });
+      const data = await res.json();
+      setCartoes(Array.isArray(data) ? data : []);
+    } catch (e) {}
+  };
+
   const handleSubmit = async () => {
     if (!form.descricao || !form.valor || !form.categoria) { setErro("Preencha todos os campos."); return; }
     const valor = parseFloat(form.valor.replace(",", "."));
     if (isNaN(valor) || valor <= 0) { setErro("Valor inválido."); return; }
     setSaving(true); setErro("");
     try {
+      const body = {
+        descricao: form.descricao, valor, tipo, categoria: form.categoria,
+        data_lancamento: form.data_lancamento, user_id: session.user.id,
+        forma_pagamento: form.forma_pagamento || null,
+        cartao_id: form.forma_pagamento === "Crédito" && form.cartao_id ? parseInt(form.cartao_id) : null,
+      };
       const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
         method: "POST",
         headers: { ...api(session?.token), "Prefer": "return=representation" },
-        body: JSON.stringify({ descricao: form.descricao, valor, tipo, categoria: form.categoria, data_lancamento: form.data_lancamento, user_id: session.user.id }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (Array.isArray(data) && data[0]) {
         setLancamentos(prev => [data[0], ...prev]);
-        setForm({ descricao: "", valor: "", categoria: "", data_lancamento: today });
+        setForm({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "" });
         setSuccess(true);
         setTimeout(() => setSuccess(false), 2000);
       } else { setErro("Erro ao salvar."); }
@@ -119,17 +140,41 @@ export default function PradexFinancas() {
     } catch (e) {}
   };
 
+  const handleSaveCartao = async () => {
+    if (!formCartao.nome) { setErroCartao("Nome é obrigatório."); return; }
+    setSavingCartao(true); setErroCartao("");
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/cartoes`, {
+        method: "POST",
+        headers: { ...api(session?.token), "Prefer": "return=representation" },
+        body: JSON.stringify({ ...formCartao, user_id: session.user.id, dia_fechamento: formCartao.dia_fechamento ? parseInt(formCartao.dia_fechamento) : null, dia_vencimento: formCartao.dia_vencimento ? parseInt(formCartao.dia_vencimento) : null }),
+      });
+      const data = await res.json();
+      if (Array.isArray(data) && data[0]) {
+        setCartoes(prev => [...prev, data[0]]);
+        setFormCartao({ nome: "", bandeira: "", dia_fechamento: "", dia_vencimento: "" });
+        setSuccessCartao(true);
+        setTimeout(() => setSuccessCartao(false), 2000);
+      } else { setErroCartao("Erro ao salvar."); }
+    } catch (e) { setErroCartao("Erro de conexão."); }
+    setSavingCartao(false);
+  };
+
+  const handleDeleteCartao = async (id) => {
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/cartoes?id=eq.${id}`, { method: "DELETE", headers: api(session?.token) });
+      setCartoes(prev => prev.filter(c => c.id !== id));
+    } catch (e) {}
+  };
+
   const processarComIA = async () => {
     if (!textoIA.trim()) { setErroIA("Cole algum texto primeiro."); return; }
     setProcessando(true); setErroIA(""); setPreview([]);
     try {
-      const prompt = "Você é um assistente financeiro brasileiro. Analise o texto abaixo e extraia TODOS os lançamentos financeiros mencionados.\n\nREGRAS:\n- Ignore palavras soltas como 'Cartão' ou 'Dinheiro' sem valor\n- Para contas a vencer, use a data de vencimento\n- Cash back é receita\n- Sem duplicatas óbvias\n- Use ano 2026 se não especificado\n\nRetorne APENAS um array JSON válido:\n[{\"descricao\":\"...\",\"valor\":0.00,\"tipo\":\"gasto\",\"categoria\":\"...\",\"data_lancamento\":\"YYYY-MM-DD\"}]\n\nCategorias gastos: Moradia, Alimentação, Transporte, Saúde, Lazer, Educação, Assinaturas, Outros\nCategorias receitas: Salário, Freelance, Investimentos, Aluguel recebido, Outros\n\nHoje: " + today + "\n\nTexto:\n" + textoIA;
+      const prompt = "Você é um assistente financeiro brasileiro. Analise o texto abaixo e extraia TODOS os lançamentos financeiros mencionados.\n\nREGRAS:\n- Ignore palavras soltas como 'Cartão' ou 'Dinheiro' sem valor\n- Para contas a vencer, use a data de vencimento\n- Cash back é receita\n- Sem duplicatas óbvias\n- Use ano 2026 se não especificado\n- Identifique a forma de pagamento: Débito, Crédito, Dinheiro, PIX ou Outros\n\nRetorne APENAS um array JSON válido:\n[{\"descricao\":\"...\",\"valor\":0.00,\"tipo\":\"gasto\",\"categoria\":\"...\",\"data_lancamento\":\"YYYY-MM-DD\",\"forma_pagamento\":\"...\"}]\n\nCategorias gastos: Moradia, Alimentação, Transporte, Saúde, Lazer, Educação, Assinaturas, Outros\nCategorias receitas: Salário, Freelance, Investimentos, Aluguel recebido, Outros\n\nHoje: " + today + "\n\nTexto:\n" + textoIA;
       const res = await fetch(`${SUPABASE_URL}/functions/v1/claude-proxy`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${SUPABASE_KEY}`,
-        },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SUPABASE_KEY}` },
         body: JSON.stringify({ prompt }),
       });
       const data = await res.json();
@@ -169,8 +214,12 @@ export default function PradexFinancas() {
   const gastosPorCategoria = categories.gasto.map(cat => ({
     cat, total: gastos.filter(l => l.categoria === cat).reduce((s, l) => s + Number(l.valor), 0)
   })).filter(x => x.total > 0).sort((a, b) => b.total - a.total);
-
   const maxGasto = Math.max(...gastosPorCategoria.map(x => x.total), 1);
+
+  const gastosPorCartao = cartoes.map(c => ({
+    cartao: c,
+    total: lancamentos.filter(l => l.cartao_id === c.id).reduce((s, l) => s + Number(l.valor), 0)
+  })).filter(x => x.total > 0);
 
   const formatData = (d) => {
     if (!d) return "";
@@ -243,49 +292,66 @@ export default function PradexFinancas() {
         ))}
       </div>
 
-      <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", border: "1px solid #252832" }}>
-        {[{ key: "dashboard", label: "📊 Dashboard" }, { key: "lancamentos", label: "Lançamentos" }, { key: "importar", label: "✨ IA" }].map(t => (
+      <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", border: "1px solid #252832", gap: "2px" }}>
+        {[{ key: "dashboard", label: "📊" }, { key: "lancamentos", label: "Lançar" }, { key: "cartoes", label: "💳 Cartões" }, { key: "importar", label: "✨ IA" }].map(t => (
           <button key={t.key} onClick={() => { setTela(t.key); setErro(""); setErroIA(""); }} style={{
-            flex: 1, padding: "0.5rem", border: "none", borderRadius: "8px", cursor: "pointer",
-            fontSize: "0.78rem", fontWeight: 600, whiteSpace: "nowrap",
+            flex: 1, padding: "0.5rem 0.25rem", border: "none", borderRadius: "8px", cursor: "pointer",
+            fontSize: "0.75rem", fontWeight: 600, whiteSpace: "nowrap",
             background: tela === t.key ? "#252832" : "transparent",
             color: tela === t.key ? "#F0F0F0" : "#555", transition: "all 0.2s", fontFamily: "inherit",
           }}>{t.label}</button>
         ))}
       </div>
 
+      {/* DASHBOARD */}
       {tela === "dashboard" && (
         <div>
           {lancamentos.length === 0 ? (
             <div style={{ textAlign: "center", padding: "3rem 0", color: "#444" }}>
               <p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📊</p>
-              <p style={{ fontSize: "0.9rem" }}>Sem dados ainda. Adicione lançamentos para ver o dashboard.</p>
+              <p style={{ fontSize: "0.9rem" }}>Sem dados ainda.</p>
             </div>
           ) : (
             <>
               <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
                 <p style={{ margin: "0 0 1.25rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Gastos por categoria</p>
-                {gastosPorCategoria.length === 0 ? (
-                  <p style={{ color: "#444", fontSize: "0.85rem" }}>Nenhum gasto registrado.</p>
-                ) : gastosPorCategoria.map((item, i) => (
+                {gastosPorCategoria.map((item, i) => (
                   <div key={item.cat} style={{ marginBottom: "0.85rem" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.3rem" }}>
                       <span style={{ fontSize: "0.82rem", color: "#CCC" }}>{item.cat}</span>
                       <span style={{ fontSize: "0.82rem", fontWeight: 600, color: COLORS[i % COLORS.length] }}>{formatBRL(item.total)}</span>
                     </div>
                     <div style={{ background: "#0F1117", borderRadius: "4px", height: "6px", overflow: "hidden" }}>
-                      <div style={{ background: COLORS[i % COLORS.length], height: "100%", width: `${(item.total / maxGasto) * 100}%`, borderRadius: "4px", transition: "width 0.5s ease" }} />
+                      <div style={{ background: COLORS[i % COLORS.length], height: "100%", width: `${(item.total / maxGasto) * 100}%`, borderRadius: "4px" }} />
                     </div>
                   </div>
                 ))}
               </div>
+
+              {gastosPorCartao.length > 0 && (
+                <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
+                  <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Faturas do mês</p>
+                  {gastosPorCartao.map((item, i) => (
+                    <div key={item.cartao.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem 0", borderBottom: "1px solid #252832" }}>
+                      <div>
+                        <p style={{ margin: 0, fontSize: "0.9rem", color: "#E8E8E8", fontWeight: 500 }}>💳 {item.cartao.nome}</p>
+                        <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>
+                          Fecha dia {item.cartao.dia_fechamento} · Vence dia {item.cartao.dia_vencimento}
+                        </p>
+                      </div>
+                      <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#EF4444" }}>{formatBRL(item.total)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
                 <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Últimos lançamentos</p>
                 {lancamentos.slice(0, 5).map(l => (
                   <div key={l.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.6rem 0", borderBottom: "1px solid #252832" }}>
                     <div>
                       <p style={{ margin: 0, fontSize: "0.85rem", color: "#E8E8E8" }}>{l.descricao}</p>
-                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{l.categoria} · {formatData(l.data_lancamento)}</p>
+                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{l.categoria} · {l.forma_pagamento || "—"} · {formatData(l.data_lancamento)}</p>
                     </div>
                     <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444" }}>
                       {l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}
@@ -298,6 +364,7 @@ export default function PradexFinancas() {
         </div>
       )}
 
+      {/* LANÇAMENTOS */}
       {tela === "lancamentos" && (
         <>
           <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1.5rem", border: "1px solid #252832" }}>
@@ -318,6 +385,19 @@ export default function PradexFinancas() {
               <option value="">Categoria</option>
               {categories[tipo].map(c => <option key={c} value={c}>{c}</option>)}
             </select>
+            <select value={form.forma_pagamento} onChange={e => setForm(f => ({ ...f, forma_pagamento: e.target.value, cartao_id: "" }))} style={{ ...inputStyle, color: form.forma_pagamento ? "#E8E8E8" : "#555", appearance: "none" }}>
+              <option value="">Forma de pagamento</option>
+              {formasPagamento.map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
+            {form.forma_pagamento === "Crédito" && cartoes.length > 0 && (
+              <select value={form.cartao_id} onChange={e => setForm(f => ({ ...f, cartao_id: e.target.value }))} style={{ ...inputStyle, color: form.cartao_id ? "#E8E8E8" : "#555", appearance: "none" }}>
+                <option value="">Selecione o cartão</option>
+                {cartoes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            )}
+            {form.forma_pagamento === "Crédito" && cartoes.length === 0 && (
+              <p style={{ color: "#F59E0B", fontSize: "0.8rem", marginBottom: "0.75rem" }}>⚠️ Cadastre um cartão primeiro na aba 💳</p>
+            )}
             <input type="date" value={form.data_lancamento} onChange={e => setForm(f => ({ ...f, data_lancamento: e.target.value }))} style={inputStyle} />
             {erro && <p style={{ color: "#EF4444", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{erro}</p>}
             <button onClick={handleSubmit} disabled={saving} style={{
@@ -338,7 +418,7 @@ export default function PradexFinancas() {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 500, color: "#E8E8E8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l.descricao}</p>
-                  <p style={{ margin: 0, fontSize: "0.72rem", color: "#555" }}>{l.categoria} · {formatData(l.data_lancamento)}</p>
+                  <p style={{ margin: 0, fontSize: "0.72rem", color: "#555" }}>{l.categoria} · {l.forma_pagamento || "—"} · {formatData(l.data_lancamento)}</p>
                 </div>
                 <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444", flexShrink: 0 }}>
                   {l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}
@@ -350,6 +430,46 @@ export default function PradexFinancas() {
         </>
       )}
 
+      {/* CARTÕES */}
+      {tela === "cartoes" && (
+        <>
+          <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1.5rem", border: "1px solid #252832" }}>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Novo cartão</p>
+            <input type="text" placeholder="Nome do cartão (ex: Santander)" value={formCartao.nome} onChange={e => setFormCartao(f => ({ ...f, nome: e.target.value }))} style={inputStyle} />
+            <input type="text" placeholder="Bandeira (ex: Visa, Master)" value={formCartao.bandeira} onChange={e => setFormCartao(f => ({ ...f, bandeira: e.target.value }))} style={inputStyle} />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "0.75rem" }}>
+              <input type="number" placeholder="Dia fechamento" min="1" max="31" value={formCartao.dia_fechamento} onChange={e => setFormCartao(f => ({ ...f, dia_fechamento: e.target.value }))} style={{ ...inputStyle, marginBottom: 0 }} />
+              <input type="number" placeholder="Dia vencimento" min="1" max="31" value={formCartao.dia_vencimento} onChange={e => setFormCartao(f => ({ ...f, dia_vencimento: e.target.value }))} style={{ ...inputStyle, marginBottom: 0 }} />
+            </div>
+            {erroCartao && <p style={{ color: "#EF4444", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{erroCartao}</p>}
+            <button onClick={handleSaveCartao} disabled={savingCartao} style={{
+              width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px",
+              background: successCartao ? "#16A34A" : "#6366F1", color: "#fff", fontSize: "0.95rem", fontWeight: 700,
+              cursor: savingCartao ? "not-allowed" : "pointer", opacity: savingCartao ? 0.7 : 1,
+              transition: "all 0.2s", fontFamily: "inherit",
+            }}>{savingCartao ? "Salvando..." : successCartao ? "✓ Salvo!" : "Adicionar cartão"}</button>
+          </div>
+
+          <div>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.7rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.15em" }}>Meus cartões</p>
+            {cartoes.length === 0 && <p style={{ color: "#444", fontSize: "0.9rem", textAlign: "center", padding: "2rem 0" }}>Nenhum cartão cadastrado.</p>}
+            {cartoes.map(c => (
+              <div key={c.id} style={{ display: "flex", alignItems: "center", padding: "1rem", background: "#181B24", borderRadius: "12px", marginBottom: "0.5rem", border: "1px solid #252832", gap: "0.75rem" }}>
+                <div style={{ width: "40px", height: "40px", borderRadius: "10px", background: "#6366F118", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.2rem", flexShrink: 0 }}>💳</div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 600, color: "#E8E8E8" }}>{c.nome}</p>
+                  <p style={{ margin: 0, fontSize: "0.72rem", color: "#555" }}>
+                    {c.bandeira && `${c.bandeira} · `}Fecha dia {c.dia_fechamento || "—"} · Vence dia {c.dia_vencimento || "—"}
+                  </p>
+                </div>
+                <button onClick={() => handleDeleteCartao(c.id)} style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem" }}>×</button>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* IMPORTAR IA */}
       {tela === "importar" && (
         <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
           <p style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Importar com IA</p>
@@ -373,7 +493,7 @@ export default function PradexFinancas() {
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 500, color: "#E8E8E8" }}>{l.descricao}</p>
-                    <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{l.categoria} · {formatData(l.data_lancamento)}</p>
+                    <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{l.categoria} · {l.forma_pagamento || "—"} · {formatData(l.data_lancamento)}</p>
                   </div>
                   <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444", flexShrink: 0 }}>
                     {l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}
