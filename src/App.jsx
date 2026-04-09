@@ -248,7 +248,7 @@ export default function PradexFinancas() {
       await fetchLancamentos();
       setTextoIA(""); setPreview([]);
       setImportado(true);
-      setTimeout(() => { setImportado(false); setTela("lancamentos"); }, 2000);
+      setTimeout(() => { setImportado(false); setTela("dashboard"); }, 2000);
     } catch (e) { setErroIA("Erro ao salvar."); }
     setSaving(false);
   };
