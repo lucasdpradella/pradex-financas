@@ -128,7 +128,7 @@ export default function PradexFinancas() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${session?.token}`,
+          "Authorization": `Bearer ${SUPABASE_KEY}`,
         },
         body: JSON.stringify({ prompt }),
       });
