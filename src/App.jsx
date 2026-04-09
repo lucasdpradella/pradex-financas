@@ -46,6 +46,8 @@ export default function PradexFinancas() {
   const [savingCartao, setSavingCartao] = useState(false);
   const [erroCartao, setErroCartao] = useState("");
   const [successCartao, setSuccessCartao] = useState(false);
+  const [editando, setEditando] = useState(null);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   useEffect(() => { checkSession(); }, []);
 
@@ -140,6 +142,45 @@ export default function PradexFinancas() {
     } catch (e) {}
   };
 
+  const handleEdit = (l) => {
+    setEditando({
+      id: l.id,
+      descricao: l.descricao || "",
+      valor: String(l.valor),
+      tipo: l.tipo || "gasto",
+      categoria: l.categoria || "",
+      data_lancamento: l.data_lancamento || today,
+      forma_pagamento: l.forma_pagamento || "",
+      cartao_id: l.cartao_id ? String(l.cartao_id) : "",
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editando.descricao || !editando.valor || !editando.categoria) return;
+    const valor = parseFloat(String(editando.valor).replace(",", "."));
+    if (isNaN(valor) || valor <= 0) return;
+    setSavingEdit(true);
+    try {
+      const body = {
+        descricao: editando.descricao, valor, tipo: editando.tipo,
+        categoria: editando.categoria, data_lancamento: editando.data_lancamento,
+        forma_pagamento: editando.forma_pagamento || null,
+        cartao_id: editando.forma_pagamento === "Crédito" && editando.cartao_id ? parseInt(editando.cartao_id) : null,
+      };
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?id=eq.${editando.id}`, {
+        method: "PATCH",
+        headers: { ...api(session?.token), "Prefer": "return=representation" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (Array.isArray(data) && data[0]) {
+        setLancamentos(prev => prev.map(l => l.id === editando.id ? data[0] : l));
+        setEditando(null);
+      }
+    } catch (e) {}
+    setSavingEdit(false);
+  };
+
   const handleSaveCartao = async () => {
     if (!formCartao.nome) { setErroCartao("Nome é obrigatório."); return; }
     setSavingCartao(true); setErroCartao("");
@@ -179,7 +220,6 @@ export default function PradexFinancas() {
         ? "\n\nCartões cadastrados:\n" + cartoes.map(c => "- ID " + c.id + ": " + c.nome + (c.bandeira ? " (" + c.bandeira + ")" : "")).join("\n")
         : "";
       const prompt = "Você é um assistente financeiro brasileiro. Analise o texto abaixo e extraia TODOS os lançamentos financeiros mencionados.\n\nREGRAS:\n- Ignore palavras soltas como Cartão ou Dinheiro sem valor\n- Para contas a vencer, use a data de vencimento\n- Cash back é receita\n- Sem duplicatas óbvias\n- Use ano 2026 se não especificado\n- Identifique a forma de pagamento: Débito, Crédito, Dinheiro, PIX ou Outros\n- Se for Crédito e mencionar um cartão, vincule ao cartão cadastrado usando o ID correto\n- Se não conseguir identificar o cartão, deixe cartao_id como null\n\nRetorne APENAS um array JSON válido:\n[{\"descricao\":\"...\",\"valor\":0.00,\"tipo\":\"gasto\",\"categoria\":\"...\",\"data_lancamento\":\"YYYY-MM-DD\",\"forma_pagamento\":\"...\",\"cartao_id\":null}]\n\nCategorias gastos: Moradia, Alimentação, Transporte, Saúde, Lazer, Educação, Assinaturas, Outros\nCategorias receitas: Salário, Freelance, Investimentos, Aluguel recebido, Outros" + cartoesInfo + "\n\nHoje: " + today + "\n\nTexto:\n" + textoIA;
-
       const res = await fetch(`${SUPABASE_URL}/functions/v1/claude-proxy`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": "Bearer " + SUPABASE_KEY },
@@ -281,6 +321,52 @@ export default function PradexFinancas() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#0F1117", color: "#E8E8E8", fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", padding: "2rem 1.5rem", maxWidth: "480px", margin: "0 auto" }}>
+
+      {/* MODAL DE EDIÇÃO */}
+      {editando && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div style={{ background: "#181B24", borderRadius: "16px 16px 0 0", padding: "1.5rem", width: "100%", maxWidth: "480px", border: "1px solid #252832" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+              <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Editar lançamento</p>
+              <button onClick={() => setEditando(null)} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "1.2rem" }}>×</button>
+            </div>
+            <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1rem" }}>
+              {["gasto", "receita"].map(t => (
+                <button key={t} onClick={() => setEditando(e => ({ ...e, tipo: t, categoria: "" }))} style={{
+                  flex: 1, padding: "0.5rem", border: "none", borderRadius: "8px", cursor: "pointer",
+                  fontSize: "0.85rem", fontWeight: 600,
+                  background: editando.tipo === t ? (t === "receita" ? "#22C55E" : "#EF4444") : "transparent",
+                  color: editando.tipo === t ? "#fff" : "#555", transition: "all 0.2s", fontFamily: "inherit",
+                }}>{t === "receita" ? "↑ Receita" : "↓ Gasto"}</button>
+              ))}
+            </div>
+            <input type="text" placeholder="Descrição" value={editando.descricao} onChange={e => setEditando(ed => ({ ...ed, descricao: e.target.value }))} style={inputStyle} />
+            <input type="text" placeholder="Valor (R$)" value={editando.valor} onChange={e => setEditando(ed => ({ ...ed, valor: e.target.value }))} style={inputStyle} />
+            <select value={editando.categoria} onChange={e => setEditando(ed => ({ ...ed, categoria: e.target.value }))} style={{ ...inputStyle, color: editando.categoria ? "#E8E8E8" : "#555", appearance: "none" }}>
+              <option value="">Categoria</option>
+              {categories[editando.tipo].map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <select value={editando.forma_pagamento} onChange={e => setEditando(ed => ({ ...ed, forma_pagamento: e.target.value, cartao_id: "" }))} style={{ ...inputStyle, color: editando.forma_pagamento ? "#E8E8E8" : "#555", appearance: "none" }}>
+              <option value="">Forma de pagamento</option>
+              {formasPagamento.map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
+            {editando.forma_pagamento === "Crédito" && cartoes.length > 0 && (
+              <select value={editando.cartao_id} onChange={e => setEditando(ed => ({ ...ed, cartao_id: e.target.value }))} style={{ ...inputStyle, color: editando.cartao_id ? "#E8E8E8" : "#555", appearance: "none" }}>
+                <option value="">Selecione o cartão</option>
+                {cartoes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            )}
+            <input type="date" value={editando.data_lancamento} onChange={e => setEditando(ed => ({ ...ed, data_lancamento: e.target.value }))} style={inputStyle} />
+            <div style={{ display: "flex", gap: "0.75rem" }}>
+              <button onClick={() => setEditando(null)} style={{ flex: 1, padding: "0.75rem", border: "1px solid #252832", borderRadius: "10px", background: "transparent", color: "#888", fontSize: "0.9rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
+              <button onClick={handleSaveEdit} disabled={savingEdit} style={{ flex: 2, padding: "0.75rem", border: "none", borderRadius: "10px", background: "#6366F1", color: "#fff", fontSize: "0.9rem", fontWeight: 700, cursor: savingEdit ? "not-allowed" : "pointer", opacity: savingEdit ? 0.7 : 1, fontFamily: "inherit" }}>
+                {savingEdit ? "Salvando..." : "Salvar alterações"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
         <div>
           <p style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "#555", textTransform: "uppercase", margin: "0 0 0.25rem" }}>Pradex Finanças</p>
@@ -334,7 +420,6 @@ export default function PradexFinancas() {
                   </div>
                 ))}
               </div>
-
               {gastosPorCartao.length > 0 && (
                 <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
                   <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Faturas do mês</p>
@@ -349,11 +434,10 @@ export default function PradexFinancas() {
                   ))}
                 </div>
               )}
-
               <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
                 <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Últimos lançamentos</p>
                 {lancamentos.slice(0, 5).map(l => (
-                  <div key={l.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.6rem 0", borderBottom: "1px solid #252832" }}>
+                  <div key={l.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.6rem 0", borderBottom: "1px solid #252832", cursor: "pointer" }} onClick={() => handleEdit(l)}>
                     <div>
                       <p style={{ margin: 0, fontSize: "0.85rem", color: "#E8E8E8" }}>{l.descricao}</p>
                       <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{l.categoria} · {l.forma_pagamento || "—"} · {formatData(l.data_lancamento)}</p>
@@ -416,7 +500,7 @@ export default function PradexFinancas() {
             <p style={{ margin: "0 0 1rem", fontSize: "0.7rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.15em" }}>Lançamentos {loading && "· carregando..."}</p>
             {!loading && lancamentos.length === 0 && <p style={{ color: "#444", fontSize: "0.9rem", textAlign: "center", padding: "2rem 0" }}>Nenhum lançamento ainda.</p>}
             {lancamentos.map(l => (
-              <div key={l.id} style={{ display: "flex", alignItems: "center", padding: "0.9rem 1rem", background: "#181B24", borderRadius: "12px", marginBottom: "0.5rem", border: "1px solid #252832", gap: "0.75rem" }}>
+              <div key={l.id} onClick={() => handleEdit(l)} style={{ display: "flex", alignItems: "center", padding: "0.9rem 1rem", background: "#181B24", borderRadius: "12px", marginBottom: "0.5rem", border: "1px solid #252832", gap: "0.75rem", cursor: "pointer" }}>
                 <div style={{ width: "36px", height: "36px", borderRadius: "10px", flexShrink: 0, background: l.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem" }}>
                   {l.tipo === "receita" ? "↑" : "↓"}
                 </div>
@@ -427,7 +511,7 @@ export default function PradexFinancas() {
                 <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444", flexShrink: 0 }}>
                   {l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}
                 </p>
-                <button onClick={() => handleDelete(l.id)} style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem", flexShrink: 0 }}>×</button>
+                <button onClick={(e) => { e.stopPropagation(); handleDelete(l.id); }} style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem", flexShrink: 0 }}>×</button>
               </div>
             ))}
           </div>
