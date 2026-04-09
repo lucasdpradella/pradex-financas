@@ -126,11 +126,13 @@ export default function PradexFinancas() {
     setProcessando(true); setErroIA(""); setPreview([]);
     try {
       const prompt = "Você é um assistente financeiro brasileiro. Analise o texto abaixo e extraia TODOS os lançamentos financeiros mencionados.\n\nREGRAS:\n- Ignore palavras soltas como 'Cartão' ou 'Dinheiro' sem valor\n- Para contas a vencer, use a data de vencimento\n- Cash back é receita\n- Sem duplicatas óbvias\n- Use ano 2026 se não especificado\n\nRetorne APENAS um array JSON válido:\n[{\"descricao\":\"...\",\"valor\":0.00,\"tipo\":\"gasto\",\"categoria\":\"...\",\"data_lancamento\":\"YYYY-MM-DD\"}]\n\nCategorias gastos: Moradia, Alimentação, Transporte, Saúde, Lazer, Educação, Assinaturas, Outros\nCategorias receitas: Salário, Freelance, Investimentos, Aluguel recebido, Outros\n\nHoje: " + today + "\n\nTexto:\n" + textoIA;
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("https://sjvuhqqsjboncwpboclv.supabase.co/functions/v1/claude-proxy", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 2000, messages: [{ role: "user", content: prompt }] })
-      });
+        headers: {
+  "Content-Type": "application/json",
+  "Authorization": `Bearer ${session?.token}`,
+},
+        body: JSON.stringify({ prompt }),
       const data = await res.json();
       const text = data.content?.[0]?.text || "";
       const clean = text.replace(/```json|```/g, "").trim();
