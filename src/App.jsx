@@ -21,7 +21,7 @@ const monthNames = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out",
 
 export default function PradexFinancas() {
   const [tipo, setTipo] = useState("gasto");
-  const [form, setForm] = useState({ descricao: "", valor: "", categoria: "", date: new Date().toISOString().split("T")[0] });
+  const [form, setForm] = useState({ descricao: "", valor: "", categoria: "", data_lancamento: new Date().toISOString().split("T")[0] });
   const [lancamentos, setLancamentos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -33,7 +33,7 @@ export default function PradexFinancas() {
   const fetchLancamentos = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/lancamentos?order=id.desc`, { headers });
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?order=id.desc`, { headers });
       const data = await res.json();
       setLancamentos(Array.isArray(data) ? data : []);
     } catch (e) {
@@ -55,15 +55,15 @@ export default function PradexFinancas() {
     setSaving(true);
     setErro("");
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/lancamentos`, {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
         method: "POST",
         headers: { ...headers, "Prefer": "return=representation" },
-        body: JSON.stringify({ descricao: form.descricao, valor, tipo, categoria: form.categoria, date: form.date }),
+        body: JSON.stringify({ descricao: form.descricao, valor, tipo, categoria: form.categoria, data_lancamento: form.data_lancamento }),
       });
       const data = await res.json();
       if (Array.isArray(data) && data[0]) {
         setLancamentos(prev => [data[0], ...prev]);
-        setForm({ descricao: "", valor: "", categoria: "", date: new Date().toISOString().split("T")[0] });
+        setForm({ descricao: "", valor: "", categoria: "", data_lancamento: new Date().toISOString().split("T")[0] });
         setSuccess(true);
         setTimeout(() => setSuccess(false), 2000);
       } else {
@@ -77,7 +77,7 @@ export default function PradexFinancas() {
 
   const handleDelete = async (id) => {
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/lancamentos?id=eq.${id}`, { method: "DELETE", headers });
+      await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?id=eq.${id}`, { method: "DELETE", headers });
       setLancamentos(prev => prev.filter(l => l.id !== id));
     } catch (e) {}
   };
@@ -151,7 +151,7 @@ export default function PradexFinancas() {
           <option value="">Categoria</option>
           {categories[tipo].map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-        <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} style={inputStyle} />
+        <input type="date" value={form.data_lancamento} onChange={e => setForm(f => ({ ...f, data_lancamento: e.target.value }))} style={inputStyle} />
         {erro && <p style={{ color: "#EF4444", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{erro}</p>}
         <button onClick={handleSubmit} disabled={saving} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", background: success ? "#16A34A" : tipo === "receita" ? "#22C55E" : "#EF4444", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, transition: "all 0.2s", fontFamily: "inherit" }}>
           {saving ? "Salvando..." : success ? "✓ Salvo!" : "Adicionar"}
@@ -167,7 +167,7 @@ export default function PradexFinancas() {
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 500, color: "#E8E8E8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l.descricao}</p>
-              <p style={{ margin: 0, fontSize: "0.72rem", color: "#555" }}>{l.categoria} · {formatData(l.date)}</p>
+              <p style={{ margin: 0, fontSize: "0.72rem", color: "#555" }}>{l.categoria} · {formatData(l.data_lancamento)}</p>
             </div>
             <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444", flexShrink: 0 }}>
               {l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}
