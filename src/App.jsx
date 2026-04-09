@@ -147,7 +147,11 @@ export default function PradexFinancas() {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/cartoes`, {
         method: "POST",
         headers: { ...api(session?.token), "Prefer": "return=representation" },
-        body: JSON.stringify({ ...formCartao, user_id: session.user.id, dia_fechamento: formCartao.dia_fechamento ? parseInt(formCartao.dia_fechamento) : null, dia_vencimento: formCartao.dia_vencimento ? parseInt(formCartao.dia_vencimento) : null }),
+        body: JSON.stringify({
+          ...formCartao, user_id: session.user.id,
+          dia_fechamento: formCartao.dia_fechamento ? parseInt(formCartao.dia_fechamento) : null,
+          dia_vencimento: formCartao.dia_vencimento ? parseInt(formCartao.dia_vencimento) : null,
+        }),
       });
       const data = await res.json();
       if (Array.isArray(data) && data[0]) {
@@ -171,10 +175,14 @@ export default function PradexFinancas() {
     if (!textoIA.trim()) { setErroIA("Cole algum texto primeiro."); return; }
     setProcessando(true); setErroIA(""); setPreview([]);
     try {
-     const cartoesInfo = cartoes.length > 0 ? "\n\nCartões cadastrados do usuário:\n" + cartoes.map(c => `- ID ${c.id}: ${c.nome} (${c.bandeira || ""})`).join("\n") : "";
-const prompt = "Você é um assistente financeiro brasileiro. Analise o texto abaixo e extraia TODOS os lançamentos financeiros mencionados.\n\nREGRAS:\n- Ignore palavras soltas como 'Cartão' ou 'Dinheiro' sem valor\n- Para contas a vencer, use a data de vencimento\n- Cash back é receita\n- Sem duplicatas óbvias\n- Use ano 2026 se não especificado\n- Identifique a forma de pagamento: Débito, Crédito, Dinheiro, PIX ou Outros\n- Se for Crédito e mencionar um cartão, tente vincular ao cartão cadastrado pelo ID\n\nRetorne APENAS um array JSON válido:\n[{\"descricao\":\"...\",\"valor\":0.00,\"tipo\":\"gasto\",\"categoria\":\"...\",\"data_lancamento\":\"YYYY-MM-DD\",\"forma_pagamento\":\"...\",\"cartao_id\":null}]\n\nCategorias gastos: Moradia, Alimentação, Transporte, Saúde, Lazer, Educação, Assinaturas, Outros\nCategorias receitas: Salário, Freelance, Investimentos, Aluguel recebido, Outros" + cartoesInfo + "\n\nHoje: " + today + "\n\nTexto:\n" + textoIA;
+      const cartoesInfo = cartoes.length > 0
+        ? "\n\nCartões cadastrados:\n" + cartoes.map(c => "- ID " + c.id + ": " + c.nome + (c.bandeira ? " (" + c.bandeira + ")" : "")).join("\n")
+        : "";
+      const prompt = "Você é um assistente financeiro brasileiro. Analise o texto abaixo e extraia TODOS os lançamentos financeiros mencionados.\n\nREGRAS:\n- Ignore palavras soltas como Cartão ou Dinheiro sem valor\n- Para contas a vencer, use a data de vencimento\n- Cash back é receita\n- Sem duplicatas óbvias\n- Use ano 2026 se não especificado\n- Identifique a forma de pagamento: Débito, Crédito, Dinheiro, PIX ou Outros\n- Se for Crédito e mencionar um cartão, vincule ao cartão cadastrado usando o ID correto\n- Se não conseguir identificar o cartão, deixe cartao_id como null\n\nRetorne APENAS um array JSON válido:\n[{\"descricao\":\"...\",\"valor\":0.00,\"tipo\":\"gasto\",\"categoria\":\"...\",\"data_lancamento\":\"YYYY-MM-DD\",\"forma_pagamento\":\"...\",\"cartao_id\":null}]\n\nCategorias gastos: Moradia, Alimentação, Transporte, Saúde, Lazer, Educação, Assinaturas, Outros\nCategorias receitas: Salário, Freelance, Investimentos, Aluguel recebido, Outros" + cartoesInfo + "\n\nHoje: " + today + "\n\nTexto:\n" + textoIA;
+
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/claude-proxy`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SUPABASE_KEY}` },
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + SUPABASE_KEY },
         body: JSON.stringify({ prompt }),
       });
       const data = await res.json();
@@ -293,7 +301,7 @@ const prompt = "Você é um assistente financeiro brasileiro. Analise o texto ab
       </div>
 
       <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", border: "1px solid #252832", gap: "2px" }}>
-        {[{ key: "dashboard", label: "📊" }, { key: "lancamentos", label: "Lançar" }, { key: "cartoes", label: "💳 Cartões" }, { key: "importar", label: "✨ IA" }].map(t => (
+        {[{ key: "dashboard", label: "📊" }, { key: "lancamentos", label: "Lançar" }, { key: "cartoes", label: "💳" }, { key: "importar", label: "✨ IA" }].map(t => (
           <button key={t.key} onClick={() => { setTela(t.key); setErro(""); setErroIA(""); }} style={{
             flex: 1, padding: "0.5rem 0.25rem", border: "none", borderRadius: "8px", cursor: "pointer",
             fontSize: "0.75rem", fontWeight: 600, whiteSpace: "nowrap",
@@ -303,7 +311,6 @@ const prompt = "Você é um assistente financeiro brasileiro. Analise o texto ab
         ))}
       </div>
 
-      {/* DASHBOARD */}
       {tela === "dashboard" && (
         <div>
           {lancamentos.length === 0 ? (
@@ -331,13 +338,11 @@ const prompt = "Você é um assistente financeiro brasileiro. Analise o texto ab
               {gastosPorCartao.length > 0 && (
                 <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
                   <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Faturas do mês</p>
-                  {gastosPorCartao.map((item, i) => (
+                  {gastosPorCartao.map((item) => (
                     <div key={item.cartao.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem 0", borderBottom: "1px solid #252832" }}>
                       <div>
                         <p style={{ margin: 0, fontSize: "0.9rem", color: "#E8E8E8", fontWeight: 500 }}>💳 {item.cartao.nome}</p>
-                        <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>
-                          Fecha dia {item.cartao.dia_fechamento} · Vence dia {item.cartao.dia_vencimento}
-                        </p>
+                        <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>Fecha dia {item.cartao.dia_fechamento} · Vence dia {item.cartao.dia_vencimento}</p>
                       </div>
                       <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#EF4444" }}>{formatBRL(item.total)}</p>
                     </div>
@@ -364,7 +369,6 @@ const prompt = "Você é um assistente financeiro brasileiro. Analise o texto ab
         </div>
       )}
 
-      {/* LANÇAMENTOS */}
       {tela === "lancamentos" && (
         <>
           <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1.5rem", border: "1px solid #252832" }}>
@@ -430,7 +434,6 @@ const prompt = "Você é um assistente financeiro brasileiro. Analise o texto ab
         </>
       )}
 
-      {/* CARTÕES */}
       {tela === "cartoes" && (
         <>
           <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1.5rem", border: "1px solid #252832" }}>
@@ -441,15 +444,14 @@ const prompt = "Você é um assistente financeiro brasileiro. Analise o texto ab
               <input type="number" placeholder="Dia fechamento" min="1" max="31" value={formCartao.dia_fechamento} onChange={e => setFormCartao(f => ({ ...f, dia_fechamento: e.target.value }))} style={{ ...inputStyle, marginBottom: 0 }} />
               <input type="number" placeholder="Dia vencimento" min="1" max="31" value={formCartao.dia_vencimento} onChange={e => setFormCartao(f => ({ ...f, dia_vencimento: e.target.value }))} style={{ ...inputStyle, marginBottom: 0 }} />
             </div>
-            {erroCartao && <p style={{ color: "#EF4444", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{erroCartao}</p>}
+            {erroCartao && <p style={{ color: "#EF4444", fontSize: "0.8rem", marginBottom: "0.75rem", marginTop: "0.75rem" }}>{erroCartao}</p>}
             <button onClick={handleSaveCartao} disabled={savingCartao} style={{
-              width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px",
+              width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", marginTop: "0.75rem",
               background: successCartao ? "#16A34A" : "#6366F1", color: "#fff", fontSize: "0.95rem", fontWeight: 700,
               cursor: savingCartao ? "not-allowed" : "pointer", opacity: savingCartao ? 0.7 : 1,
               transition: "all 0.2s", fontFamily: "inherit",
             }}>{savingCartao ? "Salvando..." : successCartao ? "✓ Salvo!" : "Adicionar cartão"}</button>
           </div>
-
           <div>
             <p style={{ margin: "0 0 1rem", fontSize: "0.7rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.15em" }}>Meus cartões</p>
             {cartoes.length === 0 && <p style={{ color: "#444", fontSize: "0.9rem", textAlign: "center", padding: "2rem 0" }}>Nenhum cartão cadastrado.</p>}
@@ -459,7 +461,7 @@ const prompt = "Você é um assistente financeiro brasileiro. Analise o texto ab
                 <div style={{ flex: 1 }}>
                   <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 600, color: "#E8E8E8" }}>{c.nome}</p>
                   <p style={{ margin: 0, fontSize: "0.72rem", color: "#555" }}>
-                    {c.bandeira && `${c.bandeira} · `}Fecha dia {c.dia_fechamento || "—"} · Vence dia {c.dia_vencimento || "—"}
+                    {c.bandeira && c.bandeira + " · "}Fecha dia {c.dia_fechamento || "—"} · Vence dia {c.dia_vencimento || "—"}
                   </p>
                 </div>
                 <button onClick={() => handleDeleteCartao(c.id)} style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem" }}>×</button>
@@ -469,7 +471,6 @@ const prompt = "Você é um assistente financeiro brasileiro. Analise o texto ab
         </>
       )}
 
-      {/* IMPORTAR IA */}
       {tela === "importar" && (
         <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
           <p style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Importar com IA</p>
@@ -493,7 +494,11 @@ const prompt = "Você é um assistente financeiro brasileiro. Analise o texto ab
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 500, color: "#E8E8E8" }}>{l.descricao}</p>
-                    <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{l.categoria} · {l.forma_pagamento || "—"} · {formatData(l.data_lancamento)}</p>
+                    <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>
+                      {l.categoria} · {l.forma_pagamento || "—"}
+                      {l.cartao_id ? " · 💳 " + (cartoes.find(c => c.id === l.cartao_id)?.nome || "Cartão") : ""}
+                      {" · " + formatData(l.data_lancamento)}
+                    </p>
                   </div>
                   <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444", flexShrink: 0 }}>
                     {l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}
