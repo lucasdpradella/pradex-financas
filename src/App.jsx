@@ -15,7 +15,6 @@ const categories = {
 };
 
 const COLORS = ["#6366F1","#22C55E","#F59E0B","#EF4444","#8B5CF6","#EC4899","#14B8A6","#F97316"];
-
 const formatBRL = (value) => Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const monthNames = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 const today = new Date().toISOString().split("T")[0];
@@ -28,7 +27,6 @@ export default function PradexFinancas() {
   const [senha, setSenha] = useState("");
   const [authErro, setAuthErro] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
-
   const [tela, setTela] = useState("dashboard");
   const [tipo, setTipo] = useState("gasto");
   const [form, setForm] = useState({ descricao: "", valor: "", categoria: "", data_lancamento: today });
@@ -126,13 +124,14 @@ export default function PradexFinancas() {
     setProcessando(true); setErroIA(""); setPreview([]);
     try {
       const prompt = "Você é um assistente financeiro brasileiro. Analise o texto abaixo e extraia TODOS os lançamentos financeiros mencionados.\n\nREGRAS:\n- Ignore palavras soltas como 'Cartão' ou 'Dinheiro' sem valor\n- Para contas a vencer, use a data de vencimento\n- Cash back é receita\n- Sem duplicatas óbvias\n- Use ano 2026 se não especificado\n\nRetorne APENAS um array JSON válido:\n[{\"descricao\":\"...\",\"valor\":0.00,\"tipo\":\"gasto\",\"categoria\":\"...\",\"data_lancamento\":\"YYYY-MM-DD\"}]\n\nCategorias gastos: Moradia, Alimentação, Transporte, Saúde, Lazer, Educação, Assinaturas, Outros\nCategorias receitas: Salário, Freelance, Investimentos, Aluguel recebido, Outros\n\nHoje: " + today + "\n\nTexto:\n" + textoIA;
-      const res = await fetch("https://sjvuhqqsjboncwpboclv.supabase.co/functions/v1/claude-proxy", {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/claude-proxy`, {
         method: "POST",
         headers: {
-  "Content-Type": "application/json",
-  "Authorization": `Bearer ${session?.token}`,
-},
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session?.token}`,
+        },
         body: JSON.stringify({ prompt }),
+      });
       const data = await res.json();
       const text = data.content?.[0]?.text || "";
       const clean = text.replace(/```json|```/g, "").trim();
@@ -161,7 +160,6 @@ export default function PradexFinancas() {
     setSaving(false);
   };
 
-  // Dashboard calculations
   const gastos = lancamentos.filter(l => l.tipo === "gasto");
   const receitas = lancamentos.filter(l => l.tipo === "receita");
   const totalReceitas = receitas.reduce((s, l) => s + Number(l.valor), 0);
@@ -169,8 +167,7 @@ export default function PradexFinancas() {
   const saldo = totalReceitas - totalGastos;
 
   const gastosPorCategoria = categories.gasto.map(cat => ({
-    cat,
-    total: gastos.filter(l => l.categoria === cat).reduce((s, l) => s + Number(l.valor), 0)
+    cat, total: gastos.filter(l => l.categoria === cat).reduce((s, l) => s + Number(l.valor), 0)
   })).filter(x => x.total > 0).sort((a, b) => b.total - a.total);
 
   const maxGasto = Math.max(...gastosPorCategoria.map(x => x.total), 1);
@@ -227,8 +224,6 @@ export default function PradexFinancas() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#0F1117", color: "#E8E8E8", fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", padding: "2rem 1.5rem", maxWidth: "480px", margin: "0 auto" }}>
-      
-      {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
         <div>
           <p style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "#555", textTransform: "uppercase", margin: "0 0 0.25rem" }}>Pradex Finanças</p>
@@ -239,7 +234,6 @@ export default function PradexFinancas() {
         <button onClick={handleLogout} style={{ background: "none", border: "1px solid #252832", borderRadius: "8px", color: "#555", cursor: "pointer", padding: "0.4rem 0.75rem", fontSize: "0.75rem", fontFamily: "inherit" }}>Sair</button>
       </div>
 
-      {/* Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem", marginBottom: "1.5rem" }}>
         {[{ label: "Receitas", value: totalReceitas, color: "#22C55E" }, { label: "Gastos", value: totalGastos, color: "#EF4444" }, { label: "Saldo", value: saldo, color: saldo >= 0 ? "#22C55E" : "#EF4444" }].map(card => (
           <div key={card.label} style={{ background: "#181B24", borderRadius: "12px", padding: "1rem 0.75rem", border: "1px solid #252832" }}>
@@ -249,8 +243,7 @@ export default function PradexFinancas() {
         ))}
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", border: "1px solid #252832", overflowX: "auto" }}>
+      <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", border: "1px solid #252832" }}>
         {[{ key: "dashboard", label: "📊 Dashboard" }, { key: "lancamentos", label: "Lançamentos" }, { key: "importar", label: "✨ IA" }].map(t => (
           <button key={t.key} onClick={() => { setTela(t.key); setErro(""); setErroIA(""); }} style={{
             flex: 1, padding: "0.5rem", border: "none", borderRadius: "8px", cursor: "pointer",
@@ -261,7 +254,6 @@ export default function PradexFinancas() {
         ))}
       </div>
 
-      {/* DASHBOARD */}
       {tela === "dashboard" && (
         <div>
           {lancamentos.length === 0 ? (
@@ -271,7 +263,6 @@ export default function PradexFinancas() {
             </div>
           ) : (
             <>
-              {/* Gastos por categoria */}
               <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
                 <p style={{ margin: "0 0 1.25rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Gastos por categoria</p>
                 {gastosPorCategoria.length === 0 ? (
@@ -288,8 +279,6 @@ export default function PradexFinancas() {
                   </div>
                 ))}
               </div>
-
-              {/* Últimos lançamentos */}
               <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
                 <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Últimos lançamentos</p>
                 {lancamentos.slice(0, 5).map(l => (
@@ -309,7 +298,6 @@ export default function PradexFinancas() {
         </div>
       )}
 
-      {/* LANÇAMENTOS */}
       {tela === "lancamentos" && (
         <>
           <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1.5rem", border: "1px solid #252832" }}>
@@ -362,7 +350,6 @@ export default function PradexFinancas() {
         </>
       )}
 
-      {/* IMPORTAR IA */}
       {tela === "importar" && (
         <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
           <p style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Importar com IA</p>
