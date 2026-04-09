@@ -22,7 +22,7 @@ const monthNames = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out",
 const today = new Date().toISOString().split("T")[0];
 
 export default function PradexFinancas() {
-  const [tela, setTela] = useState("lancamentos"); // "lancamentos" | "importar"
+  const [tela, setTela] = useState("lancamentos");
   const [tipo, setTipo] = useState("gasto");
   const [form, setForm] = useState({ descricao: "", valor: "", categoria: "", data_lancamento: today });
   const [lancamentos, setLancamentos] = useState([]);
@@ -30,8 +30,6 @@ export default function PradexFinancas() {
   const [saving, setSaving] = useState(false);
   const [erro, setErro] = useState("");
   const [success, setSuccess] = useState(false);
-
-  // IA Import
   const [textoIA, setTextoIA] = useState("");
   const [processando, setProcessando] = useState(false);
   const [preview, setPreview] = useState([]);
@@ -88,21 +86,27 @@ export default function PradexFinancas() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
+          max_tokens: 2000,
           messages: [{
             role: "user",
-            content: `Você é um assistente financeiro brasileiro. Analise o texto abaixo e extraia TODOS os lançamentos financeiros mencionados, incluindo gastos e receitas.  REGRAS IMPORTANTES: - Ignore mensagens que são apenas contexto (ex: "Cartão", "Dinheiro" sozinhos) - Para contas "a vencer", crie lançamentos com a data de vencimento - Valores com "cash back" são receitas - Se houver duplicatas óbvias (mesmo valor, mesma data), inclua apenas uma vez - Use o ano 2026 se não houver ano especificado  Retorne APENAS um array JSON válido, sem texto adicional: [{"descricao":"...","valor":0.00,"tipo":"gasto ou receita","categoria":"...","data_lancamento":"YYYY-MM-DD"}]  Categorias para gastos: Moradia, Alimentação, Transporte, Saúde, Lazer, Educação, Assinaturas, Outros Categorias para receitas: Salário, Freelance, Investimentos, Aluguel recebido, Outros  Data de hoje: ${today}  Texto: ${textoIA}`. Analise o texto abaixo e extraia todos os lançamentos financeiros mencionados.
-            
-Retorne APENAS um JSON válido, sem nenhum texto adicional, no formato:
-[{"descricao":"...","valor":0.00,"tipo":"gasto ou receita","categoria":"uma das opções abaixo","data_lancamento":"YYYY-MM-DD"}]
+            content: `Você é um assistente financeiro brasileiro. Analise o texto abaixo e extraia TODOS os lançamentos financeiros mencionados, incluindo gastos e receitas.
 
-Categorias disponíveis para gastos: Moradia, Alimentação, Transporte, Saúde, Lazer, Educação, Assinaturas, Outros
-Categorias disponíveis para receitas: Salário, Freelance, Investimentos, Aluguel recebido, Outros
+REGRAS IMPORTANTES:
+- Ignore mensagens que são apenas contexto (ex: "Cartão", "Dinheiro" sozinhos)
+- Para contas "a vencer", crie lançamentos com a data de vencimento
+- Valores com "cash back" são receitas
+- Se houver duplicatas óbvias (mesmo valor, mesma data), inclua apenas uma vez
+- Use o ano 2026 se não houver ano especificado
 
-Se não tiver data, use hoje: ${today}
-Se não conseguir identificar a categoria, use "Outros"
+Retorne APENAS um array JSON válido, sem texto adicional:
+[{"descricao":"...","valor":0.00,"tipo":"gasto ou receita","categoria":"...","data_lancamento":"YYYY-MM-DD"}]
 
-Texto do usuário:
+Categorias para gastos: Moradia, Alimentação, Transporte, Saúde, Lazer, Educação, Assinaturas, Outros
+Categorias para receitas: Salário, Freelance, Investimentos, Aluguel recebido, Outros
+
+Data de hoje: ${today}
+
+Texto:
 ${textoIA}`
           }]
         })
@@ -162,8 +166,6 @@ ${textoIA}`
 
   return (
     <div style={{ minHeight: "100vh", background: "#0F1117", color: "#E8E8E8", fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", padding: "2rem 1.5rem", maxWidth: "480px", margin: "0 auto" }}>
-      
-      {/* Header */}
       <div style={{ marginBottom: "1.5rem" }}>
         <p style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "#555", textTransform: "uppercase", margin: "0 0 0.25rem" }}>Pradex Finanças</p>
         <h1 style={{ margin: 0, fontSize: "1.6rem", fontWeight: 600, color: "#F0F0F0", letterSpacing: "-0.03em" }}>
@@ -171,7 +173,6 @@ ${textoIA}`
         </h1>
       </div>
 
-      {/* Summary Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem", marginBottom: "1.5rem" }}>
         {[
           { label: "Receitas", value: totalReceitas, color: "#22C55E" },
@@ -185,7 +186,6 @@ ${textoIA}`
         ))}
       </div>
 
-      {/* Tab Navigation */}
       <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", border: "1px solid #252832" }}>
         {[
           { key: "lancamentos", label: "Lançamentos" },
@@ -203,7 +203,6 @@ ${textoIA}`
         ))}
       </div>
 
-      {/* TELA: LANÇAMENTOS */}
       {tela === "lancamentos" && (
         <>
           <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1.5rem", border: "1px solid #252832" }}>
@@ -265,24 +264,20 @@ ${textoIA}`
         </>
       )}
 
-      {/* TELA: IMPORTAR COM IA */}
       {tela === "importar" && (
         <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
           <p style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Importar com IA</p>
           <p style={{ margin: "0 0 1rem", fontSize: "0.85rem", color: "#666", lineHeight: 1.5 }}>
-            Cole seus gastos em texto livre — extrato, bloco de notas, mensagem — e a IA organiza tudo automaticamente.
+            Cole seus gastos em texto livre — extrato, bloco de notas, WhatsApp — e a IA organiza tudo automaticamente.
           </p>
-
           <textarea
-            placeholder={'Exemplos:\n"Gastei 200 no mercado dia 5, recebi 3000 de salário dia 1, uber 45 reais dia 3"\n\nOu cole um extrato bancário diretamente.'}
+            placeholder={"Cole aqui o texto com seus gastos..."}
             value={textoIA}
             onChange={e => setTextoIA(e.target.value)}
             rows={6}
             style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }}
           />
-
           {erroIA && <p style={{ color: "#EF4444", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{erroIA}</p>}
-
           {preview.length === 0 && (
             <button onClick={processarComIA} disabled={processando} style={{
               width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px",
@@ -293,7 +288,6 @@ ${textoIA}`
               {processando ? "✨ Processando..." : "✨ Processar com IA"}
             </button>
           )}
-
           {preview.length > 0 && (
             <>
               <p style={{ margin: "1rem 0 0.75rem", fontSize: "0.75rem", color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>
@@ -313,7 +307,6 @@ ${textoIA}`
                   </p>
                 </div>
               ))}
-
               <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
                 <button onClick={() => { setPreview([]); setTextoIA(""); }} style={{
                   flex: 1, padding: "0.75rem", border: "1px solid #252832", borderRadius: "10px",
