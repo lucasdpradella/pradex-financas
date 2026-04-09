@@ -14,6 +14,8 @@ const categories = {
   gasto: ["Moradia", "Alimentação", "Transporte", "Saúde", "Lazer", "Educação", "Assinaturas", "Outros"],
 };
 
+const COLORS = ["#6366F1","#22C55E","#F59E0B","#EF4444","#8B5CF6","#EC4899","#14B8A6","#F97316"];
+
 const formatBRL = (value) => Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const monthNames = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 const today = new Date().toISOString().split("T")[0];
@@ -27,7 +29,7 @@ export default function PradexFinancas() {
   const [authErro, setAuthErro] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
 
-  const [tela, setTela] = useState("lancamentos");
+  const [tela, setTela] = useState("dashboard");
   const [tipo, setTipo] = useState("gasto");
   const [form, setForm] = useState({ descricao: "", valor: "", categoria: "", data_lancamento: today });
   const [lancamentos, setLancamentos] = useState([]);
@@ -47,9 +49,7 @@ export default function PradexFinancas() {
     try {
       const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: api(localStorage.getItem("sb_token")) });
       const data = await res.json();
-      if (data.id) {
-        setSession({ user: data, token: localStorage.getItem("sb_token") });
-      }
+      if (data.id) setSession({ user: data, token: localStorage.getItem("sb_token") });
     } catch (e) {}
     setLoadingAuth(false);
   };
@@ -68,7 +68,7 @@ export default function PradexFinancas() {
         localStorage.setItem("sb_token", data.access_token);
         setSession({ user: data.user, token: data.access_token });
       } else {
-        setAuthErro(authMode === "login" ? "Email ou senha incorretos." : "Erro ao criar conta. Tente outro email.");
+        setAuthErro(authMode === "login" ? "Email ou senha incorretos." : "Erro ao criar conta.");
       }
     } catch (e) { setAuthErro("Erro de conexão."); }
     setAuthLoading(false);
@@ -159,9 +159,19 @@ export default function PradexFinancas() {
     setSaving(false);
   };
 
-  const totalReceitas = lancamentos.filter(l => l.tipo === "receita").reduce((s, l) => s + Number(l.valor), 0);
-  const totalGastos = lancamentos.filter(l => l.tipo === "gasto").reduce((s, l) => s + Number(l.valor), 0);
+  // Dashboard calculations
+  const gastos = lancamentos.filter(l => l.tipo === "gasto");
+  const receitas = lancamentos.filter(l => l.tipo === "receita");
+  const totalReceitas = receitas.reduce((s, l) => s + Number(l.valor), 0);
+  const totalGastos = gastos.reduce((s, l) => s + Number(l.valor), 0);
   const saldo = totalReceitas - totalGastos;
+
+  const gastosPorCategoria = categories.gasto.map(cat => ({
+    cat,
+    total: gastos.filter(l => l.categoria === cat).reduce((s, l) => s + Number(l.valor), 0)
+  })).filter(x => x.total > 0).sort((a, b) => b.total - a.total);
+
+  const maxGasto = Math.max(...gastosPorCategoria.map(x => x.total), 1);
 
   const formatData = (d) => {
     if (!d) return "";
@@ -178,7 +188,7 @@ export default function PradexFinancas() {
 
   if (loadingAuth) return (
     <div style={{ minHeight: "100vh", background: "#0F1117", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <p style={{ color: "#555", fontFamily: "inherit" }}>Carregando...</p>
+      <p style={{ color: "#555", fontFamily: "'DM Sans', sans-serif" }}>Carregando...</p>
     </div>
   );
 
@@ -206,8 +216,7 @@ export default function PradexFinancas() {
           <button onClick={handleAuth} disabled={authLoading} style={{
             width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px",
             background: "#6366F1", color: "#fff", fontSize: "0.95rem", fontWeight: 700,
-            cursor: authLoading ? "not-allowed" : "pointer", opacity: authLoading ? 0.7 : 1,
-            fontFamily: "inherit",
+            cursor: authLoading ? "not-allowed" : "pointer", opacity: authLoading ? 0.7 : 1, fontFamily: "inherit",
           }}>{authLoading ? "Aguarde..." : authMode === "login" ? "Entrar" : "Criar conta"}</button>
         </div>
       </div>
@@ -216,6 +225,8 @@ export default function PradexFinancas() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#0F1117", color: "#E8E8E8", fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", padding: "2rem 1.5rem", maxWidth: "480px", margin: "0 auto" }}>
+      
+      {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
         <div>
           <p style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "#555", textTransform: "uppercase", margin: "0 0 0.25rem" }}>Pradex Finanças</p>
@@ -226,6 +237,7 @@ export default function PradexFinancas() {
         <button onClick={handleLogout} style={{ background: "none", border: "1px solid #252832", borderRadius: "8px", color: "#555", cursor: "pointer", padding: "0.4rem 0.75rem", fontSize: "0.75rem", fontFamily: "inherit" }}>Sair</button>
       </div>
 
+      {/* Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem", marginBottom: "1.5rem" }}>
         {[{ label: "Receitas", value: totalReceitas, color: "#22C55E" }, { label: "Gastos", value: totalGastos, color: "#EF4444" }, { label: "Saldo", value: saldo, color: saldo >= 0 ? "#22C55E" : "#EF4444" }].map(card => (
           <div key={card.label} style={{ background: "#181B24", borderRadius: "12px", padding: "1rem 0.75rem", border: "1px solid #252832" }}>
@@ -235,17 +247,67 @@ export default function PradexFinancas() {
         ))}
       </div>
 
-      <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", border: "1px solid #252832" }}>
-        {[{ key: "lancamentos", label: "Lançamentos" }, { key: "importar", label: "✨ Importar com IA" }].map(t => (
+      {/* Tabs */}
+      <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", border: "1px solid #252832", overflowX: "auto" }}>
+        {[{ key: "dashboard", label: "📊 Dashboard" }, { key: "lancamentos", label: "Lançamentos" }, { key: "importar", label: "✨ IA" }].map(t => (
           <button key={t.key} onClick={() => { setTela(t.key); setErro(""); setErroIA(""); }} style={{
             flex: 1, padding: "0.5rem", border: "none", borderRadius: "8px", cursor: "pointer",
-            fontSize: "0.82rem", fontWeight: 600,
+            fontSize: "0.78rem", fontWeight: 600, whiteSpace: "nowrap",
             background: tela === t.key ? "#252832" : "transparent",
             color: tela === t.key ? "#F0F0F0" : "#555", transition: "all 0.2s", fontFamily: "inherit",
           }}>{t.label}</button>
         ))}
       </div>
 
+      {/* DASHBOARD */}
+      {tela === "dashboard" && (
+        <div>
+          {lancamentos.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "3rem 0", color: "#444" }}>
+              <p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📊</p>
+              <p style={{ fontSize: "0.9rem" }}>Sem dados ainda. Adicione lançamentos para ver o dashboard.</p>
+            </div>
+          ) : (
+            <>
+              {/* Gastos por categoria */}
+              <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
+                <p style={{ margin: "0 0 1.25rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Gastos por categoria</p>
+                {gastosPorCategoria.length === 0 ? (
+                  <p style={{ color: "#444", fontSize: "0.85rem" }}>Nenhum gasto registrado.</p>
+                ) : gastosPorCategoria.map((item, i) => (
+                  <div key={item.cat} style={{ marginBottom: "0.85rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.3rem" }}>
+                      <span style={{ fontSize: "0.82rem", color: "#CCC" }}>{item.cat}</span>
+                      <span style={{ fontSize: "0.82rem", fontWeight: 600, color: COLORS[i % COLORS.length] }}>{formatBRL(item.total)}</span>
+                    </div>
+                    <div style={{ background: "#0F1117", borderRadius: "4px", height: "6px", overflow: "hidden" }}>
+                      <div style={{ background: COLORS[i % COLORS.length], height: "100%", width: `${(item.total / maxGasto) * 100}%`, borderRadius: "4px", transition: "width 0.5s ease" }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Últimos lançamentos */}
+              <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
+                <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Últimos lançamentos</p>
+                {lancamentos.slice(0, 5).map(l => (
+                  <div key={l.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.6rem 0", borderBottom: "1px solid #252832" }}>
+                    <div>
+                      <p style={{ margin: 0, fontSize: "0.85rem", color: "#E8E8E8" }}>{l.descricao}</p>
+                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{l.categoria} · {formatData(l.data_lancamento)}</p>
+                    </div>
+                    <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444" }}>
+                      {l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* LANÇAMENTOS */}
       {tela === "lancamentos" && (
         <>
           <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1.5rem", border: "1px solid #252832" }}>
@@ -276,7 +338,6 @@ export default function PradexFinancas() {
               transition: "all 0.2s", fontFamily: "inherit",
             }}>{saving ? "Salvando..." : success ? "✓ Salvo!" : "Adicionar"}</button>
           </div>
-
           <div>
             <p style={{ margin: "0 0 1rem", fontSize: "0.7rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.15em" }}>Lançamentos {loading && "· carregando..."}</p>
             {!loading && lancamentos.length === 0 && <p style={{ color: "#444", fontSize: "0.9rem", textAlign: "center", padding: "2rem 0" }}>Nenhum lançamento ainda.</p>}
@@ -299,6 +360,7 @@ export default function PradexFinancas() {
         </>
       )}
 
+      {/* IMPORTAR IA */}
       {tela === "importar" && (
         <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
           <p style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Importar com IA</p>
