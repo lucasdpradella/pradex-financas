@@ -18,7 +18,6 @@ const formatBRL = (value) =>
   Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 const monthNames = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
-
 const today = new Date().toISOString().split("T")[0];
 
 export default function PradexFinancas() {
@@ -81,34 +80,14 @@ export default function PradexFinancas() {
     if (!textoIA.trim()) { setErroIA("Cole algum texto primeiro."); return; }
     setProcessando(true); setErroIA(""); setPreview([]);
     try {
+      const prompt = "Você é um assistente financeiro brasileiro. Analise o texto abaixo e extraia TODOS os lançamentos financeiros mencionados.\n\nREGRAS:\n- Ignore palavras soltas como 'Cartão' ou 'Dinheiro' sem valor\n- Para contas a vencer, use a data de vencimento\n- Cash back é receita\n- Sem duplicatas óbvias\n- Use ano 2026 se não especificado\n\nRetorne APENAS um array JSON válido:\n[{\"descricao\":\"...\",\"valor\":0.00,\"tipo\":\"gasto\",\"categoria\":\"...\",\"data_lancamento\":\"YYYY-MM-DD\"}]\n\nCategorias gastos: Moradia, Alimentação, Transporte, Saúde, Lazer, Educação, Assinaturas, Outros\nCategorias receitas: Salário, Freelance, Investimentos, Aluguel recebido, Outros\n\nHoje: " + today + "\n\nTexto:\n" + textoIA;
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           max_tokens: 2000,
-          messages: [{
-            role: "user",
-            content: `Você é um assistente financeiro brasileiro. Analise o texto abaixo e extraia TODOS os lançamentos financeiros mencionados, incluindo gastos e receitas.
-
-REGRAS IMPORTANTES:
-- Ignore mensagens que são apenas contexto (ex: "Cartão", "Dinheiro" sozinhos)
-- Para contas "a vencer", crie lançamentos com a data de vencimento
-- Valores com "cash back" são receitas
-- Se houver duplicatas óbvias (mesmo valor, mesma data), inclua apenas uma vez
-- Use o ano 2026 se não houver ano especificado
-
-Retorne APENAS um array JSON válido, sem texto adicional:
-[{"descricao":"...","valor":0.00,"tipo":"gasto ou receita","categoria":"...","data_lancamento":"YYYY-MM-DD"}]
-
-Categorias para gastos: Moradia, Alimentação, Transporte, Saúde, Lazer, Educação, Assinaturas, Outros
-Categorias para receitas: Salário, Freelance, Investimentos, Aluguel recebido, Outros
-
-Data de hoje: ${today}
-
-Texto:
-${textoIA}`
-          }]
+          messages: [{ role: "user", content: prompt }]
         })
       });
       const data = await res.json();
@@ -137,13 +116,10 @@ ${textoIA}`
         });
       }
       await fetchLancamentos();
-      setTextoIA("");
-      setPreview([]);
+      setTextoIA(""); setPreview([]);
       setImportado(true);
       setTimeout(() => { setImportado(false); setTela("lancamentos"); }, 2000);
-    } catch (e) {
-      setErroIA("Erro ao salvar lançamentos.");
-    }
+    } catch (e) { setErroIA("Erro ao salvar lançamentos."); }
     setSaving(false);
   };
 
@@ -187,19 +163,13 @@ ${textoIA}`
       </div>
 
       <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", border: "1px solid #252832" }}>
-        {[
-          { key: "lancamentos", label: "Lançamentos" },
-          { key: "importar", label: "✨ Importar com IA" },
-        ].map(t => (
+        {[{ key: "lancamentos", label: "Lançamentos" }, { key: "importar", label: "✨ Importar com IA" }].map(t => (
           <button key={t.key} onClick={() => { setTela(t.key); setErro(""); setErroIA(""); }} style={{
             flex: 1, padding: "0.5rem", border: "none", borderRadius: "8px", cursor: "pointer",
             fontSize: "0.82rem", fontWeight: 600,
             background: tela === t.key ? "#252832" : "transparent",
-            color: tela === t.key ? "#F0F0F0" : "#555",
-            transition: "all 0.2s",
-          }}>
-            {t.label}
-          </button>
+            color: tela === t.key ? "#F0F0F0" : "#555", transition: "all 0.2s",
+          }}>{t.label}</button>
         ))}
       </div>
 
@@ -214,9 +184,7 @@ ${textoIA}`
                   fontSize: "0.85rem", fontWeight: 600,
                   background: tipo === t ? (t === "receita" ? "#22C55E" : "#EF4444") : "transparent",
                   color: tipo === t ? "#fff" : "#555", transition: "all 0.2s",
-                }}>
-                  {t === "receita" ? "↑ Receita" : "↓ Gasto"}
-                </button>
+                }}>{t === "receita" ? "↑ Receita" : "↓ Gasto"}</button>
               ))}
             </div>
             <input type="text" placeholder="Descrição" value={form.descricao} onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))} style={inputStyle} />
@@ -233,18 +201,14 @@ ${textoIA}`
               color: "#fff", fontSize: "0.95rem", fontWeight: 700,
               cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1,
               transition: "all 0.2s", fontFamily: "inherit",
-            }}>
-              {saving ? "Salvando..." : success ? "✓ Salvo!" : "Adicionar"}
-            </button>
+            }}>{saving ? "Salvando..." : success ? "✓ Salvo!" : "Adicionar"}</button>
           </div>
 
           <div>
             <p style={{ margin: "0 0 1rem", fontSize: "0.7rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.15em" }}>
               Lançamentos {loading && "· carregando..."}
             </p>
-            {!loading && lancamentos.length === 0 && (
-              <p style={{ color: "#444", fontSize: "0.9rem", textAlign: "center", padding: "2rem 0" }}>Nenhum lançamento ainda.</p>
-            )}
+            {!loading && lancamentos.length === 0 && <p style={{ color: "#444", fontSize: "0.9rem", textAlign: "center", padding: "2rem 0" }}>Nenhum lançamento ainda.</p>}
             {lancamentos.map(l => (
               <div key={l.id} style={{ display: "flex", alignItems: "center", padding: "0.9rem 1rem", background: "#181B24", borderRadius: "12px", marginBottom: "0.5rem", border: "1px solid #252832", gap: "0.75rem" }}>
                 <div style={{ width: "36px", height: "36px", borderRadius: "10px", flexShrink: 0, background: l.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem" }}>
@@ -268,15 +232,9 @@ ${textoIA}`
         <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
           <p style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Importar com IA</p>
           <p style={{ margin: "0 0 1rem", fontSize: "0.85rem", color: "#666", lineHeight: 1.5 }}>
-            Cole seus gastos em texto livre — extrato, bloco de notas, WhatsApp — e a IA organiza tudo automaticamente.
+            Cole seus gastos em texto livre — extrato, bloco de notas, WhatsApp — e a IA organiza tudo.
           </p>
-          <textarea
-            placeholder={"Cole aqui o texto com seus gastos..."}
-            value={textoIA}
-            onChange={e => setTextoIA(e.target.value)}
-            rows={6}
-            style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }}
-          />
+          <textarea placeholder="Cole aqui o texto com seus gastos..." value={textoIA} onChange={e => setTextoIA(e.target.value)} rows={6} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }} />
           {erroIA && <p style={{ color: "#EF4444", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{erroIA}</p>}
           {preview.length === 0 && (
             <button onClick={processarComIA} disabled={processando} style={{
@@ -284,9 +242,7 @@ ${textoIA}`
               background: "#6366F1", color: "#fff", fontSize: "0.95rem", fontWeight: 700,
               cursor: processando ? "not-allowed" : "pointer", opacity: processando ? 0.7 : 1,
               transition: "all 0.2s", fontFamily: "inherit",
-            }}>
-              {processando ? "✨ Processando..." : "✨ Processar com IA"}
-            </button>
+            }}>{processando ? "✨ Processando..." : "✨ Processar com IA"}</button>
           )}
           {preview.length > 0 && (
             <>
@@ -308,20 +264,8 @@ ${textoIA}`
                 </div>
               ))}
               <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
-                <button onClick={() => { setPreview([]); setTextoIA(""); }} style={{
-                  flex: 1, padding: "0.75rem", border: "1px solid #252832", borderRadius: "10px",
-                  background: "transparent", color: "#888", fontSize: "0.9rem", fontWeight: 600,
-                  cursor: "pointer", fontFamily: "inherit",
-                }}>
-                  Cancelar
-                </button>
-                <button onClick={confirmarImportacao} disabled={saving} style={{
-                  flex: 2, padding: "0.75rem", border: "none", borderRadius: "10px",
-                  background: importado ? "#16A34A" : "#22C55E", color: "#fff",
-                  fontSize: "0.9rem", fontWeight: 700,
-                  cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1,
-                  fontFamily: "inherit",
-                }}>
+                <button onClick={() => { setPreview([]); setTextoIA(""); }} style={{ flex: 1, padding: "0.75rem", border: "1px solid #252832", borderRadius: "10px", background: "transparent", color: "#888", fontSize: "0.9rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
+                <button onClick={confirmarImportacao} disabled={saving} style={{ flex: 2, padding: "0.75rem", border: "none", borderRadius: "10px", background: importado ? "#16A34A" : "#22C55E", color: "#fff", fontSize: "0.9rem", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, fontFamily: "inherit" }}>
                   {saving ? "Salvando..." : importado ? "✓ Importado!" : `Confirmar ${preview.length} lançamento${preview.length > 1 ? "s" : ""}`}
                 </button>
               </div>
