@@ -91,7 +91,7 @@ export default function PradexFinancas() {
           max_tokens: 1000,
           messages: [{
             role: "user",
-            content: `Você é um assistente financeiro. Analise o texto abaixo e extraia todos os lançamentos financeiros mencionados.
+            content: `Você é um assistente financeiro brasileiro. Analise o texto abaixo e extraia TODOS os lançamentos financeiros mencionados, incluindo gastos e receitas.  REGRAS IMPORTANTES: - Ignore mensagens que são apenas contexto (ex: "Cartão", "Dinheiro" sozinhos) - Para contas "a vencer", crie lançamentos com a data de vencimento - Valores com "cash back" são receitas - Se houver duplicatas óbvias (mesmo valor, mesma data), inclua apenas uma vez - Use o ano 2026 se não houver ano especificado  Retorne APENAS um array JSON válido, sem texto adicional: [{"descricao":"...","valor":0.00,"tipo":"gasto ou receita","categoria":"...","data_lancamento":"YYYY-MM-DD"}]  Categorias para gastos: Moradia, Alimentação, Transporte, Saúde, Lazer, Educação, Assinaturas, Outros Categorias para receitas: Salário, Freelance, Investimentos, Aluguel recebido, Outros  Data de hoje: ${today}  Texto: ${textoIA}`. Analise o texto abaixo e extraia todos os lançamentos financeiros mencionados.
             
 Retorne APENAS um JSON válido, sem nenhum texto adicional, no formato:
 [{"descricao":"...","valor":0.00,"tipo":"gasto ou receita","categoria":"uma das opções abaixo","data_lancamento":"YYYY-MM-DD"}]
