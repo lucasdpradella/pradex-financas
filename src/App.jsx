@@ -94,6 +94,8 @@ function GraficoSimulador({ labels, dadosComAporte, dadosSemAporte, meta }) {
 
   return <canvas ref={canvasRef} style={{ width: "100%", maxHeight: "220px" }} />;
 }
+
+export default function PradexFinancas() {
   const [session, setSession] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
