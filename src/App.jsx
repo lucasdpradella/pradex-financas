@@ -40,7 +40,7 @@ export default function PradexFinancas() {
   const [authLoading, setAuthLoading] = useState(false);
   const [tela, setTela] = useState("dashboard");
   const [tipo, setTipo] = useState("gasto");
-  const [form, setForm] = useState({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "", parcelado: false, total_parcelas: "" });
+  const [form, setForm] = useState({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "", parcelado: false, total_parcelas: "", recorrente: false });
   const [lancamentos, setLancamentos] = useState([]);
   const [cartoes, setCartoes] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -188,6 +188,7 @@ export default function PradexFinancas() {
           forma_pagamento: form.forma_pagamento || null,
           cartao_id: form.forma_pagamento === "Crédito" && form.cartao_id ? parseInt(form.cartao_id) : null,
           poderia_ter_evitado: false,
+          recorrente: form.recorrente || false,
         };
         const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
           method: "POST",
@@ -197,7 +198,7 @@ export default function PradexFinancas() {
         const data = await res.json();
         if (Array.isArray(data) && data[0]) {
           setLancamentos(prev => [data[0], ...prev]);
-          setForm({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "", parcelado: false, total_parcelas: "" });
+          setForm({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "", parcelado: false, total_parcelas: "", recorrente: false });
           setSuccess(true);
           setTimeout(() => setSuccess(false), 2000);
         } else { setErro("Erro ao salvar."); }
@@ -224,6 +225,7 @@ export default function PradexFinancas() {
       forma_pagamento: l.forma_pagamento || "",
       cartao_id: l.cartao_id ? String(l.cartao_id) : "",
       poderia_ter_evitado: l.poderia_ter_evitado || false,
+      recorrente: l.recorrente || false,
     });
   };
 
@@ -239,6 +241,7 @@ export default function PradexFinancas() {
         forma_pagamento: editando.forma_pagamento || null,
         cartao_id: editando.forma_pagamento === "Crédito" && editando.cartao_id ? parseInt(editando.cartao_id) : null,
         poderia_ter_evitado: editando.poderia_ter_evitado,
+        recorrente: editando.recorrente || false,
       };
       const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?id=eq.${editando.id}`, {
         method: "PATCH",
@@ -347,9 +350,31 @@ export default function PradexFinancas() {
   const saldo = totalReceitas - totalGastos;
 
   // Cálculo do botão do arrependimento
+  const taxaMensal = 0.009; // 0.9% ao mês
   const gastosEvitaveis = lancamentos.filter(l => l.poderia_ter_evitado && l.tipo === "gasto");
   const totalEvitavel = gastosEvitaveis.reduce((s, l) => s + Number(l.valor), 0);
-  const totalEvitavel12m = totalEvitavel * 12;
+
+  const calcularImpacto12m = (l) => {
+    const valor = Number(l.valor);
+    if (l.total_parcelas) {
+      // Parcelado: soma parcelas restantes + rendimento
+      const parcelasRestantes = l.total_parcelas - (l.parcela_atual || 1) + 1;
+      const totalRestante = valor * parcelasRestantes;
+      return totalRestante * Math.pow(1 + taxaMensal, 12);
+    } else if (l.recorrente) {
+      // Recorrente: 12 meses de aportes + rendimento composto
+      let acumulado = 0;
+      for (let i = 1; i <= 12; i++) {
+        acumulado += valor * Math.pow(1 + taxaMensal, i);
+      }
+      return acumulado;
+    } else {
+      // Único: valor investido por 12 meses
+      return valor * Math.pow(1 + taxaMensal, 12);
+    }
+  };
+
+  const totalImpacto12m = gastosEvitaveis.reduce((s, l) => s + calcularImpacto12m(l), 0);
 
   const gastosPorCategoria = categories.gasto.map(cat => ({
     cat, total: gastos.filter(l => l.categoria === cat).reduce((s, l) => s + Number(l.valor), 0)
@@ -450,6 +475,22 @@ export default function PradexFinancas() {
             )}
             <input type="date" value={editando.data_lancamento} onChange={e => setEditando(ed => ({ ...ed, data_lancamento: e.target.value }))} style={inputStyle} />
 
+            {/* Toggle recorrente no modal de edição */}
+            {editando.tipo === "gasto" && (
+              <button
+                onClick={() => setEditando(ed => ({ ...ed, recorrente: !ed.recorrente }))}
+                style={{
+                  width: "100%", padding: "0.75rem", border: `1px solid ${editando.recorrente ? "#6366F1" : "#252832"}`,
+                  borderRadius: "10px", background: editando.recorrente ? "#6366F118" : "transparent",
+                  color: editando.recorrente ? "#6366F1" : "#555",
+                  fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                  marginBottom: "0.75rem", transition: "all 0.2s",
+                }}
+              >
+                {editando.recorrente ? "🔁 Gasto recorrente (mensal)" : "🔁 Marcar como recorrente"}
+              </button>
+            )}
+
             {/* Botão do Arrependimento no modal de edição */}
             {editando.tipo === "gasto" && (
               <button
@@ -522,10 +563,10 @@ export default function PradexFinancas() {
                 <div style={{ background: "#F59E0B0F", borderRadius: "16px", padding: "1.25rem 1.5rem", marginBottom: "1rem", border: "1px solid #F59E0B30" }}>
                   <p style={{ margin: "0 0 0.5rem", fontSize: "0.75rem", fontWeight: 600, color: "#F59E0B", textTransform: "uppercase", letterSpacing: "0.1em" }}>😬 Botão do Arrependimento</p>
                   <p style={{ margin: "0 0 0.25rem", fontSize: "0.9rem", color: "#E8E8E8" }}>
-                    Você marcou <strong style={{ color: "#F59E0B" }}>{formatBRL(totalEvitavel)}</strong> em gastos evitáveis esse mês.
+                    Você marcou <strong style={{ color: "#F59E0B" }}>{formatBRL(totalEvitavel)}</strong> em gastos evitáveis.
                   </p>
                   <p style={{ margin: 0, fontSize: "0.8rem", color: "#888" }}>
-                    Se evitasse todo mês, teria <strong style={{ color: "#22C55E" }}>{formatBRL(totalEvitavel12m)}</strong> a mais em 12 meses. 💡
+                    Investindo esse dinheiro, teria <strong style={{ color: "#22C55E" }}>{formatBRL(totalImpacto12m)}</strong> em 12 meses. 💡
                   </p>
                 </div>
               )}
@@ -603,8 +644,7 @@ export default function PradexFinancas() {
               <option value="">Categoria</option>
               {categories[tipo].map(c => <option key={c} value={c}>{c}</option>)}
             </select>
-            <select value={form.forma_pagamento} onChange={e => setForm(f => ({ ...f, forma_pagamento: e.target.value, cartao_id: "", parcelado: false, total_parcelas: "" }))} style={{ ...inputStyle, color: form.forma_pagamento ? "#E8E8E8" : "#555", appearance: "none" }}>
-              <option value="">Forma de pagamento</option>
+            <select value={form.forma_pagamento} onChange={e => setForm(f => ({ ...f, forma_pagamento: e.target.value, cartao_id: "", parcelado: false, total_parcelas: "" }))} style={{ ...inputStyle, color: form.forma_pagamento ? "#E8E8E8" : "#555", appearance: "none" }}>              <option value="">Forma de pagamento</option>
               {formasPagamento.map(f => <option key={f} value={f}>{f}</option>)}
             </select>
             {form.forma_pagamento === "Crédito" && cartoes.length > 0 && (
@@ -647,6 +687,22 @@ export default function PradexFinancas() {
               </div>
             )}
 
+            {/* TOGGLE RECORRENTE */}
+            {tipo === "gasto" && !form.parcelado && (
+              <button
+                onClick={() => setForm(f => ({ ...f, recorrente: !f.recorrente }))}
+                style={{
+                  width: "100%", padding: "0.65rem 1rem", border: `1px solid ${form.recorrente ? "#6366F1" : "#252832"}`,
+                  borderRadius: "10px", background: form.recorrente ? "#6366F118" : "transparent",
+                  color: form.recorrente ? "#6366F1" : "#555", fontSize: "0.85rem", fontWeight: 600,
+                  cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s",
+                  marginBottom: "0.75rem",
+                }}
+              >
+                {form.recorrente ? "🔁 Gasto recorrente (mensal)" : "🔁 Marcar como recorrente"}
+              </button>
+            )}
+
             <input type="date" value={form.data_lancamento} onChange={e => setForm(f => ({ ...f, data_lancamento: e.target.value }))} style={inputStyle} />
             {erro && <p style={{ color: "#EF4444", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{erro}</p>}
             <button onClick={handleSubmit} disabled={saving} style={{
@@ -670,6 +726,7 @@ export default function PradexFinancas() {
                   <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 500, color: "#E8E8E8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {l.descricao}
                     {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#6366F1", background: "#6366F115", padding: "1px 5px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
+                    {l.recorrente && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#22C55E", background: "#22C55E15", padding: "1px 5px", borderRadius: "4px" }}>🔁</span>}
                   </p>
                   <p style={{ margin: 0, fontSize: "0.72rem", color: "#555" }}>{l.categoria} · {l.forma_pagamento || "—"} · {formatData(l.data_lancamento)}</p>
                 </div>
