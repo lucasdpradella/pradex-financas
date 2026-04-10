@@ -58,6 +58,7 @@ export default function PradexFinancas() {
   const [successCartao, setSuccessCartao] = useState(false);
   const [editando, setEditando] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [mesHistorico, setMesHistorico] = useState({ ano: new Date().getFullYear(), mes: new Date().getMonth() });
 
   useEffect(() => { checkSession(); }, []);
 
@@ -539,7 +540,7 @@ export default function PradexFinancas() {
       </div>
 
       <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", border: "1px solid #252832", gap: "2px" }}>
-        {[{ key: "dashboard", label: "📊" }, { key: "lancamentos", label: "Lançar" }, { key: "cartoes", label: "💳" }, { key: "importar", label: "✨ IA" }].map(t => (
+        {[{ key: "dashboard", label: "📊" }, { key: "historico", label: "📅" }, { key: "lancamentos", label: "Lançar" }, { key: "cartoes", label: "💳" }, { key: "importar", label: "✨ IA" }].map(t => (
           <button key={t.key} onClick={() => { setTela(t.key); setErro(""); setErroIA(""); }} style={{
             flex: 1, padding: "0.5rem 0.25rem", border: "none", borderRadius: "8px", cursor: "pointer",
             fontSize: "0.75rem", fontWeight: 600, whiteSpace: "nowrap",
@@ -789,6 +790,116 @@ export default function PradexFinancas() {
           </div>
         </>
       )}
+
+      {tela === "historico" && (() => {
+        const { ano, mes } = mesHistorico;
+        const prefixo = `${ano}-${String(mes + 1).padStart(2, "0")}`;
+        const lancMes = lancamentos.filter(l => l.data_lancamento?.startsWith(prefixo));
+        const receitasMes = lancMes.filter(l => l.tipo === "receita").reduce((s, l) => s + Number(l.valor), 0);
+        const gastosMes = lancMes.filter(l => l.tipo === "gasto").reduce((s, l) => s + Number(l.valor), 0);
+        const saldoMes = receitasMes - gastosMes;
+        const evitaveisMes = lancMes.filter(l => l.poderia_ter_evitado && l.tipo === "gasto").reduce((s, l) => s + Number(l.valor), 0);
+
+        const navegarMes = (dir) => {
+          setMesHistorico(prev => {
+            let m = prev.mes + dir;
+            let a = prev.ano;
+            if (m > 11) { m = 0; a++; }
+            if (m < 0) { m = 11; a--; }
+            return { mes: m, ano: a };
+          });
+        };
+
+        const gastosCat = categories.gasto.map(cat => ({
+          cat, total: lancMes.filter(l => l.tipo === "gasto" && l.categoria === cat).reduce((s, l) => s + Number(l.valor), 0)
+        })).filter(x => x.total > 0).sort((a, b) => b.total - a.total);
+        const maxCat = Math.max(...gastosCat.map(x => x.total), 1);
+        const ehMesAtual = mes === new Date().getMonth() && ano === new Date().getFullYear();
+
+        return (
+          <div>
+            {/* Navegador de mês */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem" }}>
+              <button onClick={() => navegarMes(-1)} style={{ background: "#181B24", border: "1px solid #252832", borderRadius: "8px", color: "#888", cursor: "pointer", padding: "0.4rem 0.8rem", fontSize: "1rem", fontFamily: "inherit" }}>←</button>
+              <div style={{ textAlign: "center" }}>
+                <p style={{ margin: 0, fontSize: "1.1rem", fontWeight: 600, color: "#F0F0F0" }}>{monthNames[mes]} {ano}</p>
+                {ehMesAtual && <p style={{ margin: 0, fontSize: "0.7rem", color: "#6366F1" }}>mês atual</p>}
+              </div>
+              <button onClick={() => navegarMes(1)} style={{ background: "#181B24", border: "1px solid #252832", borderRadius: "8px", color: "#888", cursor: "pointer", padding: "0.4rem 0.8rem", fontSize: "1rem", fontFamily: "inherit" }}>→</button>
+            </div>
+
+            {/* Cards resumo */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem", marginBottom: "1rem" }}>
+              {[{ label: "Receitas", value: receitasMes, color: "#22C55E" }, { label: "Gastos", value: gastosMes, color: "#EF4444" }, { label: "Saldo", value: saldoMes, color: saldoMes >= 0 ? "#22C55E" : "#EF4444" }].map(card => (
+                <div key={card.label} style={{ background: "#181B24", borderRadius: "12px", padding: "1rem 0.75rem", border: "1px solid #252832" }}>
+                  <p style={{ margin: "0 0 0.4rem", fontSize: "0.65rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>{card.label}</p>
+                  <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 700, color: card.color }}>{formatBRL(card.value)}</p>
+                </div>
+              ))}
+            </div>
+
+            {lancMes.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "3rem 0", color: "#444" }}>
+                <p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📅</p>
+                <p style={{ fontSize: "0.9rem" }}>Nenhum lançamento em {monthNames[mes]} {ano}.</p>
+              </div>
+            ) : (
+              <>
+                {/* Gastos evitáveis do mês */}
+                {evitaveisMes > 0 && (
+                  <div style={{ background: "#F59E0B0F", borderRadius: "12px", padding: "1rem 1.25rem", marginBottom: "1rem", border: "1px solid #F59E0B30" }}>
+                    <p style={{ margin: 0, fontSize: "0.8rem", color: "#F59E0B" }}>😬 <strong>{formatBRL(evitaveisMes)}</strong> em gastos evitáveis nesse mês</p>
+                  </div>
+                )}
+
+                {/* Gastos por categoria */}
+                {gastosCat.length > 0 && (
+                  <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
+                    <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Gastos por categoria</p>
+                    {gastosCat.map((item, i) => (
+                      <div key={item.cat} style={{ marginBottom: "0.85rem" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.3rem" }}>
+                          <span style={{ fontSize: "0.82rem", color: "#CCC" }}>{item.cat}</span>
+                          <span style={{ fontSize: "0.82rem", fontWeight: 600, color: COLORS[i % COLORS.length] }}>{formatBRL(item.total)}</span>
+                        </div>
+                        <div style={{ background: "#0F1117", borderRadius: "4px", height: "6px", overflow: "hidden" }}>
+                          <div style={{ background: COLORS[i % COLORS.length], height: "100%", width: `${(item.total / maxCat) * 100}%`, borderRadius: "4px" }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Lista de lançamentos do mês */}
+                <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
+                  <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                    {lancMes.length} lançamento{lancMes.length > 1 ? "s" : ""}
+                  </p>
+                  {lancMes.map(l => (
+                    <div key={l.id} onClick={() => handleEdit(l)} style={{ display: "flex", alignItems: "center", padding: "0.7rem 0", borderBottom: "1px solid #1a1d26", cursor: "pointer", gap: "0.75rem" }}>
+                      <div style={{ width: "32px", height: "32px", borderRadius: "8px", flexShrink: 0, background: l.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem" }}>
+                        {l.tipo === "receita" ? "↑" : "↓"}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ margin: 0, fontSize: "0.85rem", color: "#E8E8E8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {l.poderia_ter_evitado && <span style={{ marginRight: "4px" }}>😬</span>}
+                          {l.recorrente && <span style={{ marginRight: "4px" }}>🔁</span>}
+                          {l.descricao}
+                          {l.total_parcelas && <span style={{ marginLeft: "5px", fontSize: "0.65rem", color: "#6366F1", background: "#6366F115", padding: "1px 4px", borderRadius: "3px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
+                        </p>
+                        <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{l.categoria} · {formatData(l.data_lancamento)}</p>
+                      </div>
+                      <p style={{ margin: 0, fontSize: "0.88rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444", flexShrink: 0 }}>
+                        {l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       {tela === "importar" && (
         <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
