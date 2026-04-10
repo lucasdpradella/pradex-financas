@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdnVocXFzamJvbmN3cGJvY2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTM1NzEsImV4cCI6MjA5MTI2OTU3MX0.qpOXjpyJ29Hr9kvee3uxNS1LmJNUEZqDtMCCEpaHjsE";
@@ -20,7 +20,6 @@ const monthNames = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out",
 const today = new Date().toISOString().split("T")[0];
 const formasPagamento = ["Débito", "Crédito", "Dinheiro", "PIX", "Outros"];
 
-// Gera um UUID simples para grupo de parcelas
 const generateUUID = () => {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0;
@@ -29,7 +28,72 @@ const generateUUID = () => {
   });
 };
 
-export default function PradexFinancas() {
+function GraficoSimulador({ labels, dadosComAporte, dadosSemAporte, meta }) {
+  const canvasRef = useRef(null);
+  const instanceRef = useRef(null);
+
+  useEffect(() => {
+    if (!canvasRef.current || !window.Chart) return;
+    if (instanceRef.current) instanceRef.current.destroy();
+    const datasets = [
+      {
+        label: "Com aportes",
+        data: dadosComAporte,
+        borderColor: "#6366F1",
+        backgroundColor: "rgba(99,102,241,0.08)",
+        fill: true,
+        tension: 0.4,
+        pointRadius: 0,
+        borderWidth: 2,
+      },
+      {
+        label: "Só rendimento",
+        data: dadosSemAporte,
+        borderColor: "#555",
+        backgroundColor: "transparent",
+        fill: false,
+        tension: 0.4,
+        pointRadius: 0,
+        borderWidth: 1.5,
+        borderDash: [4, 4],
+      },
+    ];
+    if (meta > 0) {
+      datasets.push({
+        label: "Meta",
+        data: Array(labels.length).fill(meta),
+        borderColor: "#F59E0B",
+        backgroundColor: "transparent",
+        fill: false,
+        pointRadius: 0,
+        borderWidth: 1.5,
+        borderDash: [6, 4],
+      });
+    }
+    instanceRef.current = new window.Chart(canvasRef.current, {
+      type: "line",
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: "#555", font: { size: 10 } }, grid: { color: "#1a1d26" } },
+          y: {
+            ticks: {
+              color: "#555", font: { size: 10 },
+              callback: v => v >= 1000000 ? "R$" + (v / 1000000).toFixed(1) + "M" : v >= 1000 ? "R$" + (v / 1000).toFixed(0) + "k" : "R$" + v,
+            },
+            grid: { color: "#1a1d26" },
+          },
+        },
+      },
+    });
+    return () => { if (instanceRef.current) instanceRef.current.destroy(); };
+  }, [JSON.stringify(dadosComAporte), JSON.stringify(dadosSemAporte), meta]);
+
+  return <canvas ref={canvasRef} style={{ width: "100%", maxHeight: "220px" }} />;
+}
   const [session, setSession] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
@@ -59,6 +123,7 @@ export default function PradexFinancas() {
   const [editando, setEditando] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [mesHistorico, setMesHistorico] = useState({ ano: new Date().getFullYear(), mes: new Date().getMonth() });
+  const [simulador, setSimulador] = useState({ meta: "", patrimonioAtual: "", aporteMensal: "", taxaAnual: "10" });
 
   useEffect(() => { checkSession(); }, []);
 
@@ -540,7 +605,7 @@ export default function PradexFinancas() {
       </div>
 
       <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", border: "1px solid #252832", gap: "2px" }}>
-        {[{ key: "dashboard", label: "📊" }, { key: "historico", label: "📅" }, { key: "lancamentos", label: "Lançar" }, { key: "cartoes", label: "💳" }, { key: "importar", label: "✨ IA" }].map(t => (
+        {[{ key: "dashboard", label: "📊" }, { key: "historico", label: "📅" }, { key: "lancamentos", label: "Lançar" }, { key: "simulador", label: "🎯" }, { key: "cartoes", label: "💳" }, { key: "importar", label: "✨ IA" }].map(t => (
           <button key={t.key} onClick={() => { setTela(t.key); setErro(""); setErroIA(""); }} style={{
             flex: 1, padding: "0.5rem 0.25rem", border: "none", borderRadius: "8px", cursor: "pointer",
             fontSize: "0.75rem", fontWeight: 600, whiteSpace: "nowrap",
@@ -896,6 +961,131 @@ export default function PradexFinancas() {
                   ))}
                 </div>
               </>
+            )}
+          </div>
+        );
+      })()}
+
+      {tela === "simulador" && (() => {
+        const meta = parseFloat(simulador.meta.replace(/\./g, "").replace(",", ".")) || 0;
+        const patrimonioAtual = parseFloat(simulador.patrimonioAtual.replace(/\./g, "").replace(",", ".")) || 0;
+        const aporteMensal = parseFloat(simulador.aporteMensal.replace(/\./g, "").replace(",", ".")) || 0;
+        const taxaAnual = parseFloat(simulador.taxaAnual) || 0;
+        const taxaMensal = taxaAnual / 100 / 12;
+        const meses = 60;
+
+        // Gerar dados das 3 linhas
+        const dadosComAporte = [];
+        const dadosSemAporte = [];
+        let saldoCom = patrimonioAtual;
+        let saldoSem = patrimonioAtual;
+        for (let i = 0; i <= meses; i++) {
+          dadosComAporte.push(Math.round(saldoCom));
+          dadosSemAporte.push(Math.round(saldoSem));
+          saldoCom = saldoCom * (1 + taxaMensal) + aporteMensal;
+          saldoSem = saldoSem * (1 + taxaMensal);
+        }
+
+        // Quando atinge a meta
+        const mesMeta = dadosComAporte.findIndex(v => v >= meta && meta > 0);
+        const progresso12 = meta > 0 ? Math.min((dadosComAporte[12] / meta) * 100, 100) : 0;
+        const progresso36 = meta > 0 ? Math.min((dadosComAporte[36] / meta) * 100, 100) : 0;
+        const progresso60 = meta > 0 ? Math.min((dadosComAporte[60] / meta) * 100, 100) : 0;
+
+        const labels = Array.from({ length: meses + 1 }, (_, i) => {
+          if (i === 0) return "Hoje";
+          if (i % 12 === 0) return `${i / 12}a`;
+          if (i === mesMeta) return `🎯`;
+          return "";
+        });
+
+        const temDados = patrimonioAtual > 0 || aporteMensal > 0;
+
+        return (
+          <div>
+            <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Simulador de Futuro</p>
+
+            {/* Formulário */}
+            <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                {[
+                  { label: "Patrimônio atual (R$)", key: "patrimonioAtual", placeholder: "Ex: 50.000" },
+                  { label: "Aporte mensal (R$)", key: "aporteMensal", placeholder: "Ex: 1.000" },
+                  { label: "Meta (R$)", key: "meta", placeholder: "Ex: 500.000" },
+                  { label: "Rentabilidade anual (%)", key: "taxaAnual", placeholder: "Ex: 10" },
+                ].map(({ label, key, placeholder }) => (
+                  <div key={key}>
+                    <p style={{ margin: "0 0 0.3rem", fontSize: "0.7rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</p>
+                    <input
+                      type="text" placeholder={placeholder}
+                      value={simulador[key]}
+                      onChange={e => setSimulador(s => ({ ...s, [key]: e.target.value }))}
+                      style={{ ...inputStyle, marginBottom: 0, fontSize: "0.85rem" }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {temDados && (
+              <>
+                {/* Cards 1a / 3a / 5a */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem", marginBottom: "1rem" }}>
+                  {[
+                    { label: "1 ano", valor: dadosComAporte[12], prog: progresso12 },
+                    { label: "3 anos", valor: dadosComAporte[36], prog: progresso36 },
+                    { label: "5 anos", valor: dadosComAporte[60], prog: progresso60 },
+                  ].map(({ label, valor, prog }) => (
+                    <div key={label} style={{ background: "#181B24", borderRadius: "12px", padding: "1rem 0.75rem", border: "1px solid #252832" }}>
+                      <p style={{ margin: "0 0 0.3rem", fontSize: "0.65rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</p>
+                      <p style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", fontWeight: 700, color: "#6366F1" }}>{formatBRL(valor)}</p>
+                      {meta > 0 && (
+                        <>
+                          <div style={{ background: "#0F1117", borderRadius: "4px", height: "4px", overflow: "hidden" }}>
+                            <div style={{ background: prog >= 100 ? "#22C55E" : "#6366F1", height: "100%", width: `${prog}%`, borderRadius: "4px", transition: "width 0.5s" }} />
+                          </div>
+                          <p style={{ margin: "0.25rem 0 0", fontSize: "0.65rem", color: prog >= 100 ? "#22C55E" : "#555" }}>{Math.round(prog)}% da meta</p>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Quando atinge a meta */}
+                {meta > 0 && mesMeta > 0 && (
+                  <div style={{ background: "#22C55E0F", borderRadius: "12px", padding: "1rem 1.25rem", marginBottom: "1rem", border: "1px solid #22C55E30" }}>
+                    <p style={{ margin: 0, fontSize: "0.85rem", color: "#22C55E" }}>
+                      🎯 Você atinge sua meta em <strong>{mesMeta < 12 ? `${mesMeta} meses` : `${Math.floor(mesMeta / 12)} ano${Math.floor(mesMeta / 12) > 1 ? "s" : ""}${mesMeta % 12 > 0 ? ` e ${mesMeta % 12} meses` : ""}`}</strong>
+                    </p>
+                  </div>
+                )}
+                {meta > 0 && mesMeta === -1 && (
+                  <div style={{ background: "#EF44440F", borderRadius: "12px", padding: "1rem 1.25rem", marginBottom: "1rem", border: "1px solid #EF444430" }}>
+                    <p style={{ margin: 0, fontSize: "0.85rem", color: "#EF4444" }}>
+                      ⚠️ Com esse aporte, você não atinge a meta em 5 anos. Aumente o aporte ou a rentabilidade.
+                    </p>
+                  </div>
+                )}
+
+                {/* Gráfico */}
+                <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
+                  <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Projeção patrimonial</p>
+                  <div style={{ display: "flex", gap: "1rem", marginBottom: "1rem", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "0.7rem", color: "#6366F1" }}>— Com aportes</span>
+                    <span style={{ fontSize: "0.7rem", color: "#555" }}>— Só rendimento</span>
+                    {meta > 0 && <span style={{ fontSize: "0.7rem", color: "#F59E0B" }}>- - Meta</span>}
+                  </div>
+                  <GraficoSimulador labels={labels} dadosComAporte={dadosComAporte} dadosSemAporte={dadosSemAporte} meta={meta} />
+                </div>
+
+              </>
+            )}
+
+            {!temDados && (
+              <div style={{ textAlign: "center", padding: "3rem 0", color: "#444" }}>
+                <p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🎯</p>
+                <p style={{ fontSize: "0.9rem" }}>Preencha os campos acima para ver a projeção.</p>
+              </div>
             )}
           </div>
         );
