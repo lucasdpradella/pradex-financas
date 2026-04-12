@@ -29,16 +29,9 @@ const generateUUID = () => {
 };
 
 async function fetchTaxaFocus() {
-  try {
-    const res = await fetch(
-      "https://olinda.bcb.gov.br/olinda/servico/Expectativas/versao/v1/odata/ExpectativaMercadoAnuais?$filter=Indicador%20eq%20'IPCA'&$orderby=Data%20desc&$top=1&$format=json"
-    );
-    const data = await res.json();
-    const ipca = data?.value?.[0]?.Mediana || 5.0;
-    return ipca + 4.5;
-  } catch {
-    return 9.5;
-  }
+  // IPCA esperado Focus (atualizar trimestralmente) + spread 4.5%
+  // Última atualização: Abr/2026 — IPCA Focus: 5.65%
+  return 5.65 + 4.5; // = 10.15% ao ano
 }
 
 function GraficoSimulador({ labels, dadosComAporte, dadosSemAporte, meta }) {
