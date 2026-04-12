@@ -30,9 +30,8 @@ const generateUUID = () => {
 
 async function fetchTaxaFocus() {
   try {
-    const dataHoje = new Date().toISOString().split("T")[0];
     const res = await fetch(
-      `https://olinda.bcb.gov.br/olinda/servico/Expectativas/versao/v1/odata/ExpectativaMercadoAnuais?$filter=Indicador%20eq%20'IPCA'%20and%20Data%20eq%20'${dataHoje}'&$orderby=Data%20desc&$top=1&$format=json`
+      "https://olinda.bcb.gov.br/olinda/servico/Expectativas/versao/v1/odata/ExpectativaMercadoAnuais?$filter=Indicador%20eq%20'IPCA'&$orderby=Data%20desc&$top=1&$format=json"
     );
     const data = await res.json();
     const ipca = data?.value?.[0]?.Mediana || 5.0;
