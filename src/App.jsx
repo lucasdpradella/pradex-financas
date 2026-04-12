@@ -9,7 +9,7 @@ const api = (token) => ({
   "Authorization": `Bearer ${token || SUPABASE_KEY}`,
 });
 
-const categories = {
+const defaultCategories = {
   receita: ["Salário", "Freelance", "Investimentos", "Aluguel recebido", "Outros"],
   gasto: ["Moradia", "Alimentação", "Transporte", "Saúde", "Lazer", "Educação", "Assinaturas", "Outros"],
 };
@@ -29,9 +29,29 @@ const generateUUID = () => {
 };
 
 async function fetchTaxaFocus() {
-  // IPCA esperado Focus (atualizar trimestralmente) + spread 4.5%
-  // Última atualização: Abr/2026 — IPCA Focus: 5.65%
-  return 5.65 + 4.5; // = 10.15% ao ano
+  return 5.65 + 4.5; // IPCA Focus Abr/2026 + spread 4.5% = 10.15% ao ano
+}
+
+// Cria lançamentos recorrentes até dezembro do ano atual
+async function criarRecorrentesAteDezembro(lancamento, dataInicio, token) {
+  const dataBase = new Date(dataInicio + "T12:00:00");
+  const anoAtual = dataBase.getFullYear();
+  const mesInicio = dataBase.getMonth();
+  const criados = [];
+
+  for (let m = mesInicio + 1; m <= 11; m++) {
+    const dataLanc = new Date(anoAtual, m, dataBase.getDate());
+    const dataStr = dataLanc.toISOString().split("T")[0];
+    const body = { ...lancamento, data_lancamento: dataStr, recorrente: true };
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": `Bearer ${token}`, "Prefer": "return=representation" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (Array.isArray(data) && data[0]) criados.push(data[0]);
+  }
+  return criados;
 }
 
 function GraficoSimulador({ labels, dadosComAporte, dadosSemAporte, meta }) {
@@ -49,16 +69,8 @@ function GraficoSimulador({ labels, dadosComAporte, dadosSemAporte, meta }) {
       datasets.push({ label: "Meta", data: Array(labels.length).fill(meta), borderColor: "#F59E0B", backgroundColor: "transparent", fill: false, pointRadius: 0, borderWidth: 1.5, borderDash: [6, 4] });
     }
     instanceRef.current = new window.Chart(canvasRef.current, {
-      type: "line",
-      data: { labels, datasets },
-      options: {
-        responsive: true, maintainAspectRatio: true,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { color: "#555", font: { size: 10 } }, grid: { color: "#1a1d26" } },
-          y: { ticks: { color: "#555", font: { size: 10 }, callback: v => v >= 1000000 ? "R$" + (v / 1000000).toFixed(1) + "M" : v >= 1000 ? "R$" + (v / 1000).toFixed(0) + "k" : "R$" + v }, grid: { color: "#1a1d26" } },
-        },
-      },
+      type: "line", data: { labels, datasets },
+      options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: "#555", font: { size: 10 } }, grid: { color: "#1a1d26" } }, y: { ticks: { color: "#555", font: { size: 10 }, callback: v => v >= 1000000 ? "R$" + (v / 1000000).toFixed(1) + "M" : v >= 1000 ? "R$" + (v / 1000).toFixed(0) + "k" : "R$" + v }, grid: { color: "#1a1d26" } } } },
     });
     return () => { if (instanceRef.current) instanceRef.current.destroy(); };
   }, [JSON.stringify(dadosComAporte), JSON.stringify(dadosSemAporte), meta]);
@@ -80,6 +92,9 @@ export default function PradexFinancas() {
   const [form, setForm] = useState({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "", parcelado: false, total_parcelas: "", recorrente: false });
   const [lancamentos, setLancamentos] = useState([]);
   const [cartoes, setCartoes] = useState([]);
+  const [categories, setCategories] = useState(defaultCategories);
+  const [novaCategoria, setNovaCategoria] = useState({ nome: "", tipo: "gasto" });
+  const [mostrarCategorias, setMostrarCategorias] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [erro, setErro] = useState("");
@@ -98,7 +113,7 @@ export default function PradexFinancas() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [mesHistorico, setMesHistorico] = useState({ ano: new Date().getFullYear(), mes: new Date().getMonth() });
   const [simulador, setSimulador] = useState({ meta: "", patrimonioAtual: "", aporteMensal: "" });
-  const [taxaFocus, setTaxaFocus] = useState(9.5);
+  const [taxaFocus, setTaxaFocus] = useState(10.15);
   const [rascunhos, setRascunhos] = useState([]);
 
   useEffect(() => { checkSession(); }, []);
@@ -129,8 +144,7 @@ export default function PradexFinancas() {
     const endpoint = authMode === "login" ? "token?grant_type=password" : "signup";
     try {
       const res = await fetch(`${SUPABASE_URL}/auth/v1/${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "apikey": SUPABASE_KEY },
+        method: "POST", headers: { "Content-Type": "application/json", "apikey": SUPABASE_KEY },
         body: JSON.stringify({ email, password: senha }),
       });
       const data = await res.json();
@@ -138,9 +152,7 @@ export default function PradexFinancas() {
         localStorage.setItem("sb_token", data.access_token);
         setSession({ user: data.user, token: data.access_token });
         fetchUserRole(data.user.id, data.access_token);
-      } else {
-        setAuthErro(authMode === "login" ? "Email ou senha incorretos." : "Erro ao criar conta.");
-      }
+      } else { setAuthErro(authMode === "login" ? "Email ou senha incorretos." : "Erro ao criar conta."); }
     } catch (e) { setAuthErro("Erro de conexão."); }
     setAuthLoading(false);
   };
@@ -153,10 +165,52 @@ export default function PradexFinancas() {
 
   useEffect(() => {
     if (session) {
-      fetchLancamentos(); fetchCartoes(); fetchRascunhos();
+      fetchLancamentos(); fetchCartoes(); fetchRascunhos(); fetchCategorias();
       fetchTaxaFocus().then(t => setTaxaFocus(t));
     }
   }, [session]);
+
+  const fetchCategorias = async () => {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/categorias?order=nome.asc`, { headers: api(session?.token) });
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        const gastoCustom = data.filter(c => c.tipo === "gasto").map(c => c.nome);
+        const receitaCustom = data.filter(c => c.tipo === "receita").map(c => c.nome);
+        setCategories({
+          gasto: [...new Set([...defaultCategories.gasto, ...gastoCustom])],
+          receita: [...new Set([...defaultCategories.receita, ...receitaCustom])],
+        });
+      }
+    } catch (e) {}
+  };
+
+  const handleAddCategoria = async () => {
+    if (!novaCategoria.nome.trim()) return;
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/categorias`, {
+        method: "POST",
+        headers: { ...api(session?.token), "Prefer": "return=representation" },
+        body: JSON.stringify({ nome: novaCategoria.nome.trim(), tipo: novaCategoria.tipo, user_id: session.user.id }),
+      });
+      setCategories(prev => ({
+        ...prev,
+        [novaCategoria.tipo]: [...new Set([...prev[novaCategoria.tipo], novaCategoria.nome.trim()])],
+      }));
+      setNovaCategoria(prev => ({ ...prev, nome: "" }));
+    } catch (e) {}
+  };
+
+  const handleRemoveCategoria = async (nome, tipo) => {
+    // Só remove categorias personalizadas (não as padrão)
+    if (defaultCategories[tipo].includes(nome)) return;
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/categorias?nome=eq.${encodeURIComponent(nome)}&tipo=eq.${tipo}`, {
+        method: "DELETE", headers: api(session?.token),
+      });
+      setCategories(prev => ({ ...prev, [tipo]: prev[tipo].filter(c => c !== nome) }));
+    } catch (e) {}
+  };
 
   const fetchLancamentos = async () => {
     setLoading(true);
@@ -232,14 +286,20 @@ export default function PradexFinancas() {
         setForm({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "", parcelado: false, total_parcelas: "", recorrente: false });
         setSuccess(true); setTimeout(() => setSuccess(false), 2000);
       } else {
+        const bodyBase = { descricao: form.descricao, valor, tipo, categoria: form.categoria, data_lancamento: form.data_lancamento, user_id: session.user.id, forma_pagamento: form.forma_pagamento || null, cartao_id: form.forma_pagamento === "Crédito" && form.cartao_id ? parseInt(form.cartao_id) : null, poderia_ter_evitado: false, recorrente: form.recorrente || false };
         const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
-          method: "POST",
-          headers: { ...api(session?.token), "Prefer": "return=representation" },
-          body: JSON.stringify({ descricao: form.descricao, valor, tipo, categoria: form.categoria, data_lancamento: form.data_lancamento, user_id: session.user.id, forma_pagamento: form.forma_pagamento || null, cartao_id: form.forma_pagamento === "Crédito" && form.cartao_id ? parseInt(form.cartao_id) : null, poderia_ter_evitado: false, recorrente: form.recorrente || false }),
+          method: "POST", headers: { ...api(session?.token), "Prefer": "return=representation" },
+          body: JSON.stringify(bodyBase),
         });
         const data = await res.json();
         if (Array.isArray(data) && data[0]) {
-          setLancamentos(prev => [data[0], ...prev]);
+          // Se recorrente, cria automaticamente até dezembro
+          if (form.recorrente) {
+            const futuros = await criarRecorrentesAteDezembro({ ...bodyBase }, form.data_lancamento, session.token);
+            setLancamentos(prev => [...futuros.reverse(), data[0], ...prev]);
+          } else {
+            setLancamentos(prev => [data[0], ...prev]);
+          }
           setForm({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "", parcelado: false, total_parcelas: "", recorrente: false });
           setSuccess(true); setTimeout(() => setSuccess(false), 2000);
         } else { setErro("Erro ao salvar."); }
@@ -256,7 +316,7 @@ export default function PradexFinancas() {
   };
 
   const handleEdit = (l) => {
-    setEditando({ id: l.id, descricao: l.descricao || "", valor: String(l.valor), tipo: l.tipo || "gasto", categoria: l.categoria || "", data_lancamento: l.data_lancamento || today, forma_pagamento: l.forma_pagamento || "", cartao_id: l.cartao_id ? String(l.cartao_id) : "", poderia_ter_evitado: l.poderia_ter_evitado || false, recorrente: l.recorrente || false });
+    setEditando({ id: l.id, descricao: l.descricao || "", valor: String(l.valor), tipo: l.tipo || "gasto", categoria: l.categoria || "", data_lancamento: l.data_lancamento || today, forma_pagamento: l.forma_pagamento || "", cartao_id: l.cartao_id ? String(l.cartao_id) : "", poderia_ter_evitado: l.poderia_ter_evitado || false, recorrente: l.recorrente || false, _recorrenteOriginal: l.recorrente || false });
   };
 
   const handleSaveEdit = async () => {
@@ -265,13 +325,22 @@ export default function PradexFinancas() {
     if (isNaN(valor) || valor <= 0) return;
     setSavingEdit(true);
     try {
+      const body = { descricao: editando.descricao, valor, tipo: editando.tipo, categoria: editando.categoria, data_lancamento: editando.data_lancamento, forma_pagamento: editando.forma_pagamento || null, cartao_id: editando.forma_pagamento === "Crédito" && editando.cartao_id ? parseInt(editando.cartao_id) : null, poderia_ter_evitado: editando.poderia_ter_evitado, recorrente: editando.recorrente || false };
       const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?id=eq.${editando.id}`, {
-        method: "PATCH",
-        headers: { ...api(session?.token), "Prefer": "return=representation" },
-        body: JSON.stringify({ descricao: editando.descricao, valor, tipo: editando.tipo, categoria: editando.categoria, data_lancamento: editando.data_lancamento, forma_pagamento: editando.forma_pagamento || null, cartao_id: editando.forma_pagamento === "Crédito" && editando.cartao_id ? parseInt(editando.cartao_id) : null, poderia_ter_evitado: editando.poderia_ter_evitado, recorrente: editando.recorrente || false }),
+        method: "PATCH", headers: { ...api(session?.token), "Prefer": "return=representation" },
+        body: JSON.stringify(body),
       });
       const data = await res.json();
-      if (Array.isArray(data) && data[0]) { setLancamentos(prev => prev.map(l => l.id === editando.id ? data[0] : l)); setEditando(null); }
+      if (Array.isArray(data) && data[0]) {
+        setLancamentos(prev => prev.map(l => l.id === editando.id ? data[0] : l));
+        // Se marcou como recorrente agora (não era antes), cria os futuros
+        if (editando.recorrente && !editando._recorrenteOriginal) {
+          const baseBody = { ...body, user_id: session.user.id };
+          const futuros = await criarRecorrentesAteDezembro(baseBody, editando.data_lancamento, session.token);
+          if (futuros.length > 0) await fetchLancamentos();
+        }
+        setEditando(null);
+      }
     } catch (e) {}
     setSavingEdit(false);
   };
@@ -290,8 +359,7 @@ export default function PradexFinancas() {
     setSavingCartao(true); setErroCartao("");
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/cartoes`, {
-        method: "POST",
-        headers: { ...api(session?.token), "Prefer": "return=representation" },
+        method: "POST", headers: { ...api(session?.token), "Prefer": "return=representation" },
         body: JSON.stringify({ ...formCartao, user_id: session.user.id, dia_fechamento: formCartao.dia_fechamento ? parseInt(formCartao.dia_fechamento) : null, dia_vencimento: formCartao.dia_vencimento ? parseInt(formCartao.dia_vencimento) : null }),
       });
       const data = await res.json();
@@ -317,7 +385,9 @@ export default function PradexFinancas() {
     setProcessando(true); setErroIA(""); setPreview([]);
     try {
       const cartoesInfo = cartoes.length > 0 ? "\n\nCartões cadastrados:\n" + cartoes.map(c => "- ID " + c.id + ": " + c.nome + (c.bandeira ? " (" + c.bandeira + ")" : "")).join("\n") : "";
-      const prompt = "Você é um assistente financeiro brasileiro. Analise o texto abaixo e extraia TODOS os lançamentos financeiros mencionados.\n\nREGRAS:\n- Ignore palavras soltas como Cartão ou Dinheiro sem valor\n- Para contas a vencer, use a data de vencimento\n- Cash back é receita\n- Sem duplicatas óbvias\n- Use ano 2026 se não especificado\n- Identifique a forma de pagamento: Débito, Crédito, Dinheiro, PIX ou Outros\n- Se for Crédito e mencionar um cartão, vincule ao cartão cadastrado usando o ID correto\n- Se não conseguir identificar o cartão, deixe cartao_id como null\n\nRetorne APENAS um array JSON válido:\n[{\"descricao\":\"...\",\"valor\":0.00,\"tipo\":\"gasto\",\"categoria\":\"...\",\"data_lancamento\":\"YYYY-MM-DD\",\"forma_pagamento\":\"...\",\"cartao_id\":null,\"poderia_ter_evitado\":false}]\n\nCategorias gastos: Moradia, Alimentação, Transporte, Saúde, Lazer, Educação, Assinaturas, Outros\nCategorias receitas: Salário, Freelance, Investimentos, Aluguel recebido, Outros" + cartoesInfo + "\n\nHoje: " + today + "\n\nTexto:\n" + textoIA;
+      const todasCatsGasto = categories.gasto.join(", ");
+      const todasCatsReceita = categories.receita.join(", ");
+      const prompt = `Você é um assistente financeiro brasileiro. Analise o texto abaixo e extraia TODOS os lançamentos financeiros mencionados.\n\nREGRAS:\n- Ignore palavras soltas como Cartão ou Dinheiro sem valor\n- Para contas a vencer, use a data de vencimento\n- Cash back é receita\n- Sem duplicatas óbvias\n- Use ano 2026 se não especificado\n- Identifique a forma de pagamento: Débito, Crédito, Dinheiro, PIX ou Outros\n- Se for Crédito e mencionar um cartão, vincule ao cartão cadastrado usando o ID correto\n- Se não conseguir identificar o cartão, deixe cartao_id como null\n\nRetorne APENAS um array JSON válido:\n[{"descricao":"...","valor":0.00,"tipo":"gasto","categoria":"...","data_lancamento":"YYYY-MM-DD","forma_pagamento":"...","cartao_id":null,"poderia_ter_evitado":false}]\n\nCategorias gastos: ${todasCatsGasto}\nCategorias receitas: ${todasCatsReceita}${cartoesInfo}\n\nHoje: ${today}\n\nTexto:\n${textoIA}`;
       const res = await fetch(`${SUPABASE_URL}/functions/v1/claude-proxy`, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + SUPABASE_KEY }, body: JSON.stringify({ prompt }) });
       const data = await res.json();
       const text = data.content?.[0]?.text || "";
@@ -392,6 +462,7 @@ export default function PradexFinancas() {
   return (
     <div style={{ minHeight: "100vh", background: "#0F1117", color: "#E8E8E8", fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", padding: "2rem 1.5rem", maxWidth: "480px", margin: "0 auto" }}>
 
+      {/* MODAL EDIÇÃO */}
       {editando && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
           <div style={{ background: "#181B24", borderRadius: "16px 16px 0 0", padding: "1.5rem", width: "100%", maxWidth: "480px", border: "1px solid #252832", maxHeight: "90vh", overflowY: "auto" }}>
@@ -423,7 +494,7 @@ export default function PradexFinancas() {
             <input type="date" value={editando.data_lancamento} onChange={e => setEditando(ed => ({ ...ed, data_lancamento: e.target.value }))} style={inputStyle} />
             {editando.tipo === "gasto" && (
               <button onClick={() => setEditando(ed => ({ ...ed, recorrente: !ed.recorrente }))} style={{ width: "100%", padding: "0.75rem", border: `1px solid ${editando.recorrente ? "#6366F1" : "#252832"}`, borderRadius: "10px", background: editando.recorrente ? "#6366F118" : "transparent", color: editando.recorrente ? "#6366F1" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginBottom: "0.75rem", transition: "all 0.2s" }}>
-                {editando.recorrente ? "🔁 Gasto recorrente (mensal)" : "🔁 Marcar como recorrente"}
+                {editando.recorrente ? "🔁 Recorrente — criará até Dez/" + new Date().getFullYear() : "🔁 Marcar como recorrente"}
               </button>
             )}
             {editando.tipo === "gasto" && (
@@ -441,6 +512,7 @@ export default function PradexFinancas() {
         </div>
       )}
 
+      {/* HEADER */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
         <div>
           <p style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "#555", textTransform: "uppercase", margin: "0 0 0.25rem" }}>
@@ -453,6 +525,7 @@ export default function PradexFinancas() {
         <button onClick={handleLogout} style={{ background: "none", border: "1px solid #252832", borderRadius: "8px", color: "#555", cursor: "pointer", padding: "0.4rem 0.75rem", fontSize: "0.75rem", fontFamily: "inherit" }}>Sair</button>
       </div>
 
+      {/* CARDS RESUMO */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem", marginBottom: "1.5rem" }}>
         {[{ label: "Receitas", value: totalReceitas, color: "#22C55E" }, { label: "Gastos", value: totalGastos, color: "#EF4444" }, { label: "Saldo", value: saldo, color: saldo >= 0 ? "#22C55E" : "#EF4444" }].map(card => (
           <div key={card.label} style={{ background: "#181B24", borderRadius: "12px", padding: "1rem 0.75rem", border: "1px solid #252832" }}>
@@ -462,19 +535,14 @@ export default function PradexFinancas() {
         ))}
       </div>
 
+      {/* MENU */}
       <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", border: "1px solid #252832", gap: "2px" }}>
         {menuItems.map(t => (
-          <button key={t.key} onClick={() => { setTela(t.key); setErro(""); setErroIA(""); }} style={{
-            flex: 1, padding: "0.5rem 0.25rem", border: "none", borderRadius: "8px", cursor: "pointer",
-            fontSize: t.key === "ia" ? "0.78rem" : "0.7rem", fontWeight: t.key === "ia" ? 700 : 600,
-            whiteSpace: "nowrap",
-            background: tela === t.key ? (t.key === "ia" ? "#6366F1" : "#252832") : "transparent",
-            color: tela === t.key ? "#F0F0F0" : t.key === "ia" ? "#6366F1" : "#555",
-            transition: "all 0.2s", fontFamily: "inherit",
-          }}>{t.label}</button>
+          <button key={t.key} onClick={() => { setTela(t.key); setErro(""); setErroIA(""); }} style={{ flex: 1, padding: "0.5rem 0.25rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: t.key === "ia" ? "0.78rem" : "0.7rem", fontWeight: t.key === "ia" ? 700 : 600, whiteSpace: "nowrap", background: tela === t.key ? (t.key === "ia" ? "#6366F1" : "#252832") : "transparent", color: tela === t.key ? "#F0F0F0" : t.key === "ia" ? "#6366F1" : "#555", transition: "all 0.2s", fontFamily: "inherit" }}>{t.label}</button>
         ))}
       </div>
 
+      {/* IA */}
       {tela === "ia" && (
         <div>
           <div style={{ background: "#6366F110", borderRadius: "20px", padding: "1.75rem 1.5rem", marginBottom: "1.25rem", border: "1px solid #6366F140", textAlign: "center" }}>
@@ -537,6 +605,7 @@ export default function PradexFinancas() {
         </div>
       )}
 
+      {/* DASHBOARD */}
       {tela === "dashboard" && (
         <div>
           {lancamentos.length === 0 ? (
@@ -561,9 +630,7 @@ export default function PradexFinancas() {
                       <span style={{ fontSize: "0.82rem", color: "#CCC" }}>{item.cat}</span>
                       <span style={{ fontSize: "0.82rem", fontWeight: 600, color: COLORS[i % COLORS.length] }}>{formatBRL(item.total)}</span>
                     </div>
-                    <div style={{ background: "#0F1117", borderRadius: "4px", height: "6px", overflow: "hidden" }}>
-                      <div style={{ background: COLORS[i % COLORS.length], height: "100%", width: `${(item.total / maxGasto) * 100}%`, borderRadius: "4px" }} />
-                    </div>
+                    <div style={{ background: "#0F1117", borderRadius: "4px", height: "6px", overflow: "hidden" }}><div style={{ background: COLORS[i % COLORS.length], height: "100%", width: `${(item.total / maxGasto) * 100}%`, borderRadius: "4px" }} /></div>
                   </div>
                 ))}
               </div>
@@ -588,6 +655,7 @@ export default function PradexFinancas() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ margin: 0, fontSize: "0.85rem", color: "#E8E8E8" }}>
                         {l.poderia_ter_evitado && <span style={{ marginRight: "4px" }}>😬</span>}
+                        {l.recorrente && <span style={{ marginRight: "4px" }}>🔁</span>}
                         {l.descricao}
                         {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.7rem", color: "#555", background: "#252832", padding: "1px 6px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
                       </p>
@@ -602,6 +670,7 @@ export default function PradexFinancas() {
         </div>
       )}
 
+      {/* LANÇAR */}
       {tela === "lancamentos" && (
         <>
           <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
@@ -638,18 +707,61 @@ export default function PradexFinancas() {
             )}
             {tipo === "gasto" && !form.parcelado && (
               <button onClick={() => setForm(f => ({ ...f, recorrente: !f.recorrente }))} style={{ width: "100%", padding: "0.65rem 1rem", border: `1px solid ${form.recorrente ? "#6366F1" : "#252832"}`, borderRadius: "10px", background: form.recorrente ? "#6366F118" : "transparent", color: form.recorrente ? "#6366F1" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s", marginBottom: "0.75rem" }}>
-                {form.recorrente ? "🔁 Gasto recorrente (mensal)" : "🔁 Marcar como recorrente"}
+                {form.recorrente ? `🔁 Recorrente — criará até Dez/${new Date().getFullYear()}` : "🔁 Marcar como recorrente"}
               </button>
             )}
             <input type="date" value={form.data_lancamento} onChange={e => setForm(f => ({ ...f, data_lancamento: e.target.value }))} style={inputStyle} />
             {erro && <p style={{ color: "#EF4444", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{erro}</p>}
-            <button onClick={handleSubmit} disabled={saving} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", background: success ? "#16A34A" : tipo === "receita" ? "#22C55E" : "#EF4444", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, transition: "all 0.2s", fontFamily: "inherit" }}>{saving ? "Salvando..." : success ? "✓ Salvo!" : form.parcelado && form.total_parcelas >= 2 ? `Parcelar em ${form.total_parcelas}x` : "Adicionar"}</button>
+            <button onClick={handleSubmit} disabled={saving} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", background: success ? "#16A34A" : tipo === "receita" ? "#22C55E" : "#EF4444", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, transition: "all 0.2s", fontFamily: "inherit" }}>{saving ? "Salvando..." : success ? "✓ Salvo!" : form.parcelado && form.total_parcelas >= 2 ? `Parcelar em ${form.total_parcelas}x` : form.recorrente ? "Adicionar + criar recorrências" : "Adicionar"}</button>
           </div>
 
+          {/* CATEGORIAS personalizáveis */}
+          <button onClick={() => setMostrarCategorias(!mostrarCategorias)} style={{ width: "100%", padding: "0.65rem 1rem", border: "1px solid #252832", borderRadius: "10px", background: "transparent", color: "#555", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "center", transition: "all 0.2s", marginBottom: "0.75rem" }}>
+            {mostrarCategorias ? "✕ Fechar categorias" : "🏷️ Gerenciar categorias"}
+          </button>
+          {mostrarCategorias && (
+            <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
+              <p style={{ margin: "0 0 1rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Nova categoria</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginBottom: "0.75rem" }}>
+                {["gasto", "receita"].map(t => (
+                  <button key={t} onClick={() => setNovaCategoria(n => ({ ...n, tipo: t }))} style={{ padding: "0.5rem", border: `1px solid ${novaCategoria.tipo === t ? "#6366F1" : "#252832"}`, borderRadius: "8px", background: novaCategoria.tipo === t ? "#6366F118" : "transparent", color: novaCategoria.tipo === t ? "#6366F1" : "#555", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                    {t === "gasto" ? "↓ Gasto" : "↑ Receita"}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+                <input type="text" placeholder="Nome da categoria" value={novaCategoria.nome} onChange={e => setNovaCategoria(n => ({ ...n, nome: e.target.value }))} onKeyDown={e => e.key === "Enter" && handleAddCategoria()} style={{ ...inputStyle, marginBottom: 0, flex: 1 }} />
+                <button onClick={handleAddCategoria} style={{ padding: "0.75rem 1rem", border: "none", borderRadius: "10px", background: "#6366F1", color: "#fff", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>+ Add</button>
+              </div>
+              <p style={{ margin: "0 0 0.5rem", fontSize: "0.7rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>Gastos</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginBottom: "1rem" }}>
+                {categories.gasto.map(c => (
+                  <div key={c} style={{ display: "flex", alignItems: "center", gap: "0.25rem", background: "#0F1117", borderRadius: "8px", padding: "0.3rem 0.6rem", border: "1px solid #252832" }}>
+                    <span style={{ fontSize: "0.78rem", color: "#CCC" }}>{c}</span>
+                    {!defaultCategories.gasto.includes(c) && (
+                      <button onClick={() => handleRemoveCategoria(c, "gasto")} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "0.9rem", padding: 0, lineHeight: 1 }}>×</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p style={{ margin: "0 0 0.5rem", fontSize: "0.7rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>Receitas</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+                {categories.receita.map(c => (
+                  <div key={c} style={{ display: "flex", alignItems: "center", gap: "0.25rem", background: "#0F1117", borderRadius: "8px", padding: "0.3rem 0.6rem", border: "1px solid #252832" }}>
+                    <span style={{ fontSize: "0.78rem", color: "#CCC" }}>{c}</span>
+                    {!defaultCategories.receita.includes(c) && (
+                      <button onClick={() => handleRemoveCategoria(c, "receita")} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "0.9rem", padding: 0, lineHeight: 1 }}>×</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* CARTÕES */}
           <button onClick={() => setMostrarFormCartao(!mostrarFormCartao)} style={{ width: "100%", padding: "0.65rem 1rem", border: "1px solid #252832", borderRadius: "10px", background: "transparent", color: "#555", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "center", transition: "all 0.2s", marginBottom: "1rem" }}>
             {mostrarFormCartao ? "✕ Fechar cartões" : "💳 Gerenciar cartões"}
           </button>
-
           {mostrarFormCartao && (
             <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
               <p style={{ margin: "0 0 1rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Novo cartão</p>
@@ -700,6 +812,7 @@ export default function PradexFinancas() {
         </>
       )}
 
+      {/* HISTÓRICO */}
       {tela === "historico" && (() => {
         const { ano, mes } = mesHistorico;
         const prefixo = `${ano}-${String(mes + 1).padStart(2, "0")}`;
@@ -776,6 +889,7 @@ export default function PradexFinancas() {
         );
       })()}
 
+      {/* METAS */}
       {tela === "metas" && (() => {
         const meta = parseFloat((simulador.meta || "").replace(/\./g, "").replace(",", ".")) || 0;
         const patrimonioAtual = parseFloat((simulador.patrimonioAtual || "").replace(/\./g, "").replace(",", ".")) || 0;
