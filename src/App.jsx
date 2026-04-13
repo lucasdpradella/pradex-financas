@@ -409,9 +409,9 @@ export default function PradexFinancas() {
     setSaving(false);
   };
 
-  const gastos = lancamentos.filter(l => l.tipo === "gasto");
-  const receitas = lancamentos.filter(l => l.tipo === "receita");
-  const totalReceitas = receitas.reduce((s, l) => s + Number(l.valor), 0);
+  const mesAtual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+  const gastos = lancamentos.filter(l => l.tipo === "gasto" && l.data_lancamento?.startsWith(mesAtual));
+  const receitas = lancamentos.filter(l => l.tipo === "receita" && l.data_lancamento?.startsWith(mesAtual));
   const totalGastos = gastos.reduce((s, l) => s + Number(l.valor), 0);
   const taxaMensal = 0.009;
   const gastosEvitaveis = lancamentos.filter(l => l.poderia_ter_evitado && l.tipo === "gasto");
