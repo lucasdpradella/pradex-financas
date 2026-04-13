@@ -52,6 +52,32 @@ async function criarRecorrentesAteDezembro(lancamento, dataInicio, token) {
   return criados;
 }
 
+// Agrupa lançamentos recorrentes por descricao+valor+categoria, mantém não-recorrentes individuais
+function agruparLancamentos(lancamentos) {
+  const grupos = {};
+  const naoRecorrentes = lancamentos.filter(l => !l.recorrente);
+  const recorrentes = lancamentos.filter(l => l.recorrente);
+
+  for (const l of recorrentes) {
+    const chave = `${l.descricao}||${l.valor}||${l.categoria}`;
+    if (!grupos[chave]) {
+      grupos[chave] = { ...l, _totalMeses: 1, _idsGrupo: [l.id] };
+    } else {
+      grupos[chave]._totalMeses += 1;
+      grupos[chave]._idsGrupo.push(l.id);
+      // Mantém a data mais antiga como referência
+      if (l.data_lancamento < grupos[chave].data_lancamento) {
+        grupos[chave].data_lancamento = l.data_lancamento;
+      }
+    }
+  }
+
+  const recorrentesAgrupados = Object.values(grupos);
+  const todos = [...recorrentesAgrupados, ...naoRecorrentes];
+  todos.sort((a, b) => b.id - a.id);
+  return todos;
+}
+
 function GraficoSimulador({ labels, dadosComAporte, dadosSemAporte, meta }) {
   const canvasRef = useRef(null);
   const instanceRef = useRef(null);
@@ -291,10 +317,8 @@ export default function PradexFinancas() {
         const data = await res.json();
         if (Array.isArray(data) && data[0]) {
           if (form.recorrente) {
-            // CORREÇÃO 1: cria recorrentes no banco mas NÃO joga todos no estado local
-            // apenas o lançamento original aparece no histórico recente
             await criarRecorrentesAteDezembro({ ...bodyBase }, form.data_lancamento, session.token);
-            setLancamentos(prev => [data[0], ...prev]);
+            await fetchLancamentos();
           } else {
             setLancamentos(prev => [data[0], ...prev]);
           }
@@ -306,10 +330,14 @@ export default function PradexFinancas() {
     setSaving(false);
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (l) => {
+    // Se for grupo recorrente, deleta todos os IDs do grupo
+    const ids = l._idsGrupo || [l.id];
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?id=eq.${id}`, { method: "DELETE", headers: api(session?.token) });
-      setLancamentos(prev => prev.filter(l => l.id !== id));
+      for (const id of ids) {
+        await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?id=eq.${id}`, { method: "DELETE", headers: api(session?.token) });
+      }
+      setLancamentos(prev => prev.filter(x => !ids.includes(x.id)));
     } catch (e) {}
   };
 
@@ -334,7 +362,6 @@ export default function PradexFinancas() {
         if (editando.recorrente && !editando._recorrenteOriginal) {
           const baseBody = { ...body, user_id: session.user.id };
           await criarRecorrentesAteDezembro(baseBody, editando.data_lancamento, session.token);
-          // Recarrega do banco para pegar os novos meses no histórico
           await fetchLancamentos();
         }
         setEditando(null);
@@ -410,7 +437,7 @@ export default function PradexFinancas() {
     setSaving(false);
   };
 
-  // CORREÇÃO 2: Dashboard filtra apenas o mês atual
+  // Dashboard filtra apenas o mês atual
   const mesAtual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
   const gastos = lancamentos.filter(l => l.tipo === "gasto" && l.data_lancamento?.startsWith(mesAtual));
   const receitas = lancamentos.filter(l => l.tipo === "receita" && l.data_lancamento?.startsWith(mesAtual));
@@ -431,6 +458,9 @@ export default function PradexFinancas() {
   const gastosPorCartao = cartoes.map(c => ({ cartao: c, total: lancamentos.filter(l => l.cartao_id === c.id && l.data_lancamento?.startsWith(mesAtual)).reduce((s, l) => s + Number(l.valor), 0) })).filter(x => x.total > 0);
   const gastosDebito = gastos.filter(l => l.forma_pagamento !== "Crédito").reduce((s, l) => s + Number(l.valor), 0);
   const formatData = (d) => { if (!d) return ""; const [y, m, day] = d.split("-"); return `${day} ${monthNames[parseInt(m)-1]}`; };
+
+  // Lista agrupada para a tela Lançar
+  const lancamentosAgrupados = agruparLancamentos(lancamentos);
 
   const inputStyle = { width: "100%", background: "#0F1117", border: "1px solid #252832", borderRadius: "10px", padding: "0.75rem 1rem", color: "#E8E8E8", fontSize: "0.9rem", marginBottom: "0.75rem", outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
   const menuItems = [{ key: "ia", label: "✨ IA" }, { key: "dashboard", label: "Dashboard" }, { key: "lancamentos", label: "Lançar" }, { key: "historico", label: "Histórico" }, { key: "metas", label: "Metas" }];
@@ -524,7 +554,7 @@ export default function PradexFinancas() {
         <button onClick={handleLogout} style={{ background: "none", border: "1px solid #252832", borderRadius: "8px", color: "#555", cursor: "pointer", padding: "0.4rem 0.75rem", fontSize: "0.75rem", fontFamily: "inherit" }}>Sair</button>
       </div>
 
-      {/* CARDS: Ganhos / Débito / Cartões */}
+      {/* CARDS */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem", marginBottom: "1.5rem" }}>
         <div style={{ background: "#181B24", borderRadius: "12px", padding: "1rem 0.75rem", border: "1px solid #252832" }}>
           <p style={{ margin: "0 0 0.4rem", fontSize: "0.65rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>Ganhos</p>
@@ -725,7 +755,6 @@ export default function PradexFinancas() {
             <button onClick={handleSubmit} disabled={saving} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", background: success ? "#16A34A" : tipo === "receita" ? "#22C55E" : "#EF4444", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, transition: "all 0.2s", fontFamily: "inherit" }}>{saving ? "Salvando..." : success ? "✓ Salvo!" : form.parcelado && form.total_parcelas >= 2 ? `Parcelar em ${form.total_parcelas}x` : form.recorrente ? "Adicionar + criar recorrências" : "Adicionar"}</button>
           </div>
 
-          {/* CATEGORIAS */}
           <button onClick={() => setMostrarCategorias(!mostrarCategorias)} style={{ width: "100%", padding: "0.65rem 1rem", border: "1px solid #252832", borderRadius: "10px", background: "transparent", color: "#555", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "center", transition: "all 0.2s", marginBottom: "0.75rem" }}>
             {mostrarCategorias ? "✕ Fechar categorias" : "🏷️ Gerenciar categorias"}
           </button>
@@ -764,7 +793,6 @@ export default function PradexFinancas() {
             </div>
           )}
 
-          {/* CARTÕES */}
           <button onClick={() => setMostrarFormCartao(!mostrarFormCartao)} style={{ width: "100%", padding: "0.65rem 1rem", border: "1px solid #252832", borderRadius: "10px", background: "transparent", color: "#555", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "center", transition: "all 0.2s", marginBottom: "1rem" }}>
             {mostrarFormCartao ? "✕ Fechar cartões" : "💳 Gerenciar cartões"}
           </button>
@@ -795,23 +823,26 @@ export default function PradexFinancas() {
             </div>
           )}
 
+          {/* LISTA AGRUPADA */}
           <div>
             <p style={{ margin: "0 0 1rem", fontSize: "0.7rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.15em" }}>Lançamentos {loading && "· carregando..."}</p>
-            {!loading && lancamentos.length === 0 && <p style={{ color: "#444", fontSize: "0.9rem", textAlign: "center", padding: "2rem 0" }}>Nenhum lançamento ainda.</p>}
-            {lancamentos.map(l => (
-              <div key={l.id} onClick={() => handleEdit(l)} style={{ display: "flex", alignItems: "center", padding: "0.9rem 1rem", background: l.poderia_ter_evitado ? "#F59E0B08" : "#181B24", borderRadius: "12px", marginBottom: "0.5rem", border: `1px solid ${l.poderia_ter_evitado ? "#F59E0B30" : "#252832"}`, gap: "0.75rem", cursor: "pointer" }}>
+            {!loading && lancamentosAgrupados.length === 0 && <p style={{ color: "#444", fontSize: "0.9rem", textAlign: "center", padding: "2rem 0" }}>Nenhum lançamento ainda.</p>}
+            {lancamentosAgrupados.map(l => (
+              <div key={l._idsGrupo ? `grupo-${l._idsGrupo[0]}` : l.id} onClick={() => handleEdit(l)} style={{ display: "flex", alignItems: "center", padding: "0.9rem 1rem", background: l.poderia_ter_evitado ? "#F59E0B08" : "#181B24", borderRadius: "12px", marginBottom: "0.5rem", border: `1px solid ${l.poderia_ter_evitado ? "#F59E0B30" : "#252832"}`, gap: "0.75rem", cursor: "pointer" }}>
                 <div style={{ width: "36px", height: "36px", borderRadius: "10px", flexShrink: 0, background: l.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem" }}>{l.tipo === "receita" ? "↑" : "↓"}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 500, color: "#E8E8E8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {l.descricao}
                     {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#6366F1", background: "#6366F115", padding: "1px 5px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
-                    {l.recorrente && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#22C55E", background: "#22C55E15", padding: "1px 5px", borderRadius: "4px" }}>🔁</span>}
+                    {l._totalMeses && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#22C55E", background: "#22C55E15", padding: "1px 5px", borderRadius: "4px" }}>🔁 {l._totalMeses} meses</span>}
                   </p>
                   <p style={{ margin: 0, fontSize: "0.72rem", color: "#555" }}>{l.categoria} · {l.forma_pagamento || "—"} · {formatData(l.data_lancamento)}</p>
                 </div>
                 <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444", flexShrink: 0 }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
-                {l.tipo === "gasto" && <button onClick={(e) => handleToggleArrependimento(e, l)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1rem", padding: "0 0.1rem", flexShrink: 0, opacity: l.poderia_ter_evitado ? 1 : 0.25, transition: "opacity 0.2s" }}>😬</button>}
-                <button onClick={(e) => { e.stopPropagation(); handleDelete(l.id); }} style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem", flexShrink: 0 }}>×</button>
+                {l.tipo === "gasto" && !l._totalMeses && (
+                  <button onClick={(e) => { e.stopPropagation(); handleToggleArrependimento(e, l); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1rem", padding: "0 0.1rem", flexShrink: 0, opacity: l.poderia_ter_evitado ? 1 : 0.25, transition: "opacity 0.2s" }}>😬</button>
+                )}
+                <button onClick={(e) => { e.stopPropagation(); handleDelete(l); }} style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem", flexShrink: 0 }}>×</button>
               </div>
             ))}
           </div>
