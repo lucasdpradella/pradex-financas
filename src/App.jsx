@@ -294,7 +294,7 @@ export default function PradexFinancas() {
         if (Array.isArray(data) && data[0]) {
           if (form.recorrente) {
             const futuros = await criarRecorrentesAteDezembro({ ...bodyBase }, form.data_lancamento, session.token);
-            setLancamentos(prev => [...futuros.reverse(), data[0], ...prev]);
+            setLancamentos(prev => [data[0], ...prev]);
           } else {
             setLancamentos(prev => [data[0], ...prev]);
           }
