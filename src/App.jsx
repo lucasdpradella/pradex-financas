@@ -32,7 +32,7 @@ async function fetchTaxaFocus() {
   return 5.65 + 4.5;
 }
 
-async function criarRecorrentesAteDezembro(lancamento, dataInicio, token) {
+async function criarRecorrentesAteDezembro(lancamento, dataInicio, token, grupoId) {
   const dataBase = new Date(dataInicio + "T12:00:00");
   const anoAtual = dataBase.getFullYear();
   const mesInicio = dataBase.getMonth();
@@ -40,7 +40,7 @@ async function criarRecorrentesAteDezembro(lancamento, dataInicio, token) {
   for (let m = mesInicio + 1; m <= 11; m++) {
     const dataLanc = new Date(anoAtual, m, dataBase.getDate());
     const dataStr = dataLanc.toISOString().split("T")[0];
-    const body = { ...lancamento, data_lancamento: dataStr, recorrente: true };
+    const body = { ...lancamento, data_lancamento: dataStr, recorrente: true, recorrente_grupo_id: grupoId };
     const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": `Bearer ${token}`, "Prefer": "return=representation" },
@@ -52,20 +52,19 @@ async function criarRecorrentesAteDezembro(lancamento, dataInicio, token) {
   return criados;
 }
 
-// Agrupa lançamentos recorrentes por descricao+valor+categoria, mantém não-recorrentes individuais
+// Agrupa recorrentes pelo recorrente_grupo_id (preciso), fallback por descricao+valor+categoria
 function agruparLancamentos(lancamentos) {
   const grupos = {};
   const naoRecorrentes = lancamentos.filter(l => !l.recorrente);
   const recorrentes = lancamentos.filter(l => l.recorrente);
 
   for (const l of recorrentes) {
-    const chave = `${l.descricao}||${l.valor}||${l.categoria}`;
+    const chave = l.recorrente_grupo_id || `${l.descricao}||${l.valor}||${l.categoria}`;
     if (!grupos[chave]) {
-      grupos[chave] = { ...l, _totalMeses: 1, _idsGrupo: [l.id] };
+      grupos[chave] = { ...l, _totalMeses: 1, _idsGrupo: [l.id], _grupoId: l.recorrente_grupo_id || null };
     } else {
       grupos[chave]._totalMeses += 1;
       grupos[chave]._idsGrupo.push(l.id);
-      // Mantém a data mais antiga como referência
       if (l.data_lancamento < grupos[chave].data_lancamento) {
         grupos[chave].data_lancamento = l.data_lancamento;
       }
@@ -214,10 +213,7 @@ export default function PradexFinancas() {
         headers: { ...api(session?.token), "Prefer": "return=representation" },
         body: JSON.stringify({ nome: novaCategoria.nome.trim(), tipo: novaCategoria.tipo, user_id: session.user.id, removida: false }),
       });
-      setCategories(prev => ({
-        ...prev,
-        [novaCategoria.tipo]: [...new Set([...prev[novaCategoria.tipo], novaCategoria.nome.trim()])],
-      }));
+      setCategories(prev => ({ ...prev, [novaCategoria.tipo]: [...new Set([...prev[novaCategoria.tipo], novaCategoria.nome.trim()])] }));
       setNovaCategoria(prev => ({ ...prev, nome: "" }));
     } catch (e) {}
   };
@@ -231,9 +227,7 @@ export default function PradexFinancas() {
           body: JSON.stringify({ nome, tipo, user_id: session.user.id, removida: true }),
         });
       } else {
-        await fetch(`${SUPABASE_URL}/rest/v1/categorias?nome=eq.${encodeURIComponent(nome)}&tipo=eq.${tipo}&user_id=eq.${session.user.id}`, {
-          method: "DELETE", headers: api(session?.token),
-        });
+        await fetch(`${SUPABASE_URL}/rest/v1/categorias?nome=eq.${encodeURIComponent(nome)}&tipo=eq.${tipo}&user_id=eq.${session.user.id}`, { method: "DELETE", headers: api(session?.token) });
       }
       setCategories(prev => ({ ...prev, [tipo]: prev[tipo].filter(c => c !== nome) }));
     } catch (e) {}
@@ -309,7 +303,9 @@ export default function PradexFinancas() {
         setForm({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "", parcelado: false, total_parcelas: "", recorrente: false });
         setSuccess(true); setTimeout(() => setSuccess(false), 2000);
       } else {
-        const bodyBase = { descricao: form.descricao, valor, tipo, categoria: form.categoria, data_lancamento: form.data_lancamento, user_id: session.user.id, forma_pagamento: form.forma_pagamento || null, cartao_id: form.forma_pagamento === "Crédito" && form.cartao_id ? parseInt(form.cartao_id) : null, poderia_ter_evitado: false, recorrente: form.recorrente || false };
+        // Gera grupo ID para a série recorrente
+        const grupoId = form.recorrente ? generateUUID() : null;
+        const bodyBase = { descricao: form.descricao, valor, tipo, categoria: form.categoria, data_lancamento: form.data_lancamento, user_id: session.user.id, forma_pagamento: form.forma_pagamento || null, cartao_id: form.forma_pagamento === "Crédito" && form.cartao_id ? parseInt(form.cartao_id) : null, poderia_ter_evitado: false, recorrente: form.recorrente || false, recorrente_grupo_id: grupoId };
         const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
           method: "POST", headers: { ...api(session?.token), "Prefer": "return=representation" },
           body: JSON.stringify(bodyBase),
@@ -317,7 +313,7 @@ export default function PradexFinancas() {
         const data = await res.json();
         if (Array.isArray(data) && data[0]) {
           if (form.recorrente) {
-            await criarRecorrentesAteDezembro({ ...bodyBase }, form.data_lancamento, session.token);
+            await criarRecorrentesAteDezembro({ ...bodyBase }, form.data_lancamento, session.token, grupoId);
             await fetchLancamentos();
           } else {
             setLancamentos(prev => [data[0], ...prev]);
@@ -331,18 +327,23 @@ export default function PradexFinancas() {
   };
 
   const handleDelete = async (l) => {
-    // Se for grupo recorrente, deleta todos os IDs do grupo
-    const ids = l._idsGrupo || [l.id];
     try {
-      for (const id of ids) {
-        await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?id=eq.${id}`, { method: "DELETE", headers: api(session?.token) });
+      if (l._grupoId) {
+        // Deleta toda a série pelo recorrente_grupo_id
+        await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?recorrente_grupo_id=eq.${l._grupoId}`, { method: "DELETE", headers: api(session?.token) });
+        setLancamentos(prev => prev.filter(x => x.recorrente_grupo_id !== l._grupoId));
+      } else {
+        const ids = l._idsGrupo || [l.id];
+        for (const id of ids) {
+          await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?id=eq.${id}`, { method: "DELETE", headers: api(session?.token) });
+        }
+        setLancamentos(prev => prev.filter(x => !ids.includes(x.id)));
       }
-      setLancamentos(prev => prev.filter(x => !ids.includes(x.id)));
     } catch (e) {}
   };
 
   const handleEdit = (l) => {
-    setEditando({ id: l.id, descricao: l.descricao || "", valor: String(l.valor), tipo: l.tipo || "gasto", categoria: l.categoria || "", data_lancamento: l.data_lancamento || today, forma_pagamento: l.forma_pagamento || "", cartao_id: l.cartao_id ? String(l.cartao_id) : "", poderia_ter_evitado: l.poderia_ter_evitado || false, recorrente: l.recorrente || false, _recorrenteOriginal: l.recorrente || false });
+    setEditando({ id: l.id, descricao: l.descricao || "", valor: String(l.valor), tipo: l.tipo || "gasto", categoria: l.categoria || "", data_lancamento: l.data_lancamento || today, forma_pagamento: l.forma_pagamento || "", cartao_id: l.cartao_id ? String(l.cartao_id) : "", poderia_ter_evitado: l.poderia_ter_evitado || false, recorrente: l.recorrente || false, _recorrenteOriginal: l.recorrente || false, _grupoId: l.recorrente_grupo_id || null });
   };
 
   const handleSaveEdit = async () => {
@@ -351,7 +352,8 @@ export default function PradexFinancas() {
     if (isNaN(valor) || valor <= 0) return;
     setSavingEdit(true);
     try {
-      const body = { descricao: editando.descricao, valor, tipo: editando.tipo, categoria: editando.categoria, data_lancamento: editando.data_lancamento, forma_pagamento: editando.forma_pagamento || null, cartao_id: editando.forma_pagamento === "Crédito" && editando.cartao_id ? parseInt(editando.cartao_id) : null, poderia_ter_evitado: editando.poderia_ter_evitado, recorrente: editando.recorrente || false };
+      const grupoId = (!editando._recorrenteOriginal && editando.recorrente) ? generateUUID() : editando._grupoId;
+      const body = { descricao: editando.descricao, valor, tipo: editando.tipo, categoria: editando.categoria, data_lancamento: editando.data_lancamento, forma_pagamento: editando.forma_pagamento || null, cartao_id: editando.forma_pagamento === "Crédito" && editando.cartao_id ? parseInt(editando.cartao_id) : null, poderia_ter_evitado: editando.poderia_ter_evitado, recorrente: editando.recorrente || false, recorrente_grupo_id: grupoId };
       const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?id=eq.${editando.id}`, {
         method: "PATCH", headers: { ...api(session?.token), "Prefer": "return=representation" },
         body: JSON.stringify(body),
@@ -361,7 +363,7 @@ export default function PradexFinancas() {
         setLancamentos(prev => prev.map(l => l.id === editando.id ? data[0] : l));
         if (editando.recorrente && !editando._recorrenteOriginal) {
           const baseBody = { ...body, user_id: session.user.id };
-          await criarRecorrentesAteDezembro(baseBody, editando.data_lancamento, session.token);
+          await criarRecorrentesAteDezembro(baseBody, editando.data_lancamento, session.token, grupoId);
           await fetchLancamentos();
         }
         setEditando(null);
@@ -437,7 +439,6 @@ export default function PradexFinancas() {
     setSaving(false);
   };
 
-  // Dashboard filtra apenas o mês atual
   const mesAtual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
   const gastos = lancamentos.filter(l => l.tipo === "gasto" && l.data_lancamento?.startsWith(mesAtual));
   const receitas = lancamentos.filter(l => l.tipo === "receita" && l.data_lancamento?.startsWith(mesAtual));
@@ -459,7 +460,6 @@ export default function PradexFinancas() {
   const gastosDebito = gastos.filter(l => l.forma_pagamento !== "Crédito").reduce((s, l) => s + Number(l.valor), 0);
   const formatData = (d) => { if (!d) return ""; const [y, m, day] = d.split("-"); return `${day} ${monthNames[parseInt(m)-1]}`; };
 
-  // Lista agrupada para a tela Lançar
   const lancamentosAgrupados = agruparLancamentos(lancamentos);
 
   const inputStyle = { width: "100%", background: "#0F1117", border: "1px solid #252832", borderRadius: "10px", padding: "0.75rem 1rem", color: "#E8E8E8", fontSize: "0.9rem", marginBottom: "0.75rem", outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
@@ -823,7 +823,6 @@ export default function PradexFinancas() {
             </div>
           )}
 
-          {/* LISTA AGRUPADA */}
           <div>
             <p style={{ margin: "0 0 1rem", fontSize: "0.7rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.15em" }}>Lançamentos {loading && "· carregando..."}</p>
             {!loading && lancamentosAgrupados.length === 0 && <p style={{ color: "#444", fontSize: "0.9rem", textAlign: "center", padding: "2rem 0" }}>Nenhum lançamento ainda.</p>}
@@ -834,7 +833,7 @@ export default function PradexFinancas() {
                   <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 500, color: "#E8E8E8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {l.descricao}
                     {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#6366F1", background: "#6366F115", padding: "1px 5px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
-                    {l._totalMeses && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#22C55E", background: "#22C55E15", padding: "1px 5px", borderRadius: "4px" }}>🔁 {l._totalMeses} meses</span>}
+                    {l._totalMeses && l._totalMeses > 1 && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#22C55E", background: "#22C55E15", padding: "1px 5px", borderRadius: "4px" }}>🔁 {l._totalMeses} meses</span>}
                   </p>
                   <p style={{ margin: 0, fontSize: "0.72rem", color: "#555" }}>{l.categoria} · {l.forma_pagamento || "—"} · {formatData(l.data_lancamento)}</p>
                 </div>
