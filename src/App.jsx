@@ -199,14 +199,12 @@ export default function PradexFinancas() {
   const handleRemoveCategoria = async (nome, tipo) => {
     try {
       if (defaultCategories[tipo].includes(nome)) {
-        // Categoria padrão: salva como removida no banco
         await fetch(`${SUPABASE_URL}/rest/v1/categorias`, {
           method: "POST",
           headers: { ...api(session?.token), "Prefer": "return=representation" },
           body: JSON.stringify({ nome, tipo, user_id: session.user.id, removida: true }),
         });
       } else {
-        // Categoria customizada: deleta do banco
         await fetch(`${SUPABASE_URL}/rest/v1/categorias?nome=eq.${encodeURIComponent(nome)}&tipo=eq.${tipo}&user_id=eq.${session.user.id}`, {
           method: "DELETE", headers: api(session?.token),
         });
@@ -293,7 +291,9 @@ export default function PradexFinancas() {
         const data = await res.json();
         if (Array.isArray(data) && data[0]) {
           if (form.recorrente) {
-            const futuros = await criarRecorrentesAteDezembro({ ...bodyBase }, form.data_lancamento, session.token);
+            // CORREÇÃO 1: cria recorrentes no banco mas NÃO joga todos no estado local
+            // apenas o lançamento original aparece no histórico recente
+            await criarRecorrentesAteDezembro({ ...bodyBase }, form.data_lancamento, session.token);
             setLancamentos(prev => [data[0], ...prev]);
           } else {
             setLancamentos(prev => [data[0], ...prev]);
@@ -333,8 +333,9 @@ export default function PradexFinancas() {
         setLancamentos(prev => prev.map(l => l.id === editando.id ? data[0] : l));
         if (editando.recorrente && !editando._recorrenteOriginal) {
           const baseBody = { ...body, user_id: session.user.id };
-          const futuros = await criarRecorrentesAteDezembro(baseBody, editando.data_lancamento, session.token);
-          if (futuros.length > 0) await fetchLancamentos();
+          await criarRecorrentesAteDezembro(baseBody, editando.data_lancamento, session.token);
+          // Recarrega do banco para pegar os novos meses no histórico
+          await fetchLancamentos();
         }
         setEditando(null);
       }
@@ -409,12 +410,14 @@ export default function PradexFinancas() {
     setSaving(false);
   };
 
+  // CORREÇÃO 2: Dashboard filtra apenas o mês atual
   const mesAtual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
   const gastos = lancamentos.filter(l => l.tipo === "gasto" && l.data_lancamento?.startsWith(mesAtual));
   const receitas = lancamentos.filter(l => l.tipo === "receita" && l.data_lancamento?.startsWith(mesAtual));
+  const totalReceitas = receitas.reduce((s, l) => s + Number(l.valor), 0);
   const totalGastos = gastos.reduce((s, l) => s + Number(l.valor), 0);
   const taxaMensal = 0.009;
-  const gastosEvitaveis = lancamentos.filter(l => l.poderia_ter_evitado && l.tipo === "gasto");
+  const gastosEvitaveis = lancamentos.filter(l => l.poderia_ter_evitado && l.tipo === "gasto" && l.data_lancamento?.startsWith(mesAtual));
   const totalEvitavel = gastosEvitaveis.reduce((s, l) => s + Number(l.valor), 0);
   const calcularImpacto12m = (l) => {
     const valor = Number(l.valor);
@@ -425,7 +428,7 @@ export default function PradexFinancas() {
   const totalImpacto12m = gastosEvitaveis.reduce((s, l) => s + calcularImpacto12m(l), 0);
   const gastosPorCategoria = categories.gasto.map(cat => ({ cat, total: gastos.filter(l => l.categoria === cat).reduce((s, l) => s + Number(l.valor), 0) })).filter(x => x.total > 0).sort((a, b) => b.total - a.total);
   const maxGasto = Math.max(...gastosPorCategoria.map(x => x.total), 1);
-  const gastosPorCartao = cartoes.map(c => ({ cartao: c, total: lancamentos.filter(l => l.cartao_id === c.id).reduce((s, l) => s + Number(l.valor), 0) })).filter(x => x.total > 0);
+  const gastosPorCartao = cartoes.map(c => ({ cartao: c, total: lancamentos.filter(l => l.cartao_id === c.id && l.data_lancamento?.startsWith(mesAtual)).reduce((s, l) => s + Number(l.valor), 0) })).filter(x => x.total > 0);
   const gastosDebito = gastos.filter(l => l.forma_pagamento !== "Crédito").reduce((s, l) => s + Number(l.valor), 0);
   const formatData = (d) => { if (!d) return ""; const [y, m, day] = d.split("-"); return `${day} ${monthNames[parseInt(m)-1]}`; };
 
