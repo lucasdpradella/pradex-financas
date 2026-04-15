@@ -28,6 +28,9 @@ const generateUUID = () => {
   });
 };
 
+const limparDescricaoParcela = (descricao = "") => descricao.replace(/\s*\(\d+\/\d+\)\s*$/, "").trim();
+const montarDescricaoParcela = (descricao, parcelaAtual, totalParcelas) => `${limparDescricaoParcela(descricao)} (${parcelaAtual}/${totalParcelas})`;
+
 async function fetchTaxaFocus() {
   return 5.65 + 4.5;
 }
@@ -108,7 +111,7 @@ export default function PradexFinancas() {
   const [authLoading, setAuthLoading] = useState(false);
   const [tela, setTela] = useState("ia");
   const [tipo, setTipo] = useState("gasto");
-  const [form, setForm] = useState({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "", parcelado: false, total_parcelas: "", recorrente: false });
+  const [form, setForm] = useState({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "", parcelado: false, parcela_atual: "1", total_parcelas: "", recorrente: false });
   const [lancamentos, setLancamentos] = useState([]);
   const [cartoes, setCartoes] = useState([]);
   const [categories, setCategories] = useState(defaultCategories);
@@ -284,33 +287,76 @@ export default function PradexFinancas() {
     const valor = parseFloat(form.valor.replace(",", "."));
     if (isNaN(valor) || valor <= 0) { setErro("Valor inválido."); return; }
     setSaving(true); setErro("");
+
     try {
       if (form.parcelado && form.forma_pagamento === "Crédito" && parseInt(form.total_parcelas) >= 2) {
         const nParcelas = parseInt(form.total_parcelas);
-        const valorParcela = valor / nParcelas;
+        const parcelaAtual = parseInt(form.parcela_atual) || 1;
+        const valorParcela = valor;
         const grupoId = generateUUID();
         const dataBase = new Date(form.data_lancamento + "T12:00:00");
-        for (let i = 0; i < nParcelas; i++) {
+
+        if (parcelaAtual < 1 || parcelaAtual > nParcelas) {
+          setErro("A parcela atual precisa estar entre 1 e o total de parcelas.");
+          setSaving(false);
+          return;
+        }
+
+        for (let i = parcelaAtual; i <= nParcelas; i++) {
           const dataParcela = new Date(dataBase);
-          dataParcela.setMonth(dataParcela.getMonth() + i);
+          dataParcela.setMonth(dataParcela.getMonth() + (i - parcelaAtual));
+
           await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
             method: "POST",
             headers: { ...api(session?.token), "Prefer": "return=representation" },
-            body: JSON.stringify({ descricao: `${form.descricao} (${i+1}/${nParcelas})`, valor: Math.round(valorParcela*100)/100, tipo, categoria: form.categoria, data_lancamento: dataParcela.toISOString().split("T")[0], user_id: session.user.id, forma_pagamento: "Crédito", cartao_id: form.cartao_id ? parseInt(form.cartao_id) : null, parcela_atual: i+1, total_parcelas: nParcelas, parcela_grupo_id: grupoId, poderia_ter_evitado: false }),
+            body: JSON.stringify({
+              descricao: montarDescricaoParcela(form.descricao, i, nParcelas),
+              valor: Math.round(valorParcela * 100) / 100,
+              tipo,
+              categoria: form.categoria,
+              data_lancamento: dataParcela.toISOString().split("T")[0],
+              user_id: session.user.id,
+              forma_pagamento: "Crédito",
+              cartao_id: form.cartao_id ? parseInt(form.cartao_id) : null,
+              parcela_atual: i,
+              total_parcelas: nParcelas,
+              parcela_grupo_id: grupoId,
+              poderia_ter_evitado: false,
+            }),
           });
         }
+
         await fetchLancamentos();
-        setForm({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "", parcelado: false, total_parcelas: "", recorrente: false });
-        setSuccess(true); setTimeout(() => setSuccess(false), 2000);
+        setForm({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "", parcelado: false, parcela_atual: "1", total_parcelas: "", recorrente: false });
+        setSuccess(true);
+        setTimeout(() => setSuccess(false), 2000);
       } else {
-        // Gera grupo ID para a série recorrente
         const grupoId = form.recorrente ? generateUUID() : null;
-        const bodyBase = { descricao: form.descricao, valor, tipo, categoria: form.categoria, data_lancamento: form.data_lancamento, user_id: session.user.id, forma_pagamento: form.forma_pagamento || null, cartao_id: form.forma_pagamento === "Crédito" && form.cartao_id ? parseInt(form.cartao_id) : null, poderia_ter_evitado: false, recorrente: form.recorrente || false, recorrente_grupo_id: grupoId };
+        const bodyBase = {
+          descricao: form.descricao,
+          valor,
+          tipo,
+          categoria: form.categoria,
+          data_lancamento: form.data_lancamento,
+          user_id: session.user.id,
+          forma_pagamento: form.forma_pagamento || null,
+          cartao_id: form.forma_pagamento === "Crédito" && form.cartao_id ? parseInt(form.cartao_id) : null,
+          poderia_ter_evitado: false,
+          recorrente: form.recorrente || false,
+          recorrente_grupo_id: grupoId,
+          parcela_atual: null,
+          total_parcelas: null,
+          parcela_grupo_id: null,
+        };
+
         const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
-          method: "POST", headers: { ...api(session?.token), "Prefer": "return=representation" },
+          method: "POST",
+          headers: { ...api(session?.token), "Prefer": "return=representation" },
           body: JSON.stringify(bodyBase),
         });
+
         const data = await res.json();
+
         if (Array.isArray(data) && data[0]) {
           if (form.recorrente) {
             await criarRecorrentesAteDezembro({ ...bodyBase }, form.data_lancamento, session.token, grupoId);
@@ -318,18 +364,24 @@ export default function PradexFinancas() {
           } else {
             setLancamentos(prev => [data[0], ...prev]);
           }
-          setForm({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "", parcelado: false, total_parcelas: "", recorrente: false });
-          setSuccess(true); setTimeout(() => setSuccess(false), 2000);
-        } else { setErro("Erro ao salvar."); }
+
+          setForm({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "", parcelado: false, parcela_atual: "1", total_parcelas: "", recorrente: false });
+          setSuccess(true);
+          setTimeout(() => setSuccess(false), 2000);
+        } else {
+          setErro("Erro ao salvar.");
+        }
       }
-    } catch (e) { setErro("Erro de conexão."); }
+    } catch (e) {
+      setErro("Erro de conexão.");
+    }
+
     setSaving(false);
   };
 
   const handleDelete = async (l) => {
     try {
       if (l._grupoId) {
-        // Deleta toda a série pelo recorrente_grupo_id
         await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?recorrente_grupo_id=eq.${l._grupoId}`, { method: "DELETE", headers: api(session?.token) });
         setLancamentos(prev => prev.filter(x => x.recorrente_grupo_id !== l._grupoId));
       } else {
@@ -343,32 +395,171 @@ export default function PradexFinancas() {
   };
 
   const handleEdit = (l) => {
-    setEditando({ id: l.id, descricao: l.descricao || "", valor: String(l.valor), tipo: l.tipo || "gasto", categoria: l.categoria || "", data_lancamento: l.data_lancamento || today, forma_pagamento: l.forma_pagamento || "", cartao_id: l.cartao_id ? String(l.cartao_id) : "", poderia_ter_evitado: l.poderia_ter_evitado || false, recorrente: l.recorrente || false, _recorrenteOriginal: l.recorrente || false, _grupoId: l.recorrente_grupo_id || null });
+    const totalParcelas = l.total_parcelas ? String(l.total_parcelas) : "";
+    const parcelaAtual = l.parcela_atual ? String(l.parcela_atual) : "1";
+
+    setEditando({
+      id: l.id,
+      descricao: limparDescricaoParcela(l.descricao || ""),
+      valor: String(l.valor),
+      tipo: l.tipo || "gasto",
+      categoria: l.categoria || "",
+      data_lancamento: l.data_lancamento || today,
+      forma_pagamento: l.forma_pagamento || "",
+      cartao_id: l.cartao_id ? String(l.cartao_id) : "",
+      poderia_ter_evitado: l.poderia_ter_evitado || false,
+      recorrente: l.recorrente || false,
+      parcelado: Boolean(l.total_parcelas),
+      parcela_atual: parcelaAtual,
+      total_parcelas: totalParcelas,
+      _recorrenteOriginal: l.recorrente || false,
+      _grupoId: l.recorrente_grupo_id || null,
+      _parcelaGrupoId: l.parcela_grupo_id || null,
+      _parcelaAtualOriginal: l.parcela_atual || null,
+    });
   };
 
   const handleSaveEdit = async () => {
     if (!editando.descricao || !editando.valor || !editando.categoria) return;
+
     const valor = parseFloat(String(editando.valor).replace(",", "."));
     if (isNaN(valor) || valor <= 0) return;
+
     setSavingEdit(true);
+
     try {
+      if (editando.parcelado && editando.forma_pagamento === "Crédito" && parseInt(editando.total_parcelas) >= 2) {
+        const totalParcelas = parseInt(editando.total_parcelas);
+        const parcelaAtual = parseInt(editando.parcela_atual) || 1;
+
+        if (parcelaAtual < 1 || parcelaAtual > totalParcelas) {
+          alert("A parcela atual precisa estar entre 1 e o total de parcelas.");
+          setSavingEdit(false);
+          return;
+        }
+
+        if (editando._parcelaAtualOriginal && parcelaAtual < editando._parcelaAtualOriginal) {
+          alert("Na edição de uma compra já lançada, a parcela atual não pode ser menor que a parcela original.");
+          setSavingEdit(false);
+          return;
+        }
+
+        const grupoParcelaId = editando._parcelaGrupoId || generateUUID();
+        const valorParcela = Math.round(valor * 100) / 100;
+        const descricaoBase = limparDescricaoParcela(editando.descricao);
+
+        if (editando._parcelaGrupoId) {
+          await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?parcela_grupo_id=eq.${editando._parcelaGrupoId}&parcela_atual=gte.${parcelaAtual}&id=neq.${editando.id}`, {
+            method: "DELETE",
+            headers: api(session?.token),
+          });
+        }
+
+        const resAtual = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?id=eq.${editando.id}`, {
+          method: "PATCH",
+          headers: { ...api(session?.token), "Prefer": "return=representation" },
+          body: JSON.stringify({
+            descricao: montarDescricaoParcela(descricaoBase, parcelaAtual, totalParcelas),
+            valor: valorParcela,
+            tipo: editando.tipo,
+            categoria: editando.categoria,
+            data_lancamento: editando.data_lancamento,
+            forma_pagamento: "Crédito",
+            cartao_id: editando.cartao_id ? parseInt(editando.cartao_id) : null,
+            poderia_ter_evitado: editando.poderia_ter_evitado,
+            recorrente: false,
+            recorrente_grupo_id: null,
+            parcela_atual: parcelaAtual,
+            total_parcelas: totalParcelas,
+            parcela_grupo_id: grupoParcelaId,
+          }),
+        });
+
+        const dataAtual = await resAtual.json();
+
+        if (Array.isArray(dataAtual) && dataAtual[0]) {
+          const dataBase = new Date(editando.data_lancamento + "T12:00:00");
+
+          for (let i = parcelaAtual + 1; i <= totalParcelas; i++) {
+            const dataParcela = new Date(dataBase);
+            dataParcela.setMonth(dataParcela.getMonth() + (i - parcelaAtual));
+
+            await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
+              method: "POST",
+              headers: { ...api(session?.token), "Prefer": "return=representation" },
+              body: JSON.stringify({
+                descricao: montarDescricaoParcela(descricaoBase, i, totalParcelas),
+                valor: valorParcela,
+                tipo: editando.tipo,
+                categoria: editando.categoria,
+                data_lancamento: dataParcela.toISOString().split("T")[0],
+                user_id: session.user.id,
+                forma_pagamento: "Crédito",
+                cartao_id: editando.cartao_id ? parseInt(editando.cartao_id) : null,
+                poderia_ter_evitado: editando.poderia_ter_evitado,
+                recorrente: false,
+                recorrente_grupo_id: null,
+                parcela_atual: i,
+                total_parcelas: totalParcelas,
+                parcela_grupo_id: grupoParcelaId,
+              }),
+            });
+          }
+
+          await fetchLancamentos();
+          setEditando(null);
+        }
+
+        setSavingEdit(false);
+        return;
+      }
+
+      if (editando._parcelaGrupoId) {
+        await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?parcela_grupo_id=eq.${editando._parcelaGrupoId}&id=neq.${editando.id}`, {
+          method: "DELETE",
+          headers: api(session?.token),
+        });
+      }
+
       const grupoId = (!editando._recorrenteOriginal && editando.recorrente) ? generateUUID() : editando._grupoId;
-      const body = { descricao: editando.descricao, valor, tipo: editando.tipo, categoria: editando.categoria, data_lancamento: editando.data_lancamento, forma_pagamento: editando.forma_pagamento || null, cartao_id: editando.forma_pagamento === "Crédito" && editando.cartao_id ? parseInt(editando.cartao_id) : null, poderia_ter_evitado: editando.poderia_ter_evitado, recorrente: editando.recorrente || false, recorrente_grupo_id: grupoId };
+
+      const body = {
+        descricao: limparDescricaoParcela(editando.descricao),
+        valor,
+        tipo: editando.tipo,
+        categoria: editando.categoria,
+        data_lancamento: editando.data_lancamento,
+        forma_pagamento: editando.forma_pagamento || null,
+        cartao_id: editando.forma_pagamento === "Crédito" && editando.cartao_id ? parseInt(editando.cartao_id) : null,
+        poderia_ter_evitado: editando.poderia_ter_evitado,
+        recorrente: editando.recorrente || false,
+        recorrente_grupo_id: grupoId,
+        parcela_atual: null,
+        total_parcelas: null,
+        parcela_grupo_id: null,
+      };
+
       const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?id=eq.${editando.id}`, {
-        method: "PATCH", headers: { ...api(session?.token), "Prefer": "return=representation" },
+        method: "PATCH",
+        headers: { ...api(session?.token), "Prefer": "return=representation" },
         body: JSON.stringify(body),
       });
+
       const data = await res.json();
+
       if (Array.isArray(data) && data[0]) {
         setLancamentos(prev => prev.map(l => l.id === editando.id ? data[0] : l));
+
         if (editando.recorrente && !editando._recorrenteOriginal) {
           const baseBody = { ...body, user_id: session.user.id };
           await criarRecorrentesAteDezembro(baseBody, editando.data_lancamento, session.token, grupoId);
           await fetchLancamentos();
         }
+
         setEditando(null);
       }
     } catch (e) {}
+
     setSavingEdit(false);
   };
 
@@ -501,16 +692,16 @@ export default function PradexFinancas() {
             </div>
             <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1rem" }}>
               {["gasto", "receita"].map(t => (
-                <button key={t} onClick={() => setEditando(e => ({ ...e, tipo: t, categoria: "" }))} style={{ flex: 1, padding: "0.5rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600, background: editando.tipo === t ? (t === "receita" ? "#22C55E" : "#EF4444") : "transparent", color: editando.tipo === t ? "#fff" : "#555", transition: "all 0.2s", fontFamily: "inherit" }}>{t === "receita" ? "↑ Receita" : "↓ Gasto"}</button>
+                <button key={t} onClick={() => setEditando(e => ({ ...e, tipo: t, categoria: "", parcelado: t === "gasto" ? e.parcelado : false, parcela_atual: t === "gasto" ? e.parcela_atual : "1", total_parcelas: t === "gasto" ? e.total_parcelas : "", recorrente: t === "gasto" ? e.recorrente : false }))} style={{ flex: 1, padding: "0.5rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600, background: editando.tipo === t ? (t === "receita" ? "#22C55E" : "#EF4444") : "transparent", color: editando.tipo === t ? "#fff" : "#555", transition: "all 0.2s", fontFamily: "inherit" }}>{t === "receita" ? "↑ Receita" : "↓ Gasto"}</button>
               ))}
             </div>
             <input type="text" placeholder="Descrição" value={editando.descricao} onChange={e => setEditando(ed => ({ ...ed, descricao: e.target.value }))} style={inputStyle} />
-            <input type="text" placeholder="Valor (R$)" value={editando.valor} onChange={e => setEditando(ed => ({ ...ed, valor: e.target.value }))} style={inputStyle} />
+            <input type="text" placeholder={editando.parcelado ? "Valor da parcela (R$)" : "Valor (R$)"} value={editando.valor} onChange={e => setEditando(ed => ({ ...ed, valor: e.target.value }))} style={inputStyle} />
             <select value={editando.categoria} onChange={e => setEditando(ed => ({ ...ed, categoria: e.target.value }))} style={{ ...inputStyle, color: editando.categoria ? "#E8E8E8" : "#555", appearance: "none" }}>
               <option value="">Categoria</option>
               {categories[editando.tipo].map(c => <option key={c} value={c}>{c}</option>)}
             </select>
-            <select value={editando.forma_pagamento} onChange={e => setEditando(ed => ({ ...ed, forma_pagamento: e.target.value, cartao_id: "" }))} style={{ ...inputStyle, color: editando.forma_pagamento ? "#E8E8E8" : "#555", appearance: "none" }}>
+            <select value={editando.forma_pagamento} onChange={e => setEditando(ed => ({ ...ed, forma_pagamento: e.target.value, cartao_id: "", parcelado: e.target.value === "Crédito" ? ed.parcelado : false, parcela_atual: e.target.value === "Crédito" ? ed.parcela_atual : "1", total_parcelas: e.target.value === "Crédito" ? ed.total_parcelas : "", recorrente: e.target.value === "Crédito" ? ed.recorrente : false }))} style={{ ...inputStyle, color: editando.forma_pagamento ? "#E8E8E8" : "#555", appearance: "none" }}>
               <option value="">Forma de pagamento</option>
               {formasPagamento.map(f => <option key={f} value={f}>{f}</option>)}
             </select>
@@ -520,8 +711,28 @@ export default function PradexFinancas() {
                 {cartoes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
             )}
+            {editando.tipo === "gasto" && editando.forma_pagamento === "Crédito" && (
+              <div style={{ marginBottom: "0.75rem" }}>
+                <button onClick={() => setEditando(ed => ({ ...ed, parcelado: !ed.parcelado, parcela_atual: ed.parcelado ? "1" : (ed.parcela_atual || "1"), total_parcelas: ed.parcelado ? "" : ed.total_parcelas, recorrente: false }))} style={{ width: "100%", padding: "0.75rem", border: `1px solid ${editando.parcelado ? "#6366F1" : "#252832"}`, borderRadius: "10px", background: editando.parcelado ? "#6366F118" : "transparent", color: editando.parcelado ? "#6366F1" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s" }}>
+                  {editando.parcelado ? "✓ Compra parcelada" : "+ Marcar como compra parcelada"}
+                </button>
+
+                {editando.parcelado && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginTop: "0.5rem" }}>
+                    <input type="number" placeholder="Parcela atual" min="1" max="48" value={editando.parcela_atual || "1"} onChange={e => setEditando(ed => ({ ...ed, parcela_atual: e.target.value }))} style={{ ...inputStyle, marginBottom: 0 }} />
+                    <input type="number" placeholder="Total de parcelas" min="2" max="48" value={editando.total_parcelas || ""} onChange={e => setEditando(ed => ({ ...ed, total_parcelas: e.target.value }))} style={{ ...inputStyle, marginBottom: 0 }} />
+                  </div>
+                )}
+
+                {editando.parcelado && editando.total_parcelas >= 2 && editando.valor && (
+                  <p style={{ margin: "0.4rem 0 0", fontSize: "0.78rem", color: "#888" }}>
+                    Atualiza da parcela {editando.parcela_atual || 1} até {editando.total_parcelas}, repetindo {formatBRL(parseFloat(String(editando.valor).replace(",", ".")) || 0)} por mês.
+                  </p>
+                )}
+              </div>
+            )}
             <input type="date" value={editando.data_lancamento} onChange={e => setEditando(ed => ({ ...ed, data_lancamento: e.target.value }))} style={inputStyle} />
-            {editando.tipo === "gasto" && (
+            {editando.tipo === "gasto" && !editando.parcelado && (
               <button onClick={() => setEditando(ed => ({ ...ed, recorrente: !ed.recorrente }))} style={{ width: "100%", padding: "0.75rem", border: `1px solid ${editando.recorrente ? "#6366F1" : "#252832"}`, borderRadius: "10px", background: editando.recorrente ? "#6366F118" : "transparent", color: editando.recorrente ? "#6366F1" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginBottom: "0.75rem", transition: "all 0.2s" }}>
                 {editando.recorrente ? "🔁 Recorrente — criará até Dez/" + new Date().getFullYear() : "🔁 Marcar como recorrente"}
               </button>
@@ -717,16 +928,16 @@ export default function PradexFinancas() {
             <p style={{ margin: "0 0 1rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Novo lançamento</p>
             <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1rem" }}>
               {["gasto", "receita"].map(t => (
-                <button key={t} onClick={() => { setTipo(t); setForm(f => ({ ...f, categoria: "", parcelado: false, total_parcelas: "" })); }} style={{ flex: 1, padding: "0.5rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600, background: tipo === t ? (t === "receita" ? "#22C55E" : "#EF4444") : "transparent", color: tipo === t ? "#fff" : "#555", transition: "all 0.2s", fontFamily: "inherit" }}>{t === "receita" ? "↑ Receita" : "↓ Gasto"}</button>
+                <button key={t} onClick={() => { setTipo(t); setForm(f => ({ ...f, categoria: "", parcelado: false, parcela_atual: "1", total_parcelas: "" })); }} style={{ flex: 1, padding: "0.5rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600, background: tipo === t ? (t === "receita" ? "#22C55E" : "#EF4444") : "transparent", color: tipo === t ? "#fff" : "#555", transition: "all 0.2s", fontFamily: "inherit" }}>{t === "receita" ? "↑ Receita" : "↓ Gasto"}</button>
               ))}
             </div>
             <input type="text" placeholder="Descrição" value={form.descricao} onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))} style={inputStyle} />
-            <input type="text" placeholder="Valor total (R$)" value={form.valor} onChange={e => setForm(f => ({ ...f, valor: e.target.value }))} style={inputStyle} />
+            <input type="text" placeholder={form.parcelado ? "Valor da parcela (R$)" : "Valor total (R$)"} value={form.valor} onChange={e => setForm(f => ({ ...f, valor: e.target.value }))} style={inputStyle} />
             <select value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))} style={{ ...inputStyle, color: form.categoria ? "#E8E8E8" : "#555", appearance: "none" }}>
               <option value="">Categoria</option>
               {categories[tipo].map(c => <option key={c} value={c}>{c}</option>)}
             </select>
-            <select value={form.forma_pagamento} onChange={e => setForm(f => ({ ...f, forma_pagamento: e.target.value, cartao_id: "", parcelado: false, total_parcelas: "" }))} style={{ ...inputStyle, color: form.forma_pagamento ? "#E8E8E8" : "#555", appearance: "none" }}>
+            <select value={form.forma_pagamento} onChange={e => setForm(f => ({ ...f, forma_pagamento: e.target.value, cartao_id: "", parcelado: false, parcela_atual: "1", total_parcelas: "" }))} style={{ ...inputStyle, color: form.forma_pagamento ? "#E8E8E8" : "#555", appearance: "none" }}>
               <option value="">Forma de pagamento</option>
               {formasPagamento.map(f => <option key={f} value={f}>{f}</option>)}
             </select>
@@ -738,11 +949,22 @@ export default function PradexFinancas() {
             )}
             {form.forma_pagamento === "Crédito" && (
               <div style={{ marginBottom: "0.75rem" }}>
-                <button onClick={() => setForm(f => ({ ...f, parcelado: !f.parcelado, total_parcelas: "" }))} style={{ width: "100%", padding: "0.65rem 1rem", border: `1px solid ${form.parcelado ? "#6366F1" : "#252832"}`, borderRadius: "10px", background: form.parcelado ? "#6366F118" : "transparent", color: form.parcelado ? "#6366F1" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s" }}>
+                <button onClick={() => setForm(f => ({ ...f, parcelado: !f.parcelado, parcela_atual: "1", total_parcelas: "", recorrente: false }))} style={{ width: "100%", padding: "0.65rem 1rem", border: `1px solid ${form.parcelado ? "#6366F1" : "#252832"}`, borderRadius: "10px", background: form.parcelado ? "#6366F118" : "transparent", color: form.parcelado ? "#6366F1" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s" }}>
                   {form.parcelado ? "✓ Compra parcelada" : "+ Parcelar no crédito"}
                 </button>
-                {form.parcelado && <input type="number" placeholder="Número de parcelas (ex: 10)" min="2" max="48" value={form.total_parcelas} onChange={e => setForm(f => ({ ...f, total_parcelas: e.target.value }))} style={{ ...inputStyle, marginTop: "0.5rem", marginBottom: 0 }} />}
-                {form.parcelado && form.total_parcelas >= 2 && form.valor && <p style={{ margin: "0.4rem 0 0", fontSize: "0.78rem", color: "#888" }}>= {form.total_parcelas}x de {formatBRL(parseFloat(form.valor.replace(",", ".")) / parseInt(form.total_parcelas) || 0)} por mês</p>}
+
+                {form.parcelado && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginTop: "0.5rem" }}>
+                    <input type="number" placeholder="Parcela atual" min="1" max="48" value={form.parcela_atual} onChange={e => setForm(f => ({ ...f, parcela_atual: e.target.value }))} style={{ ...inputStyle, marginBottom: 0 }} />
+                    <input type="number" placeholder="Total de parcelas" min="2" max="48" value={form.total_parcelas} onChange={e => setForm(f => ({ ...f, total_parcelas: e.target.value }))} style={{ ...inputStyle, marginBottom: 0 }} />
+                  </div>
+                )}
+
+                {form.parcelado && form.total_parcelas >= 2 && form.valor && (
+                  <p style={{ margin: "0.4rem 0 0", fontSize: "0.78rem", color: "#888" }}>
+                    Lança da parcela {form.parcela_atual || 1} até {form.total_parcelas}, repetindo {formatBRL(parseFloat(form.valor.replace(",", ".")) || 0)} por mês.
+                  </p>
+                )}
               </div>
             )}
             {tipo === "gasto" && !form.parcelado && (
