@@ -570,19 +570,31 @@ export default function PradexFinancas() {
   const opcoesFiltroLancamentos = [
     { value: "todos", label: "Todos" },
     { value: "debito", label: "DÃ©bito" },
-    { value: "credito", label: "CrÃ©dito" },
+    { value: "credito", label: "CrÃ©dito total" },
+    { value: "parceladas", label: "Parceladas" },
     ...cartoes.map(cartao => ({ value: `cartao-${cartao.id}`, label: `CrÃ©dito Â· ${cartao.nome}` })),
   ];
   const lancamentosFiltrados = lancamentosAgrupados.filter((lancamento) => {
     if (filtroLancamentos === "todos") return true;
     if (filtroLancamentos === "debito") return lancamento.tipo === "gasto" && lancamento.forma_pagamento !== "CrÃ©dito";
     if (filtroLancamentos === "credito") return lancamento.tipo === "gasto" && lancamento.forma_pagamento === "CrÃ©dito";
+    if (filtroLancamentos === "parceladas") return lancamento.tipo === "gasto" && lancamento.forma_pagamento === "CrÃ©dito" && Number(lancamento.total_parcelas) >= 2;
     if (filtroLancamentos.startsWith("cartao-")) {
       const cartaoId = parseInt(filtroLancamentos.replace("cartao-", ""), 10);
       return lancamento.tipo === "gasto" && lancamento.forma_pagamento === "CrÃ©dito" && Number(lancamento.cartao_id) === cartaoId;
     }
     return true;
   });
+  const cartaoSelecionado = filtroLancamentos.startsWith("cartao-")
+    ? cartoes.find(cartao => `cartao-${cartao.id}` === filtroLancamentos) || null
+    : null;
+  const totalFiltradoLancamentos = lancamentosFiltrados.reduce((s, lancamento) => s + Number(lancamento.valor || 0), 0);
+  const quantidadeFiltradaLancamentos = lancamentosFiltrados.length;
+  const totalCartaoSelecionado = cartaoSelecionado
+    ? lancamentosAgrupados
+        .filter(lancamento => lancamento.tipo === "gasto" && lancamento.forma_pagamento === "CrÃ©dito" && Number(lancamento.cartao_id) === Number(cartaoSelecionado.id))
+        .reduce((s, lancamento) => s + Number(lancamento.valor || 0), 0)
+    : 0;
 
   const inputStyle = { width: "100%", background: "#0F1117", border: "1px solid #252832", borderRadius: "10px", padding: "0.75rem 1rem", color: "#E8E8E8", fontSize: "0.9rem", marginBottom: "0.75rem", outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
   const menuItems = [{ key: "ia", label: "âœ¨ IA" }, { key: "dashboard", label: "Dashboard" }, { key: "lancamentos", label: "LanÃ§ar" }, { key: "historico", label: "HistÃ³rico" }, { key: "metas", label: "Metas" }];
@@ -1011,16 +1023,30 @@ export default function PradexFinancas() {
 
           <div>
             <p style={{ margin: "0 0 1rem", fontSize: "0.7rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.15em" }}>LanÃ§amentos {loading && "Â· carregando..."}</p>
-            <div style={{ display: "grid", gridTemplateColumns: filtroLancamentos.startsWith("cartao-") ? "1fr 1fr" : "1fr", gap: "0.75rem", marginBottom: "1rem" }}>
+            <div style={{ marginBottom: "1rem" }}>
               <select value={filtroLancamentos} onChange={e => setFiltroLancamentos(e.target.value)} style={{ ...inputStyle, marginBottom: 0, color: "#E8E8E8", appearance: "none" }}>
                 {opcoesFiltroLancamentos.map(opcao => <option key={opcao.value} value={opcao.value}>{opcao.label}</option>)}
               </select>
-              {filtroLancamentos.startsWith("cartao-") && (
-                <div style={{ background: "#181B24", borderRadius: "10px", border: "1px solid #252832", padding: "0.75rem 1rem", display: "flex", alignItems: "center" }}>
-                  <p style={{ margin: 0, fontSize: "0.78rem", color: "#888" }}>
-                    Mostrando apenas compras no {cartoes.find(c => `cartao-${c.id}` === filtroLancamentos)?.nome || "cartÃ£o selecionado"}.
-                  </p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "0.6rem", marginTop: "0.75rem" }}>
+                <div style={{ background: "#181B24", borderRadius: "10px", border: "1px solid #252832", padding: "0.8rem 0.9rem" }}>
+                  <p style={{ margin: "0 0 0.25rem", fontSize: "0.66rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.08em" }}>Total filtrado</p>
+                  <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 700, color: "#E8E8E8" }}>{formatBRL(totalFiltradoLancamentos)}</p>
                 </div>
+                <div style={{ background: "#181B24", borderRadius: "10px", border: "1px solid #252832", padding: "0.8rem 0.9rem" }}>
+                  <p style={{ margin: "0 0 0.25rem", fontSize: "0.66rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.08em" }}>LanÃ§amentos</p>
+                  <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 700, color: "#E8E8E8" }}>{quantidadeFiltradaLancamentos}</p>
+                </div>
+                {cartaoSelecionado && (
+                  <div style={{ background: "#181B24", borderRadius: "10px", border: "1px solid #252832", padding: "0.8rem 0.9rem" }}>
+                    <p style={{ margin: "0 0 0.25rem", fontSize: "0.66rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.08em" }}>{cartaoSelecionado.nome}</p>
+                    <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 700, color: "#F59E0B" }}>{formatBRL(totalCartaoSelecionado)}</p>
+                  </div>
+                )}
+              </div>
+              {cartaoSelecionado && (
+                <p style={{ margin: "0.6rem 0 0", fontSize: "0.76rem", color: "#777" }}>
+                  Mostrando apenas compras no cartÃ£o {cartaoSelecionado.nome}.
+                </p>
               )}
             </div>
             {!loading && lancamentosFiltrados.length === 0 && <p style={{ color: "#444", fontSize: "0.9rem", textAlign: "center", padding: "2rem 0" }}>Nenhum lanÃ§amento encontrado nesse filtro.</p>}
