@@ -30,6 +30,11 @@ const generateUUID = () => {
 
 const limparDescricaoParcela = (descricao = "") => descricao.replace(/\s*\(\d+\/\d+\)\s*$/, "").trim();
 const montarDescricaoParcela = (descricao, parcelaAtual, totalParcelas) => `${limparDescricaoParcela(descricao)} (${parcelaAtual}/${totalParcelas})`;
+const getMonthKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+const getMonthLabel = (key) => {
+  const [ano, mes] = key.split("-");
+  return `${monthNames[parseInt(mes, 10) - 1]} ${ano}`;
+};
 
 async function fetchTaxaFocus() {
   return 5.65 + 4.5;
@@ -287,7 +292,6 @@ export default function PradexFinancas() {
     const valor = parseFloat(form.valor.replace(",", "."));
     if (isNaN(valor) || valor <= 0) { setErro("Valor inválido."); return; }
     setSaving(true); setErro("");
-
     try {
       if (form.parcelado && form.forma_pagamento === "Crédito" && parseInt(form.total_parcelas) >= 2) {
         const nParcelas = parseInt(form.total_parcelas);
@@ -295,68 +299,28 @@ export default function PradexFinancas() {
         const valorParcela = valor;
         const grupoId = generateUUID();
         const dataBase = new Date(form.data_lancamento + "T12:00:00");
-
-        if (parcelaAtual < 1 || parcelaAtual > nParcelas) {
-          setErro("A parcela atual precisa estar entre 1 e o total de parcelas.");
-          setSaving(false);
-          return;
-        }
-
+        if (parcelaAtual < 1 || parcelaAtual > nParcelas) { setErro("A parcela atual precisa estar entre 1 e o total de parcelas."); setSaving(false); return; }
         for (let i = parcelaAtual; i <= nParcelas; i++) {
           const dataParcela = new Date(dataBase);
           dataParcela.setMonth(dataParcela.getMonth() + (i - parcelaAtual));
-
           await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
             method: "POST",
             headers: { ...api(session?.token), "Prefer": "return=representation" },
-            body: JSON.stringify({
-              descricao: montarDescricaoParcela(form.descricao, i, nParcelas),
-              valor: Math.round(valorParcela * 100) / 100,
-              tipo,
-              categoria: form.categoria,
-              data_lancamento: dataParcela.toISOString().split("T")[0],
-              user_id: session.user.id,
-              forma_pagamento: "Crédito",
-              cartao_id: form.cartao_id ? parseInt(form.cartao_id) : null,
-              parcela_atual: i,
-              total_parcelas: nParcelas,
-              parcela_grupo_id: grupoId,
-              poderia_ter_evitado: false,
-            }),
+            body: JSON.stringify({ descricao: montarDescricaoParcela(form.descricao, i, nParcelas), valor: Math.round(valorParcela*100)/100, tipo, categoria: form.categoria, data_lancamento: dataParcela.toISOString().split("T")[0], user_id: session.user.id, forma_pagamento: "Crédito", cartao_id: form.cartao_id ? parseInt(form.cartao_id) : null, parcela_atual: i, total_parcelas: nParcelas, parcela_grupo_id: grupoId, poderia_ter_evitado: false }),
           });
         }
-
         await fetchLancamentos();
         setForm({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "", parcelado: false, parcela_atual: "1", total_parcelas: "", recorrente: false });
-        setSuccess(true);
-        setTimeout(() => setSuccess(false), 2000);
+        setSuccess(true); setTimeout(() => setSuccess(false), 2000);
       } else {
+        // Gera grupo ID para a série recorrente
         const grupoId = form.recorrente ? generateUUID() : null;
-        const bodyBase = {
-          descricao: form.descricao,
-          valor,
-          tipo,
-          categoria: form.categoria,
-          data_lancamento: form.data_lancamento,
-          user_id: session.user.id,
-          forma_pagamento: form.forma_pagamento || null,
-          cartao_id: form.forma_pagamento === "Crédito" && form.cartao_id ? parseInt(form.cartao_id) : null,
-          poderia_ter_evitado: false,
-          recorrente: form.recorrente || false,
-          recorrente_grupo_id: grupoId,
-          parcela_atual: null,
-          total_parcelas: null,
-          parcela_grupo_id: null,
-        };
-
+        const bodyBase = { descricao: form.descricao, valor, tipo, categoria: form.categoria, data_lancamento: form.data_lancamento, user_id: session.user.id, forma_pagamento: form.forma_pagamento || null, cartao_id: form.forma_pagamento === "Crédito" && form.cartao_id ? parseInt(form.cartao_id) : null, poderia_ter_evitado: false, recorrente: form.recorrente || false, recorrente_grupo_id: grupoId, parcela_atual: null, total_parcelas: null, parcela_grupo_id: null };
         const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
-          method: "POST",
-          headers: { ...api(session?.token), "Prefer": "return=representation" },
+          method: "POST", headers: { ...api(session?.token), "Prefer": "return=representation" },
           body: JSON.stringify(bodyBase),
         });
-
         const data = await res.json();
-
         if (Array.isArray(data) && data[0]) {
           if (form.recorrente) {
             await criarRecorrentesAteDezembro({ ...bodyBase }, form.data_lancamento, session.token, grupoId);
@@ -364,24 +328,18 @@ export default function PradexFinancas() {
           } else {
             setLancamentos(prev => [data[0], ...prev]);
           }
-
           setForm({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "", parcelado: false, parcela_atual: "1", total_parcelas: "", recorrente: false });
-          setSuccess(true);
-          setTimeout(() => setSuccess(false), 2000);
-        } else {
-          setErro("Erro ao salvar.");
-        }
+          setSuccess(true); setTimeout(() => setSuccess(false), 2000);
+        } else { setErro("Erro ao salvar."); }
       }
-    } catch (e) {
-      setErro("Erro de conexão.");
-    }
-
+    } catch (e) { setErro("Erro de conexão."); }
     setSaving(false);
   };
 
   const handleDelete = async (l) => {
     try {
       if (l._grupoId) {
+        // Deleta toda a série pelo recorrente_grupo_id
         await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?recorrente_grupo_id=eq.${l._grupoId}`, { method: "DELETE", headers: api(session?.token) });
         setLancamentos(prev => prev.filter(x => x.recorrente_grupo_id !== l._grupoId));
       } else {
@@ -397,64 +355,28 @@ export default function PradexFinancas() {
   const handleEdit = (l) => {
     const totalParcelas = l.total_parcelas ? String(l.total_parcelas) : "";
     const parcelaAtual = l.parcela_atual ? String(l.parcela_atual) : "1";
-
-    setEditando({
-      id: l.id,
-      descricao: limparDescricaoParcela(l.descricao || ""),
-      valor: String(l.valor),
-      tipo: l.tipo || "gasto",
-      categoria: l.categoria || "",
-      data_lancamento: l.data_lancamento || today,
-      forma_pagamento: l.forma_pagamento || "",
-      cartao_id: l.cartao_id ? String(l.cartao_id) : "",
-      poderia_ter_evitado: l.poderia_ter_evitado || false,
-      recorrente: l.recorrente || false,
-      parcelado: Boolean(l.total_parcelas),
-      parcela_atual: parcelaAtual,
-      total_parcelas: totalParcelas,
-      _recorrenteOriginal: l.recorrente || false,
-      _grupoId: l.recorrente_grupo_id || null,
-      _parcelaGrupoId: l.parcela_grupo_id || null,
-      _parcelaAtualOriginal: l.parcela_atual || null,
-    });
+    setEditando({ id: l.id, descricao: limparDescricaoParcela(l.descricao || ""), valor: String(l.valor), tipo: l.tipo || "gasto", categoria: l.categoria || "", data_lancamento: l.data_lancamento || today, forma_pagamento: l.forma_pagamento || "", cartao_id: l.cartao_id ? String(l.cartao_id) : "", poderia_ter_evitado: l.poderia_ter_evitado || false, recorrente: l.recorrente || false, parcelado: Boolean(l.total_parcelas), parcela_atual: parcelaAtual, total_parcelas: totalParcelas, _recorrenteOriginal: l.recorrente || false, _grupoId: l.recorrente_grupo_id || null, _parcelaGrupoId: l.parcela_grupo_id || null, _parcelaAtualOriginal: l.parcela_atual || null });
   };
 
   const handleSaveEdit = async () => {
     if (!editando.descricao || !editando.valor || !editando.categoria) return;
-
     const valor = parseFloat(String(editando.valor).replace(",", "."));
     if (isNaN(valor) || valor <= 0) return;
-
     setSavingEdit(true);
-
     try {
       if (editando.parcelado && editando.forma_pagamento === "Crédito" && parseInt(editando.total_parcelas) >= 2) {
         const totalParcelas = parseInt(editando.total_parcelas);
         const parcelaAtual = parseInt(editando.parcela_atual) || 1;
-
-        if (parcelaAtual < 1 || parcelaAtual > totalParcelas) {
-          alert("A parcela atual precisa estar entre 1 e o total de parcelas.");
-          setSavingEdit(false);
-          return;
-        }
-
-        if (editando._parcelaAtualOriginal && parcelaAtual < editando._parcelaAtualOriginal) {
-          alert("Na edição de uma compra já lançada, a parcela atual não pode ser menor que a parcela original.");
-          setSavingEdit(false);
-          return;
-        }
-
+        if (parcelaAtual < 1 || parcelaAtual > totalParcelas) { alert("A parcela atual precisa estar entre 1 e o total de parcelas."); setSavingEdit(false); return; }
         const grupoParcelaId = editando._parcelaGrupoId || generateUUID();
         const valorParcela = Math.round(valor * 100) / 100;
         const descricaoBase = limparDescricaoParcela(editando.descricao);
-
         if (editando._parcelaGrupoId) {
-          await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?parcela_grupo_id=eq.${editando._parcelaGrupoId}&parcela_atual=gte.${parcelaAtual}&id=neq.${editando.id}`, {
+          await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?parcela_grupo_id=eq.${editando._parcelaGrupoId}&id=neq.${editando.id}`, {
             method: "DELETE",
             headers: api(session?.token),
           });
         }
-
         const resAtual = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?id=eq.${editando.id}`, {
           method: "PATCH",
           headers: { ...api(session?.token), "Prefer": "return=representation" },
@@ -474,16 +396,12 @@ export default function PradexFinancas() {
             parcela_grupo_id: grupoParcelaId,
           }),
         });
-
         const dataAtual = await resAtual.json();
-
         if (Array.isArray(dataAtual) && dataAtual[0]) {
           const dataBase = new Date(editando.data_lancamento + "T12:00:00");
-
           for (let i = parcelaAtual + 1; i <= totalParcelas; i++) {
             const dataParcela = new Date(dataBase);
             dataParcela.setMonth(dataParcela.getMonth() + (i - parcelaAtual));
-
             await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
               method: "POST",
               headers: { ...api(session?.token), "Prefer": "return=representation" },
@@ -505,11 +423,9 @@ export default function PradexFinancas() {
               }),
             });
           }
-
           await fetchLancamentos();
           setEditando(null);
         }
-
         setSavingEdit(false);
         return;
       }
@@ -520,46 +436,23 @@ export default function PradexFinancas() {
           headers: api(session?.token),
         });
       }
-
       const grupoId = (!editando._recorrenteOriginal && editando.recorrente) ? generateUUID() : editando._grupoId;
-
-      const body = {
-        descricao: limparDescricaoParcela(editando.descricao),
-        valor,
-        tipo: editando.tipo,
-        categoria: editando.categoria,
-        data_lancamento: editando.data_lancamento,
-        forma_pagamento: editando.forma_pagamento || null,
-        cartao_id: editando.forma_pagamento === "Crédito" && editando.cartao_id ? parseInt(editando.cartao_id) : null,
-        poderia_ter_evitado: editando.poderia_ter_evitado,
-        recorrente: editando.recorrente || false,
-        recorrente_grupo_id: grupoId,
-        parcela_atual: null,
-        total_parcelas: null,
-        parcela_grupo_id: null,
-      };
-
+      const body = { descricao: limparDescricaoParcela(editando.descricao), valor, tipo: editando.tipo, categoria: editando.categoria, data_lancamento: editando.data_lancamento, forma_pagamento: editando.forma_pagamento || null, cartao_id: editando.forma_pagamento === "Crédito" && editando.cartao_id ? parseInt(editando.cartao_id) : null, poderia_ter_evitado: editando.poderia_ter_evitado, recorrente: editando.recorrente || false, recorrente_grupo_id: grupoId, parcela_atual: null, total_parcelas: null, parcela_grupo_id: null };
       const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?id=eq.${editando.id}`, {
-        method: "PATCH",
-        headers: { ...api(session?.token), "Prefer": "return=representation" },
+        method: "PATCH", headers: { ...api(session?.token), "Prefer": "return=representation" },
         body: JSON.stringify(body),
       });
-
       const data = await res.json();
-
       if (Array.isArray(data) && data[0]) {
         setLancamentos(prev => prev.map(l => l.id === editando.id ? data[0] : l));
-
         if (editando.recorrente && !editando._recorrenteOriginal) {
           const baseBody = { ...body, user_id: session.user.id };
           await criarRecorrentesAteDezembro(baseBody, editando.data_lancamento, session.token, grupoId);
           await fetchLancamentos();
         }
-
         setEditando(null);
       }
     } catch (e) {}
-
     setSavingEdit(false);
   };
 
@@ -649,6 +542,24 @@ export default function PradexFinancas() {
   const maxGasto = Math.max(...gastosPorCategoria.map(x => x.total), 1);
   const gastosPorCartao = cartoes.map(c => ({ cartao: c, total: lancamentos.filter(l => l.cartao_id === c.id && l.data_lancamento?.startsWith(mesAtual)).reduce((s, l) => s + Number(l.valor), 0) })).filter(x => x.total > 0);
   const gastosDebito = gastos.filter(l => l.forma_pagamento !== "Crédito").reduce((s, l) => s + Number(l.valor), 0);
+  const projecaoParcelas = Array.from({ length: 3 }, (_, offset) => {
+    const dataBase = new Date();
+    dataBase.setDate(1);
+    dataBase.setMonth(dataBase.getMonth() + offset + 1);
+    const monthKey = getMonthKey(dataBase);
+    const parcelasMes = lancamentos
+      .filter(l => l.tipo === "gasto" && l.forma_pagamento === "Crédito" && l.total_parcelas && l.data_lancamento?.startsWith(monthKey))
+      .sort((a, b) => Number(b.valor) - Number(a.valor));
+    const total = parcelasMes.reduce((s, l) => s + Number(l.valor), 0);
+    const comprasAtivas = new Set(parcelasMes.map(l => l.parcela_grupo_id || `${limparDescricaoParcela(l.descricao)}-${l.cartao_id || "sem-cartao"}`)).size;
+    return {
+      key: monthKey,
+      label: getMonthLabel(monthKey),
+      total,
+      comprasAtivas,
+      parcelas: parcelasMes.slice(0, 3),
+    };
+  });
   const formatData = (d) => { if (!d) return ""; const [y, m, day] = d.split("-"); return `${day} ${monthNames[parseInt(m)-1]}`; };
 
   const lancamentosAgrupados = agruparLancamentos(lancamentos);
@@ -716,19 +627,13 @@ export default function PradexFinancas() {
                 <button onClick={() => setEditando(ed => ({ ...ed, parcelado: !ed.parcelado, parcela_atual: ed.parcelado ? "1" : (ed.parcela_atual || "1"), total_parcelas: ed.parcelado ? "" : ed.total_parcelas, recorrente: false }))} style={{ width: "100%", padding: "0.75rem", border: `1px solid ${editando.parcelado ? "#6366F1" : "#252832"}`, borderRadius: "10px", background: editando.parcelado ? "#6366F118" : "transparent", color: editando.parcelado ? "#6366F1" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s" }}>
                   {editando.parcelado ? "✓ Compra parcelada" : "+ Marcar como compra parcelada"}
                 </button>
-
                 {editando.parcelado && (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginTop: "0.5rem" }}>
                     <input type="number" placeholder="Parcela atual" min="1" max="48" value={editando.parcela_atual || "1"} onChange={e => setEditando(ed => ({ ...ed, parcela_atual: e.target.value }))} style={{ ...inputStyle, marginBottom: 0 }} />
                     <input type="number" placeholder="Total de parcelas" min="2" max="48" value={editando.total_parcelas || ""} onChange={e => setEditando(ed => ({ ...ed, total_parcelas: e.target.value }))} style={{ ...inputStyle, marginBottom: 0 }} />
                   </div>
                 )}
-
-                {editando.parcelado && editando.total_parcelas >= 2 && editando.valor && (
-                  <p style={{ margin: "0.4rem 0 0", fontSize: "0.78rem", color: "#888" }}>
-                    Atualiza da parcela {editando.parcela_atual || 1} até {editando.total_parcelas}, repetindo {formatBRL(parseFloat(String(editando.valor).replace(",", ".")) || 0)} por mês.
-                  </p>
-                )}
+                {editando.parcelado && editando.total_parcelas >= 2 && editando.valor && <p style={{ margin: "0.4rem 0 0", fontSize: "0.78rem", color: "#888" }}>Atualiza da parcela {editando.parcela_atual || 1} até {editando.total_parcelas}, repetindo {formatBRL(parseFloat(String(editando.valor).replace(",", ".")) || 0)} por mês.</p>}
               </div>
             )}
             <input type="date" value={editando.data_lancamento} onChange={e => setEditando(ed => ({ ...ed, data_lancamento: e.target.value }))} style={inputStyle} />
@@ -873,17 +778,41 @@ export default function PradexFinancas() {
                   <p style={{ margin: 0, fontSize: "0.8rem", color: "#888" }}>Investindo esse dinheiro, teria <strong style={{ color: "#22C55E" }}>{formatBRL(totalImpacto12m)}</strong> em 12 meses. 💡</p>
                 </div>
               )}
-              <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
-                <p style={{ margin: "0 0 1.25rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Gastos por categoria</p>
-                {gastosPorCategoria.map((item, i) => (
-                  <div key={item.cat} style={{ marginBottom: "0.85rem" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.3rem" }}>
-                      <span style={{ fontSize: "0.82rem", color: "#CCC" }}>{item.cat}</span>
-                      <span style={{ fontSize: "0.82rem", fontWeight: 600, color: COLORS[i % COLORS.length] }}>{formatBRL(item.total)}</span>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem", marginBottom: "1rem" }}>
+                <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
+                  <p style={{ margin: "0 0 1.25rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Gastos por categoria</p>
+                  {gastosPorCategoria.length > 0 ? gastosPorCategoria.map((item, i) => (
+                    <div key={item.cat} style={{ marginBottom: "0.85rem" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.3rem", gap: "0.75rem" }}>
+                        <span style={{ fontSize: "0.82rem", color: "#CCC" }}>{item.cat}</span>
+                        <span style={{ fontSize: "0.82rem", fontWeight: 600, color: COLORS[i % COLORS.length], whiteSpace: "nowrap" }}>{formatBRL(item.total)}</span>
+                      </div>
+                      <div style={{ background: "#0F1117", borderRadius: "4px", height: "6px", overflow: "hidden" }}><div style={{ background: COLORS[i % COLORS.length], height: "100%", width: `${(item.total / maxGasto) * 100}%`, borderRadius: "4px" }} /></div>
                     </div>
-                    <div style={{ background: "#0F1117", borderRadius: "4px", height: "6px", overflow: "hidden" }}><div style={{ background: COLORS[i % COLORS.length], height: "100%", width: `${(item.total / maxGasto) * 100}%`, borderRadius: "4px" }} /></div>
-                  </div>
-                ))}
+                  )) : <p style={{ margin: 0, fontSize: "0.85rem", color: "#555" }}>Sem gastos neste mês.</p>}
+                </div>
+                <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
+                  <p style={{ margin: "0 0 1.25rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Próximas parcelas</p>
+                  {projecaoParcelas.some(m => m.total > 0) ? projecaoParcelas.map((mes) => (
+                    <div key={mes.key} style={{ padding: "0.85rem 0", borderBottom: "1px solid #252832" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.75rem", marginBottom: mes.parcelas.length > 0 ? "0.45rem" : 0 }}>
+                        <div>
+                          <p style={{ margin: "0 0 0.15rem", fontSize: "0.82rem", color: "#E8E8E8", fontWeight: 600 }}>{mes.label}</p>
+                          <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{mes.comprasAtivas > 0 ? `${mes.comprasAtivas} compra${mes.comprasAtivas > 1 ? "s" : ""} parcelada${mes.comprasAtivas > 1 ? "s" : ""}` : "Sem parcelas"}</p>
+                        </div>
+                        <p style={{ margin: 0, fontSize: "0.88rem", fontWeight: 700, color: mes.total > 0 ? "#EF4444" : "#555", whiteSpace: "nowrap" }}>{formatBRL(mes.total)}</p>
+                      </div>
+                      {mes.parcelas.map((parcela) => (
+                        <div key={parcela.id} style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", marginTop: "0.3rem" }}>
+                          <p style={{ margin: 0, fontSize: "0.72rem", color: "#888", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {limparDescricaoParcela(parcela.descricao)} <span style={{ color: "#6366F1" }}>{parcela.parcela_atual}/{parcela.total_parcelas}x</span>
+                          </p>
+                          <p style={{ margin: 0, fontSize: "0.72rem", color: "#CCC", whiteSpace: "nowrap" }}>{formatBRL(parcela.valor)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )) : <p style={{ margin: 0, fontSize: "0.85rem", color: "#555" }}>Nenhuma parcela futura encontrada nos próximos 3 meses.</p>}
+                </div>
               </div>
               {gastosPorCartao.length > 0 && (
                 <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
@@ -952,19 +881,13 @@ export default function PradexFinancas() {
                 <button onClick={() => setForm(f => ({ ...f, parcelado: !f.parcelado, parcela_atual: "1", total_parcelas: "", recorrente: false }))} style={{ width: "100%", padding: "0.65rem 1rem", border: `1px solid ${form.parcelado ? "#6366F1" : "#252832"}`, borderRadius: "10px", background: form.parcelado ? "#6366F118" : "transparent", color: form.parcelado ? "#6366F1" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s" }}>
                   {form.parcelado ? "✓ Compra parcelada" : "+ Parcelar no crédito"}
                 </button>
-
                 {form.parcelado && (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginTop: "0.5rem" }}>
                     <input type="number" placeholder="Parcela atual" min="1" max="48" value={form.parcela_atual} onChange={e => setForm(f => ({ ...f, parcela_atual: e.target.value }))} style={{ ...inputStyle, marginBottom: 0 }} />
                     <input type="number" placeholder="Total de parcelas" min="2" max="48" value={form.total_parcelas} onChange={e => setForm(f => ({ ...f, total_parcelas: e.target.value }))} style={{ ...inputStyle, marginBottom: 0 }} />
                   </div>
                 )}
-
-                {form.parcelado && form.total_parcelas >= 2 && form.valor && (
-                  <p style={{ margin: "0.4rem 0 0", fontSize: "0.78rem", color: "#888" }}>
-                    Lança da parcela {form.parcela_atual || 1} até {form.total_parcelas}, repetindo {formatBRL(parseFloat(form.valor.replace(",", ".")) || 0)} por mês.
-                  </p>
-                )}
+                {form.parcelado && form.total_parcelas >= 2 && form.valor && <p style={{ margin: "0.4rem 0 0", fontSize: "0.78rem", color: "#888" }}>Lança da parcela {form.parcela_atual || 1} até {form.total_parcelas}, repetindo {formatBRL(parseFloat(form.valor.replace(",", ".")) || 0)} por mês.</p>}
               </div>
             )}
             {tipo === "gasto" && !form.parcelado && (
@@ -1077,6 +1000,8 @@ export default function PradexFinancas() {
         const lancMes = lancamentos.filter(l => l.data_lancamento?.startsWith(prefixo));
         const receitasMes = lancMes.filter(l => l.tipo === "receita").reduce((s, l) => s + Number(l.valor), 0);
         const gastosMes = lancMes.filter(l => l.tipo === "gasto").reduce((s, l) => s + Number(l.valor), 0);
+        const gastosDebitoMes = lancMes.filter(l => l.tipo === "gasto" && l.forma_pagamento !== "Crédito").reduce((s, l) => s + Number(l.valor), 0);
+        const gastosCartaoMes = lancMes.filter(l => l.tipo === "gasto" && l.forma_pagamento === "Crédito").reduce((s, l) => s + Number(l.valor), 0);
         const saldoMes = receitasMes - gastosMes;
         const evitaveisMes = lancMes.filter(l => l.poderia_ter_evitado && l.tipo === "gasto").reduce((s, l) => s + Number(l.valor), 0);
         const navegarMes = (dir) => { setMesHistorico(prev => { let m = prev.mes + dir, a = prev.ano; if (m > 11) { m = 0; a++; } if (m < 0) { m = 11; a--; } return { mes: m, ano: a }; }); };
@@ -1093,14 +1018,15 @@ export default function PradexFinancas() {
               </div>
               <button onClick={() => navegarMes(1)} style={{ background: "#181B24", border: "1px solid #252832", borderRadius: "8px", color: "#888", cursor: "pointer", padding: "0.4rem 0.8rem", fontSize: "1rem", fontFamily: "inherit" }}>→</button>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem", marginBottom: "1rem" }}>
-              {[{ label: "Receitas", value: receitasMes, color: "#22C55E" }, { label: "Gastos", value: gastosMes, color: "#EF4444" }, { label: "Saldo", value: saldoMes, color: saldoMes >= 0 ? "#22C55E" : "#EF4444" }].map(card => (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "0.75rem" }}>
+              {[{ label: "Receitas", value: receitasMes, color: "#22C55E" }, { label: "Débito", value: gastosDebitoMes, color: "#EF4444" }, { label: "Cartão", value: gastosCartaoMes, color: "#F59E0B" }, { label: "Saldo", value: saldoMes, color: saldoMes >= 0 ? "#22C55E" : "#EF4444" }].map(card => (
                 <div key={card.label} style={{ background: "#181B24", borderRadius: "12px", padding: "1rem 0.75rem", border: "1px solid #252832" }}>
                   <p style={{ margin: "0 0 0.4rem", fontSize: "0.65rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>{card.label}</p>
                   <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 700, color: card.color }}>{formatBRL(card.value)}</p>
                 </div>
               ))}
             </div>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", color: "#666" }}>Gasto total do mês: <span style={{ color: "#E8E8E8", fontWeight: 600 }}>{formatBRL(gastosMes)}</span></p>
             {lancMes.length === 0 ? (
               <div style={{ textAlign: "center", padding: "3rem 0", color: "#444" }}>
                 <p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📅</p>
@@ -1135,7 +1061,7 @@ export default function PradexFinancas() {
                           {l.descricao}
                           {l.total_parcelas && <span style={{ marginLeft: "5px", fontSize: "0.65rem", color: "#6366F1", background: "#6366F115", padding: "1px 4px", borderRadius: "3px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
                         </p>
-                        <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{l.categoria} · {formatData(l.data_lancamento)}</p>
+                        <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{l.categoria} · {l.forma_pagamento || "—"} · {formatData(l.data_lancamento)}</p>
                       </div>
                       <p style={{ margin: 0, fontSize: "0.88rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444", flexShrink: 0 }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
                     </div>
