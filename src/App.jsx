@@ -19,6 +19,29 @@ const formatBRL = (value) => Number(value).toLocaleString("pt-BR", { style: "cur
 const monthNames = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 const today = new Date().toISOString().split("T")[0];
 const formasPagamento = ["Débito", "Crédito", "Dinheiro", "PIX", "Outros"];
+const badgeBaseStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "4px",
+  fontSize: "0.62rem",
+  padding: "1px 6px",
+  borderRadius: "999px",
+  verticalAlign: "middle",
+};
+const sectionToggleStyle = {
+  width: "100%",
+  padding: "0.8rem 1rem",
+  border: "1px solid #252832",
+  borderRadius: "14px",
+  background: "#141720",
+  color: "#CFCFCF",
+  fontSize: "0.84rem",
+  fontWeight: 600,
+  cursor: "pointer",
+  fontFamily: "inherit",
+  textAlign: "left",
+  transition: "all 0.2s",
+};
 
 const normalizeText = (value = "") => {
   if (value === null || value === undefined) return "";
@@ -66,6 +89,7 @@ const getMonthLabel = (key) => {
   const [ano, mes] = key.split("-");
   return `${monthNames[parseInt(mes, 10) - 1]} ${ano}`;
 };
+const getFormaPagamentoLabel = (value) => normalizeText(value) || "Não informado";
 
 async function fetchTaxaFocus() {
   return 5.65 + 4.5;
@@ -702,12 +726,12 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
             <input type="date" value={editando.data_lancamento} onChange={e => setEditando(ed => ({ ...ed, data_lancamento: e.target.value }))} style={inputStyle} />
             {editando.tipo === "gasto" && !editando.parcelado && (
               <button onClick={() => setEditando(ed => ({ ...ed, recorrente: !ed.recorrente }))} style={{ width: "100%", padding: "0.75rem", border: `1px solid ${editando.recorrente ? "#6366F1" : "#252832"}`, borderRadius: "10px", background: editando.recorrente ? "#6366F118" : "transparent", color: editando.recorrente ? "#6366F1" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginBottom: "0.75rem", transition: "all 0.2s" }}>
-                {editando.recorrente ? "Recorrente · criará até Dez/" + new Date().getFullYear() : "Marcar como recorrente"}
+                {editando.recorrente ? "Recorrente ativa até Dez/" + new Date().getFullYear() : "Marcar como recorrente"}
               </button>
             )}
             {editando.tipo === "gasto" && (
               <button onClick={() => setEditando(ed => ({ ...ed, poderia_ter_evitado: !ed.poderia_ter_evitado }))} style={{ width: "100%", padding: "0.75rem", border: `1px solid ${editando.poderia_ter_evitado ? "#F59E0B" : "#252832"}`, borderRadius: "10px", background: editando.poderia_ter_evitado ? "#F59E0B18" : "transparent", color: editando.poderia_ter_evitado ? "#F59E0B" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginBottom: "0.75rem", transition: "all 0.2s" }}>
-                {editando.poderia_ter_evitado ? "Marcado como evitável" : "Poderia ter evitado?"}
+                {editando.poderia_ter_evitado ? "Marcado como gasto evitável" : "Marcar como gasto evitável"}
               </button>
             )}
             <div style={{ display: "flex", gap: "0.75rem" }}>
@@ -735,20 +759,20 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
 
       {/* CARDS */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem", marginBottom: "1.5rem" }}>
-        <div style={{ background: "#181B24", borderRadius: "12px", padding: "1rem 0.75rem", border: "1px solid #252832" }}>
-          <p style={{ margin: "0 0 0.4rem", fontSize: "0.65rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>Ganhos</p>
-          <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: "#22C55E" }}>{formatBRL(totalReceitas)}</p>
+        <div style={{ background: "linear-gradient(180deg, #191D27 0%, #181B24 100%)", borderRadius: "14px", padding: "1rem 0.85rem", border: "1px solid #252832" }}>
+          <p style={{ margin: "0 0 0.35rem", fontSize: "0.64rem", color: "#666", textTransform: "uppercase", letterSpacing: "0.12em" }}>Ganhos</p>
+          <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#22C55E" }}>{formatBRL(totalReceitas)}</p>
         </div>
-        <div style={{ background: "#181B24", borderRadius: "12px", padding: "1rem 0.75rem", border: "1px solid #252832" }}>
-          <p style={{ margin: "0 0 0.4rem", fontSize: "0.65rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>Débito</p>
-          <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: "#EF4444" }}>{formatBRL(gastosDebito)}</p>
+        <div style={{ background: "linear-gradient(180deg, #191D27 0%, #181B24 100%)", borderRadius: "14px", padding: "1rem 0.85rem", border: "1px solid #252832" }}>
+          <p style={{ margin: "0 0 0.35rem", fontSize: "0.64rem", color: "#666", textTransform: "uppercase", letterSpacing: "0.12em" }}>Débito</p>
+          <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#EF4444" }}>{formatBRL(gastosDebito)}</p>
         </div>
-        <div style={{ background: "#181B24", borderRadius: "12px", padding: "1rem 0.75rem", border: "1px solid #252832" }}>
-          <p style={{ margin: "0 0 0.4rem", fontSize: "0.65rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>Cartões</p>
+        <div style={{ background: "linear-gradient(180deg, #191D27 0%, #181B24 100%)", borderRadius: "14px", padding: "1rem 0.85rem", border: "1px solid #252832" }}>
+          <p style={{ margin: "0 0 0.35rem", fontSize: "0.64rem", color: "#666", textTransform: "uppercase", letterSpacing: "0.12em" }}>Cartões</p>
           {gastosPorCartao.length > 0 ? gastosPorCartao.map((item, i) => (
             <div key={item.cartao.id} style={{ marginBottom: i < gastosPorCartao.length - 1 ? "0.35rem" : 0 }}>
-              <p style={{ margin: 0, fontSize: "0.62rem", color: "#666" }}>{normalizeText(item.cartao.nome)}</p>
-              <p style={{ margin: 0, fontSize: "0.82rem", fontWeight: 700, color: "#EF4444" }}>{formatBRL(item.total)}</p>
+              <p style={{ margin: 0, fontSize: "0.64rem", color: "#777" }}>{normalizeText(item.cartao.nome)}</p>
+              <p style={{ margin: 0, fontSize: "0.84rem", fontWeight: 700, color: "#EF4444" }}>{formatBRL(item.total)}</p>
             </div>
           )) : <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: "#333" }}>—</p>}
         </div>
@@ -784,8 +808,8 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
                   <div key={i} style={{ display: "flex", alignItems: "center", padding: "0.75rem 1rem", background: "#0F1117", borderRadius: "10px", marginBottom: "0.5rem", border: "1px solid #252832", gap: "0.75rem" }}>
                     <div style={{ width: "32px", height: "32px", borderRadius: "8px", flexShrink: 0, background: l.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.9rem" }}>{l.tipo === "receita" ? "+" : "-"}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 500, color: "#E8E8E8" }}>{normalizeText(l.descricao)}</p>
-                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{normalizeText(l.categoria)} · {normalizeText(l.forma_pagamento) || "Sem forma"} · {formatData(l.data_lancamento)}</p>
+                      <p style={{ margin: "0 0 0.12rem", fontSize: "0.85rem", fontWeight: 500, color: "#E8E8E8", lineHeight: 1.25 }}>{normalizeText(l.descricao)}</p>
+                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#555", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}</p>
                     </div>
                     <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444", flexShrink: 0 }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
                   </div>
@@ -807,9 +831,9 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
                   <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", marginBottom: "0.75rem" }}>
                     <div style={{ width: "36px", height: "36px", borderRadius: "10px", flexShrink: 0, background: r.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem" }}>{r.tipo === "receita" ? "+" : "-"}</div>
                     <div style={{ flex: 1 }}>
-                      <p style={{ margin: "0 0 0.2rem", fontSize: "0.9rem", fontWeight: 600, color: "#E8E8E8" }}>{normalizeText(r.descricao)}</p>
+                      <p style={{ margin: "0 0 0.16rem", fontSize: "0.9rem", fontWeight: 600, color: "#E8E8E8", lineHeight: 1.25 }}>{normalizeText(r.descricao)}</p>
                       <p style={{ margin: "0 0 0.2rem", fontSize: "0.85rem", fontWeight: 700, color: r.tipo === "receita" ? "#22C55E" : "#EF4444" }}>{formatBRL(r.valor)}</p>
-                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{normalizeText(r.categoria)} · {normalizeText(r.forma_pagamento) || "Sem forma"}</p>
+                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{normalizeText(r.categoria)} · {getFormaPagamentoLabel(r.forma_pagamento)}</p>
                     </div>
                   </div>
                   {r.texto_original && <div style={{ background: "#0F1117", borderRadius: "8px", padding: "0.5rem 0.75rem", marginBottom: "0.75rem" }}><p style={{ margin: 0, fontSize: "0.72rem", color: "#555" }}>Texto original: "{r.texto_original}"</p></div>}
@@ -830,7 +854,8 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
           {lancamentos.length === 0 ? (
             <div style={{ textAlign: "center", padding: "3rem 0", color: "#444" }}>
               <p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>•</p>
-              <p style={{ fontSize: "0.9rem" }}>Sem dados ainda.</p>
+              <p style={{ fontSize: "0.95rem", color: "#CFCFCF", margin: "0 0 0.4rem" }}>Seu painel ainda está vazio.</p>
+              <p style={{ fontSize: "0.82rem", color: "#666", margin: 0 }}>Adicione os primeiros lançamentos para visualizar o resumo do mês.</p>
             </div>
           ) : (
             <>
@@ -841,7 +866,7 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
                   <p style={{ margin: 0, fontSize: "0.8rem", color: "#888" }}>Investindo esse dinheiro, teria <strong style={{ color: "#22C55E" }}>{formatBRL(totalImpacto12m)}</strong> em 12 meses.</p>
                 </div>
               )}
-              <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
+              <div style={{ background: "linear-gradient(180deg, #1A1E29 0%, #181B24 100%)", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832", boxShadow: "0 10px 30px rgba(0,0,0,0.18)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", marginBottom: "1rem" }}>
                   <div>
                     <p style={{ margin: "0 0 0.25rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Resumo dos gastos</p>
@@ -895,7 +920,7 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
                         </div>
                       ))}
                     </div>
-                  )) : <p style={{ margin: 0, fontSize: "0.85rem", color: "#555" }}>Nenhuma parcela futura encontrada nos próximos 3 meses.</p>}
+                  )) : <p style={{ margin: 0, fontSize: "0.85rem", color: "#555" }}>Nenhuma parcela futura prevista nos próximos 3 meses.</p>}
                 </div>
               </div>
               {gastosPorCartao.length > 0 && (
@@ -904,8 +929,8 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
                   {gastosPorCartao.map((item) => (
                     <div key={item.cartao.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem 0", borderBottom: "1px solid #252832" }}>
                       <div>
-                        <p style={{ margin: 0, fontSize: "0.9rem", color: "#E8E8E8", fontWeight: 500 }}>{normalizeText(item.cartao.nome)}</p>
-                        <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>Fecha dia {item.cartao.dia_fechamento} · Vence dia {item.cartao.dia_vencimento}</p>
+                      <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", color: "#E8E8E8", fontWeight: 500, lineHeight: 1.25 }}>{normalizeText(item.cartao.nome)}</p>
+                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#555", lineHeight: 1.25 }}>Fecha dia {item.cartao.dia_fechamento} · Vence dia {item.cartao.dia_vencimento}</p>
                       </div>
                       <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#EF4444" }}>{formatBRL(item.total)}</p>
                     </div>
@@ -917,13 +942,13 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
                 {lancamentos.slice(0, 5).map(l => (
                   <div key={l.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.6rem 0", borderBottom: "1px solid #252832", cursor: "pointer" }} onClick={() => handleEdit(l)}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: 0, fontSize: "0.85rem", color: "#E8E8E8" }}>
-                        {l.poderia_ter_evitado && <span style={{ marginRight: "6px", fontSize: "0.62rem", color: "#F59E0B", background: "#F59E0B15", padding: "1px 6px", borderRadius: "999px", verticalAlign: "middle" }}>⚠️ Evitável</span>}
-                        {l.recorrente && <span style={{ marginRight: "6px", fontSize: "0.62rem", color: "#22C55E", background: "#22C55E15", padding: "1px 6px", borderRadius: "999px", verticalAlign: "middle" }}>🔁 Recorrente</span>}
-                        {l.descricao}
+                      <p style={{ margin: "0 0 0.12rem", fontSize: "0.85rem", color: "#E8E8E8", lineHeight: 1.25 }}>
+                        {l.poderia_ter_evitado && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#F59E0B", background: "#F59E0B15" }}>Evitável</span>}
+                        {l.recorrente && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#22C55E", background: "#22C55E15" }}>Recorrente</span>}
+                        {normalizeText(l.descricao)}
                         {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.7rem", color: "#555", background: "#252832", padding: "1px 6px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
                       </p>
-                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{l.categoria} · {l.forma_pagamento || "Sem forma"} · {formatData(l.data_lancamento)}</p>
+                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#555", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}</p>
                     </div>
                     <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444" }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
                   </div>
@@ -976,7 +1001,7 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
             )}
             {tipo === "gasto" && !form.parcelado && (
               <button onClick={() => setForm(f => ({ ...f, recorrente: !f.recorrente }))} style={{ width: "100%", padding: "0.65rem 1rem", border: `1px solid ${form.recorrente ? "#6366F1" : "#252832"}`, borderRadius: "10px", background: form.recorrente ? "#6366F118" : "transparent", color: form.recorrente ? "#6366F1" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s", marginBottom: "0.75rem" }}>
-                {form.recorrente ? `Recorrente · criará até Dez/${new Date().getFullYear()}` : "Marcar como recorrente"}
+                {form.recorrente ? `Recorrente ativa até Dez/${new Date().getFullYear()}` : "Marcar como recorrente"}
               </button>
             )}
             <input type="date" value={form.data_lancamento} onChange={e => setForm(f => ({ ...f, data_lancamento: e.target.value }))} style={inputStyle} />
@@ -984,8 +1009,9 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
             <button onClick={handleSubmit} disabled={saving} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", background: success ? "#16A34A" : tipo === "receita" ? "#22C55E" : "#EF4444", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, transition: "all 0.2s", fontFamily: "inherit" }}>{saving ? "Salvando..." : success ? "Salvo!" : form.parcelado && form.total_parcelas >= 2 ? `Parcelar em ${form.total_parcelas}x` : form.recorrente ? "Adicionar + criar recorrências" : "Adicionar"}</button>
           </div>
 
-          <button onClick={() => setMostrarCategorias(!mostrarCategorias)} style={{ width: "100%", padding: "0.65rem 1rem", border: "1px solid #252832", borderRadius: "10px", background: "transparent", color: "#555", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "center", transition: "all 0.2s", marginBottom: "0.75rem" }}>
-            {mostrarCategorias ? "Fechar categorias" : "Gerenciar categorias"}
+          <button onClick={() => setMostrarCategorias(!mostrarCategorias)} style={{ ...sectionToggleStyle, marginBottom: "0.75rem" }}>
+            <span style={{ display: "block", fontSize: "0.84rem", color: "#E8E8E8" }}>{mostrarCategorias ? "Fechar categorias" : "Gerenciar categorias"}</span>
+            <span style={{ display: "block", fontSize: "0.72rem", color: "#666", fontWeight: 500, marginTop: "0.2rem" }}>Organize as categorias de receitas e gastos do app.</span>
           </button>
           {mostrarCategorias && (
             <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
@@ -999,7 +1025,7 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
               </div>
               <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
                 <input type="text" placeholder="Nome da categoria" value={novaCategoria.nome} onChange={e => setNovaCategoria(n => ({ ...n, nome: e.target.value }))} onKeyDown={e => e.key === "Enter" && handleAddCategoria()} style={{ ...inputStyle, marginBottom: 0, flex: 1 }} />
-                <button onClick={handleAddCategoria} style={{ padding: "0.75rem 1rem", border: "none", borderRadius: "10px", background: "#6366F1", color: "#fff", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>+ Add</button>
+                <button onClick={handleAddCategoria} style={{ padding: "0.75rem 1rem", border: "none", borderRadius: "10px", background: "#6366F1", color: "#fff", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>Adicionar</button>
               </div>
               <p style={{ margin: "0 0 0.5rem", fontSize: "0.7rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>Gastos</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginBottom: "1rem" }}>
@@ -1022,8 +1048,9 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
             </div>
           )}
 
-          <button onClick={() => setMostrarFormCartao(!mostrarFormCartao)} style={{ width: "100%", padding: "0.65rem 1rem", border: "1px solid #252832", borderRadius: "10px", background: "transparent", color: "#555", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "center", transition: "all 0.2s", marginBottom: "1rem" }}>
-            {mostrarFormCartao ? "Fechar cartões" : "Gerenciar cartões"}
+          <button onClick={() => setMostrarFormCartao(!mostrarFormCartao)} style={{ ...sectionToggleStyle, marginBottom: "1rem" }}>
+            <span style={{ display: "block", fontSize: "0.84rem", color: "#E8E8E8" }}>{mostrarFormCartao ? "Fechar cartões" : "Gerenciar cartões"}</span>
+            <span style={{ display: "block", fontSize: "0.72rem", color: "#666", fontWeight: 500, marginTop: "0.2rem" }}>Cadastre os cartões para acompanhar compras e faturas.</span>
           </button>
           {mostrarFormCartao && (
             <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
@@ -1041,8 +1068,8 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
                   {cartoes.map(c => (
                     <div key={c.id} style={{ display: "flex", alignItems: "center", padding: "0.75rem 0", borderBottom: "1px solid #252832", gap: "0.75rem" }}>
                       <div style={{ flex: 1 }}>
-                        <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 600, color: "#E8E8E8" }}>{normalizeText(c.nome)}</p>
-                        <p style={{ margin: 0, fontSize: "0.72rem", color: "#555" }}>{normalizeText(c.bandeira) && normalizeText(c.bandeira) + " · "}Fecha dia {c.dia_fechamento || "—"} · Vence dia {c.dia_vencimento || "—"}</p>
+                        <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", fontWeight: 600, color: "#E8E8E8", lineHeight: 1.25 }}>{normalizeText(c.nome)}</p>
+                        <p style={{ margin: 0, fontSize: "0.72rem", color: "#555", lineHeight: 1.25 }}>{normalizeText(c.bandeira) && normalizeText(c.bandeira) + " · "}Fecha dia {c.dia_fechamento || "—"} · Vence dia {c.dia_vencimento || "—"}</p>
                       </div>
                       <button onClick={() => handleDeleteCartao(c.id)} style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem" }}>×</button>
                     </div>
@@ -1053,7 +1080,7 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
           )}
 
           <div>
-            <p style={{ margin: "0 0 1rem", fontSize: "0.7rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.15em" }}>Lançamentos {loading && "· carregando..."}</p>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.7rem", color: "#666", textTransform: "uppercase", letterSpacing: "0.15em" }}>Lançamentos {loading && "· carregando..."}</p>
             <div style={{ marginBottom: "1rem" }}>
               <select value={filtroLancamentos} onChange={e => setFiltroLancamentos(e.target.value)} style={{ ...inputStyle, marginBottom: 0, color: "#E8E8E8", appearance: "none" }}>
                 {opcoesFiltroLancamentos.map(opcao => <option key={opcao.value} value={opcao.value}>{opcao.label}</option>)}
@@ -1080,22 +1107,47 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
                 </p>
               )}
             </div>
-            {!loading && lancamentosFiltrados.length === 0 && <p style={{ color: "#444", fontSize: "0.9rem", textAlign: "center", padding: "2rem 0" }}>Nenhum lançamento encontrado nesse filtro.</p>}
+            {!loading && lancamentosFiltrados.length === 0 && (
+              <div style={{ textAlign: "center", padding: "2.2rem 1rem", color: "#444", background: "#141720", borderRadius: "14px", border: "1px solid #252832" }}>
+                <p style={{ margin: "0 0 0.35rem", fontSize: "0.92rem", color: "#CFCFCF" }}>Nenhum lançamento encontrado nesse filtro.</p>
+                <p style={{ margin: 0, fontSize: "0.78rem", color: "#666" }}>Tente trocar o filtro ou adicionar um novo lançamento.</p>
+              </div>
+            )}
             {lancamentosFiltrados.map(l => (
               <div key={l._idsGrupo ? `grupo-${l._idsGrupo[0]}` : l.id} onClick={() => handleEdit(l)} style={{ display: "flex", alignItems: "center", padding: "0.9rem 1rem", background: l.poderia_ter_evitado ? "#F59E0B08" : "#181B24", borderRadius: "12px", marginBottom: "0.5rem", border: `1px solid ${l.poderia_ter_evitado ? "#F59E0B30" : "#252832"}`, gap: "0.75rem", cursor: "pointer" }}>
                 <div style={{ width: "36px", height: "36px", borderRadius: "10px", flexShrink: 0, background: l.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem" }}>{l.tipo === "receita" ? "+" : "-"}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 500, color: "#E8E8E8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", fontWeight: 500, color: "#E8E8E8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.25 }}>
                     {normalizeText(l.descricao)}
                     {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#6366F1", background: "#6366F115", padding: "1px 5px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
-                    {l._totalMeses && l._totalMeses > 1 && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#22C55E", background: "#22C55E15", padding: "1px 6px", borderRadius: "999px" }}>🔁 {l._totalMeses} meses</span>}
-                  </p>
-                  <p style={{ margin: 0, fontSize: "0.72rem", color: "#555" }}>{normalizeText(l.categoria)} · {normalizeText(l.forma_pagamento) || "Sem forma"} · {formatData(l.data_lancamento)}</p>
+                  {l._totalMeses && l._totalMeses > 1 && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#22C55E", background: "#22C55E15", padding: "1px 6px", borderRadius: "999px" }}>{l._totalMeses} meses</span>}
+                </p>
+                <p style={{ margin: 0, fontSize: "0.72rem", color: "#555", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}</p>
                 </div>
-                <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444", flexShrink: 0 }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
                 {l.tipo === "gasto" && !l._totalMeses && (
-                  <button onClick={(e) => { e.stopPropagation(); handleToggleArrependimento(e, l); }} style={{ background: l.poderia_ter_evitado ? "#F59E0B15" : "transparent", border: `1px solid ${l.poderia_ter_evitado ? "#F59E0B35" : "transparent"}`, cursor: "pointer", fontSize: "0.78rem", padding: "2px 6px", flexShrink: 0, opacity: l.poderia_ter_evitado ? 1 : 0.45, transition: "opacity 0.2s, background 0.2s", color: "#F59E0B", fontWeight: 700, borderRadius: "999px" }}>⚠️</button>
+                  <div style={{ width: "76px", display: "flex", justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleToggleArrependimento(e, l); }}
+                      style={{
+                        background: l.poderia_ter_evitado ? "#F59E0B15" : "transparent",
+                        border: `1px solid ${l.poderia_ter_evitado ? "#F59E0B35" : "#252832"}`,
+                        cursor: "pointer",
+                        fontSize: "0.66rem",
+                        padding: "3px 8px",
+                        opacity: l.poderia_ter_evitado ? 1 : 0.5,
+                        transition: "opacity 0.2s, background 0.2s, border-color 0.2s",
+                        color: "#F59E0B",
+                        fontWeight: 700,
+                        borderRadius: "999px",
+                        whiteSpace: "nowrap",
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      Evitável
+                    </button>
+                  </div>
                 )}
+                <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444", flexShrink: 0 }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
                 <button onClick={(e) => { e.stopPropagation(); handleDelete(l); }} style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem", flexShrink: 0 }}>×</button>
               </div>
             ))}
@@ -1136,7 +1188,7 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
                 </div>
               ))}
             </div>
-            <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", color: "#666" }}>Gasto total do mês: <span style={{ color: "#E8E8E8", fontWeight: 600 }}>{formatBRL(gastosMes)}</span></p>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", color: "#666" }}>Gasto total do mês: <span style={{ color: "#E8E8E8", fontWeight: 700 }}>{formatBRL(gastosMes)}</span></p>
             {lancMes.length === 0 ? (
               <div style={{ textAlign: "center", padding: "3rem 0", color: "#444" }}>
                 <p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>•</p>
@@ -1165,13 +1217,13 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
                     <div key={l.id} onClick={() => handleEdit(l)} style={{ display: "flex", alignItems: "center", padding: "0.7rem 0", borderBottom: "1px solid #1a1d26", cursor: "pointer", gap: "0.75rem" }}>
                       <div style={{ width: "32px", height: "32px", borderRadius: "8px", flexShrink: 0, background: l.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem" }}>{l.tipo === "receita" ? "+" : "-"}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ margin: 0, fontSize: "0.85rem", color: "#E8E8E8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {l.poderia_ter_evitado && <span style={{ marginRight: "6px", fontSize: "0.62rem", color: "#F59E0B", background: "#F59E0B15", padding: "1px 6px", borderRadius: "999px", verticalAlign: "middle" }}>⚠️ Evitável</span>}
-                          {l.recorrente && <span style={{ marginRight: "6px", fontSize: "0.62rem", color: "#22C55E", background: "#22C55E15", padding: "1px 6px", borderRadius: "999px", verticalAlign: "middle" }}>🔁 Recorrente</span>}
+                        <p style={{ margin: "0 0 0.12rem", fontSize: "0.85rem", color: "#E8E8E8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.25 }}>
+                          {l.poderia_ter_evitado && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#F59E0B", background: "#F59E0B15" }}>Evitável</span>}
+                          {l.recorrente && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#22C55E", background: "#22C55E15" }}>Recorrente</span>}
                           {normalizeText(l.descricao)}
                           {l.total_parcelas && <span style={{ marginLeft: "5px", fontSize: "0.65rem", color: "#6366F1", background: "#6366F115", padding: "1px 4px", borderRadius: "3px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
                         </p>
-                        <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{normalizeText(l.categoria)} · {normalizeText(l.forma_pagamento) || "Sem forma"} · {formatData(l.data_lancamento)}</p>
+                        <p style={{ margin: 0, fontSize: "0.7rem", color: "#555", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}</p>
                       </div>
                       <p style={{ margin: 0, fontSize: "0.88rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444", flexShrink: 0 }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
                     </div>

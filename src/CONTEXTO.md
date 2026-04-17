@@ -1,4 +1,4 @@
-# CONTEXTO PRADEX FINANÇAS
+# CONTEXTO PRADEX FINANCAS
 
 App de planejamento financeiro para assessor de investimentos e clientes.
 
@@ -8,36 +8,43 @@ App de planejamento financeiro para assessor de investimentos e clientes.
 - Supabase: https://sjvuhqqsjboncwpboclv.supabase.co
 
 ## Stack
-React + Vite + Supabase + Vercel
+- React
+- Vite
+- Supabase
+- Vercel
 
-## Credenciais Supabase (públicas)
+## Credenciais Supabase (publicas)
 - SUPABASE_URL: https://sjvuhqqsjboncwpboclv.supabase.co
-- SUPABASE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdnVocXFzamJvbmN3cGJvY2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTM1NzEsImV4cCI6MjA5MTI2OTU3MX0.qpOXjpyJ29Hr9kvee3uxNS1LmJNUEZqDtMCCEpaHjsE
+- SUPABASE_KEY: anon key publica usada pelo app
 
 ## Estrutura de arquivos
-```
+```text
 pradex-financas/
-├── public/
-│   ├── manifest.json
-│   ├── sw.js
-│   ├── icon-192.png
-│   └── icon-512.png
-├── src/
-│   ├── App.jsx
-│   └── main.jsx
-├── index.html        ← tem Chart.js importado via CDN
-├── package.json
-└── vite.config.js
+|-- public/
+|   |-- manifest.json
+|   |-- icon-192.png
+|   `-- icon-512.png
+|-- src/
+|   |-- App.jsx
+|   |-- CONTEXTO.md
+|   `-- main.jsx
+|-- .editorconfig
+|-- .gitattributes
+|-- .gitignore
+|-- index.html
+|-- package.json
+`-- vite.config.js
 ```
 
-## Supabase — tabelas
+## Supabase - tabelas
 
 ### Lancamentos
 - id, descricao, valor, tipo, categoria, data_lancamento, user_id
 - forma_pagamento, cartao_id
-- poderia_ter_evitado (boolean) — botão do arrependimento
-- recorrente (boolean) — gasto mensal recorrente
-- parcela_atual (integer), total_parcelas (integer), parcela_grupo_id (uuid) — compras parceladas
+- poderia_ter_evitado (boolean)
+- recorrente (boolean)
+- parcela_atual (integer), total_parcelas (integer), parcela_grupo_id (uuid)
+- recorrente_grupo_id (uuid)
 
 ### cartoes
 - id, user_id, nome, bandeira, dia_fechamento, dia_vencimento, created_at
@@ -45,85 +52,65 @@ pradex-financas/
 ### profiles
 - id (uuid, ref auth.users), nome, role (super_admin | assessor | cliente)
 - assessor_id (uuid, ref profiles), codigo_convite
-- RLS ativo — usuário lê só o próprio perfil
 
 ### orcamentos
 - id, user_id, categoria, valor_limite, mes, ano, created_at
-- RLS ativo — criado mas ainda não usado no app
 
-### lancamentos_rascunho (A CRIAR)
-- lançamentos vindos do WhatsApp, pendentes de confirmação no app
+### lancamentos_rascunho
+- id, descricao, valor, tipo, categoria, forma_pagamento, data_lancamento, texto_original, status
 
 ## Edge Functions (Supabase)
-- `claude-proxy` — proxy para API do Claude (Anthropic)
-- ANTHROPIC_API_KEY nos Secrets do Supabase
+- `claude-proxy` como proxy para API do Claude
 
-## O que está pronto no app
+## O que esta pronto no app
 
-### Autenticação
-- Login/cadastro por email e senha (Supabase Auth)
-- Multi-tenant: 3 níveis — Super Admin (Lucas), Assessor, Cliente
-- Role exibido no topo do app (👑 Admin, 👔 Assessor)
-- Link de convite parametrizado por assessor (a implementar)
+### Autenticacao
+- Login e cadastro por email e senha
+- Leitura de role do usuario
+- Fluxo multi-tenant por perfil
 
-### Lançamentos
-- Lançamentos manuais com forma de pagamento e cartão
-- Compras parceladas — cria automaticamente nos meses futuros com badge 1/10x
-- Toggle recorrente 🔁 — gasto que se repete todo mês
-- Botão do Arrependimento 😬 — marca gastos evitáveis
-- Edição de lançamentos (clica no lançamento, abre modal)
-- Importação por IA — cola texto/WhatsApp e a IA organiza
+### Lancamentos
+- Lancamentos manuais
+- Compras parceladas com criacao automatica das parcelas futuras
+- Gastos recorrentes agrupados por serie
+- Edicao e exclusao de lancamentos
+- Marcacao de gasto evitavel
 
 ### Dashboard
-- Cards: receitas, gastos, saldo
-- Card do Botão do Arrependimento com impacto financeiro real
-  - Gasto único: valor × (1,009)^12
-  - Recorrente: 12 aportes com juros compostos
-  - Parcelado: parcelas restantes com juros
-- Gastos por categoria (barras coloridas)
-- Faturas por cartão
-- Últimos lançamentos
+- Resumo do mes
+- Separacao entre debito e cartao
+- Gastos por categoria
+- Faturas por cartao
+- Projecao de proximas parcelas
 
-### Histórico Mensal 📅
-- Navegação ← → entre meses
-- Resumo do mês (receitas, gastos, saldo)
-- Gastos por categoria do mês
-- Lista completa de lançamentos do mês
-- Parcelas futuras aparecem automaticamente no mês correto
+### Historico
+- Navegacao por mes
+- Resumo mensal
+- Lista de lancamentos do periodo
 
-### Simulador de Futuro 🎯
-- Campos: patrimônio atual, aporte mensal, meta, rentabilidade anual
-- Gráfico de linha com Chart.js (60 meses / 5 anos)
-- 3 linhas: com aportes (azul), só rendimento (cinza), meta (amarelo tracejado)
-- Cards com projeção em 1, 3 e 5 anos com % da meta
-- Aviso de quando atinge a meta
+### Metas
+- Simulador de patrimonio
+- Grafico com Chart.js carregado por CDN no `index.html`
 
-### Cartões 💳
-- Cadastro com nome, bandeira, dia fechamento e vencimento
-- Faturas calculadas automaticamente
+### Importacao por IA
+- Texto livre para preview de lancamentos
+- Confirmacao manual antes de salvar
 
-### Importação IA ✨
-- Cola texto livre e a IA extrai os lançamentos
-- Preview antes de confirmar
+## Blindagem aplicada
+- `index.html` sem registro de service worker
+- `src/main.jsx` sem registro de service worker
+- `public/sw.js` removido da base oficial para evitar cache antigo
+- `.gitignore` configurado para ignorar `node_modules`, `dist`, `.vite` e logs
+- `App.jsx` com `normalizeText()` para reduzir impacto de textos mojibake vindos do banco
 
-### PWA
-- Instalável no celular
-- manifest.json e sw.js configurados
-- Service Worker: network-first (sem cache) para evitar tela branca após deploys
-- ícone aparecendo corretamente
+## Proximos passos
+1. Integracao de rascunhos via WhatsApp
+2. Orcamento por categoria
+3. Evoluir o simulador com mais cenarios
+4. Refino visual do app
 
-## Próximos passos (Caixa de Ideias)
-1. **Integração WhatsApp** — cliente manda áudio/texto no WhatsApp, IA transcreve e salva como rascunho no Pradex. Cliente confirma no app. Aguardando chip/número dedicado para API oficial Meta.
-2. **PASSO FP XP** — módulo completo de planejamento financeiro: premissas, objetivos, patrimônio, projeção longa, PDF estilo XP
-3. **Simulador de Futuro** — já feito, mas pode evoluir com mais cenários
-4. **Orçamento por categoria** — tabela criada no Supabase, não implementado no app ainda
-5. **Fechamento de mês** — histórico mensal já feito via filtro por data
-6. **Botão do Arrependimento** — feito, pode evoluir com análise da IA
-7. **Flag "poderia ter evitado"** — feito
-8. **Link de convite parametrizado** — assessor tem link único para onboarding de clientes
-
-## Problemas conhecidos / observações técnicas
-- Sempre que iniciar nova sessão de código, pedir o App.jsx atual pelo GitHub (Raw) para evitar edições parciais que quebram o build
-- Build falha com "Unexpected }" quando edições parciais desalinham chaves JSX
-- Chart.js importado via CDN no index.html (necessário para o simulador)
-- Componente `GraficoSimulador` é um componente separado no topo do App.jsx (antes do export default)
+## Observacoes tecnicas
+- Sempre editar a pasta oficial conectada ao GitHub Desktop
+- Validar com build antes de subir mudancas maiores
+- Chart.js continua importado via CDN no `index.html`
+- `GraficoSimulador` fica no topo do `App.jsx`, antes do `export default`
