@@ -23,7 +23,7 @@ const formasPagamento = ["Débito", "Crédito", "Dinheiro", "PIX", "Outros"];
 const normalizeText = (value = "") => {
   if (value === null || value === undefined) return "";
   const text = String(value);
-  if (!/[ÃÂ ]/.test(text)) return text;
+  if (!/[ÃÂ�]/.test(text)) return text;
   try {
     return decodeURIComponent(escape(text));
   } catch (e) {

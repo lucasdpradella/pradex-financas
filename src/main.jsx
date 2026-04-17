@@ -1,22 +1,9 @@
-{
-  "name": "Pradex Finanças",
-  "short_name": "Pradex",
-  "description": "Seu planejamento financeiro inteligente",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#0F1117",
-  "theme_color": "#0F1117",
-  "orientation": "portrait",
-  "icons": [
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
-  ]
-}
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App.jsx'
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+)
