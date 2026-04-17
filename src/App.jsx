@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdnVocXFzamJvbmN3cGJvY2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTM1NzEsImV4cCI6MjA5MTI2OTU3MX0.qpOXjpyJ29Hr9kvee3uxNS1LmJNUEZqDtMCCEpaHjsE";
@@ -19,6 +19,37 @@ const formatBRL = (value) => Number(value).toLocaleString("pt-BR", { style: "cur
 const monthNames = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 const today = new Date().toISOString().split("T")[0];
 const formasPagamento = ["Débito", "Crédito", "Dinheiro", "PIX", "Outros"];
+
+const normalizeText = (value = "") => {
+  if (value === null || value === undefined) return "";
+  const text = String(value);
+  if (!/[ÃÂ ]/.test(text)) return text;
+  try {
+    return decodeURIComponent(escape(text));
+  } catch (e) {
+    return text
+      .replace(/Ã¡/g, "á")
+      .replace(/Ã¢/g, "â")
+      .replace(/Ã£/g, "ã")
+      .replace(/Ã /g, "à")
+      .replace(/Ã©/g, "é")
+      .replace(/Ãª/g, "ê")
+      .replace(/Ã­/g, "í")
+      .replace(/Ã³/g, "ó")
+      .replace(/Ã´/g, "ô")
+      .replace(/Ãµ/g, "õ")
+      .replace(/Ãº/g, "ú")
+      .replace(/Ã§/g, "ç")
+      .replace(/Ã/g, "Á")
+      .replace(/Ã‰/g, "É")
+      .replace(/Ã/g, "Í")
+      .replace(/Ã“/g, "Ó")
+      .replace(/Ãš/g, "Ú")
+      .replace(/Ã‡/g, "Ç")
+      .replace(/Â·/g, "·")
+      .replace(/Â/g, "");
+  }
+};
 
 const generateUUID = () => {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -572,7 +603,7 @@ export default function PradexFinancas() {
     { value: "debito", label: "Débito" },
     { value: "credito", label: "Crédito total" },
     { value: "parceladas", label: "Parceladas" },
-    ...cartoes.map(cartao => ({ value: `cartao-${cartao.id}`, label: `Crédito · ${cartao.nome}` })),
+    ...cartoes.map(cartao => ({ value: `cartao-${cartao.id}`, label: `Crédito · ${normalizeText(cartao.nome)}` })),
   ];
   const lancamentosFiltrados = lancamentosAgrupados.filter((lancamento) => {
     if (filtroLancamentos === "todos") return true;
@@ -597,7 +628,7 @@ export default function PradexFinancas() {
     : 0;
 
   const inputStyle = { width: "100%", background: "#0F1117", border: "1px solid #252832", borderRadius: "10px", padding: "0.75rem 1rem", color: "#E8E8E8", fontSize: "0.9rem", marginBottom: "0.75rem", outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
-  const menuItems = [{ key: "ia", label: " o  IA" }, { key: "dashboard", label: "Dashboard" }, { key: "lancamentos", label: "Lançar" }, { key: "historico", label: "Histórico" }, { key: "metas", label: "Metas" }];
+const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashboard" }, { key: "lancamentos", label: "Lançar" }, { key: "historico", label: "Histórico" }, { key: "metas", label: "Metas" }];
 
   if (loadingAuth) return <div style={{ minHeight: "100vh", background: "#0F1117", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "#555", fontFamily: "'DM Sans', sans-serif" }}>Carregando...</p></div>;
 
@@ -631,18 +662,18 @@ export default function PradexFinancas() {
           <div style={{ background: "#181B24", borderRadius: "16px 16px 0 0", padding: "1.5rem", width: "100%", maxWidth: "480px", border: "1px solid #252832", maxHeight: "90vh", overflowY: "auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
               <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Editar lançamento</p>
-              <button onClick={() => setEditando(null)} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "1.2rem" }}> -</button>
+              <button onClick={() => setEditando(null)} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "1.2rem" }}>×</button>
             </div>
             <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1rem" }}>
               {["gasto", "receita"].map(t => (
-                <button key={t} onClick={() => setEditando(e => ({ ...e, tipo: t, categoria: "", parcelado: t === "gasto" ? e.parcelado : false, parcela_atual: t === "gasto" ? e.parcela_atual : "1", total_parcelas: t === "gasto" ? e.total_parcelas : "", recorrente: t === "gasto" ? e.recorrente : false }))} style={{ flex: 1, padding: "0.5rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600, background: editando.tipo === t ? (t === "receita" ? "#22C55E" : "#EF4444") : "transparent", color: editando.tipo === t ? "#fff" : "#555", transition: "all 0.2s", fontFamily: "inherit" }}>{t === "receita" ? " ?' Receita" : " ?" Gasto"}</button>
+                <button key={t} onClick={() => setEditando(e => ({ ...e, tipo: t, categoria: "", parcelado: t === "gasto" ? e.parcelado : false, parcela_atual: t === "gasto" ? e.parcela_atual : "1", total_parcelas: t === "gasto" ? e.total_parcelas : "", recorrente: t === "gasto" ? e.recorrente : false }))} style={{ flex: 1, padding: "0.5rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600, background: editando.tipo === t ? (t === "receita" ? "#22C55E" : "#EF4444") : "transparent", color: editando.tipo === t ? "#fff" : "#555", transition: "all 0.2s", fontFamily: "inherit" }}>{t === "receita" ? "Receita" : "Gasto"}</button>
               ))}
             </div>
             <input type="text" placeholder="Descrição" value={editando.descricao} onChange={e => setEditando(ed => ({ ...ed, descricao: e.target.value }))} style={inputStyle} />
             <input type="text" placeholder={editando.parcelado ? "Valor da parcela (R$)" : "Valor (R$)"} value={editando.valor} onChange={e => setEditando(ed => ({ ...ed, valor: e.target.value }))} style={inputStyle} />
             <select value={editando.categoria} onChange={e => setEditando(ed => ({ ...ed, categoria: e.target.value }))} style={{ ...inputStyle, color: editando.categoria ? "#E8E8E8" : "#555", appearance: "none" }}>
               <option value="">Categoria</option>
-              {categories[editando.tipo].map(c => <option key={c} value={c}>{c}</option>)}
+              {categories[editando.tipo].map(c => <option key={c} value={c}>{normalizeText(c)}</option>)}
             </select>
             <select value={editando.forma_pagamento} onChange={e => setEditando(ed => ({ ...ed, forma_pagamento: e.target.value, cartao_id: "", parcelado: e.target.value === "Crédito" ? ed.parcelado : false, parcela_atual: e.target.value === "Crédito" ? ed.parcela_atual : "1", total_parcelas: e.target.value === "Crédito" ? ed.total_parcelas : "", recorrente: e.target.value === "Crédito" ? ed.recorrente : false }))} style={{ ...inputStyle, color: editando.forma_pagamento ? "#E8E8E8" : "#555", appearance: "none" }}>
               <option value="">Forma de pagamento</option>
@@ -651,13 +682,13 @@ export default function PradexFinancas() {
             {editando.forma_pagamento === "Crédito" && cartoes.length > 0 && (
               <select value={editando.cartao_id} onChange={e => setEditando(ed => ({ ...ed, cartao_id: e.target.value }))} style={{ ...inputStyle, color: editando.cartao_id ? "#E8E8E8" : "#555", appearance: "none" }}>
                 <option value="">Selecione o cartão</option>
-                {cartoes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                {cartoes.map(c => <option key={c.id} value={c.id}>{normalizeText(c.nome)}</option>)}
               </select>
             )}
             {editando.tipo === "gasto" && editando.forma_pagamento === "Crédito" && (
               <div style={{ marginBottom: "0.75rem" }}>
                 <button onClick={() => setEditando(ed => ({ ...ed, parcelado: !ed.parcelado, parcela_atual: ed.parcelado ? "1" : (ed.parcela_atual || "1"), total_parcelas: ed.parcelado ? "" : ed.total_parcelas, recorrente: false }))} style={{ width: "100%", padding: "0.75rem", border: `1px solid ${editando.parcelado ? "#6366F1" : "#252832"}`, borderRadius: "10px", background: editando.parcelado ? "#6366F118" : "transparent", color: editando.parcelado ? "#6366F1" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s" }}>
-                  {editando.parcelado ? " o" Compra parcelada" : "+ Marcar como compra parcelada"}
+                  {editando.parcelado ? "Compra parcelada" : "+ Marcar como compra parcelada"}
                 </button>
                 {editando.parcelado && (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginTop: "0.5rem" }}>
@@ -671,12 +702,12 @@ export default function PradexFinancas() {
             <input type="date" value={editando.data_lancamento} onChange={e => setEditando(ed => ({ ...ed, data_lancamento: e.target.value }))} style={inputStyle} />
             {editando.tipo === "gasto" && !editando.parcelado && (
               <button onClick={() => setEditando(ed => ({ ...ed, recorrente: !ed.recorrente }))} style={{ width: "100%", padding: "0.75rem", border: `1px solid ${editando.recorrente ? "#6366F1" : "#252832"}`, borderRadius: "10px", background: editando.recorrente ? "#6366F118" : "transparent", color: editando.recorrente ? "#6366F1" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginBottom: "0.75rem", transition: "all 0.2s" }}>
-                {editando.recorrente ? " Y"  Recorrente  ?" criará até Dez/" + new Date().getFullYear() : " Y"  Marcar como recorrente"}
+                {editando.recorrente ? "Recorrente · criará até Dez/" + new Date().getFullYear() : "Marcar como recorrente"}
               </button>
             )}
             {editando.tipo === "gasto" && (
               <button onClick={() => setEditando(ed => ({ ...ed, poderia_ter_evitado: !ed.poderia_ter_evitado }))} style={{ width: "100%", padding: "0.75rem", border: `1px solid ${editando.poderia_ter_evitado ? "#F59E0B" : "#252832"}`, borderRadius: "10px", background: editando.poderia_ter_evitado ? "#F59E0B18" : "transparent", color: editando.poderia_ter_evitado ? "#F59E0B" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginBottom: "0.75rem", transition: "all 0.2s" }}>
-                {editando.poderia_ter_evitado ? " Y~  Marcado como evitável" : " Y~  Poderia ter evitado?"}
+                {editando.poderia_ter_evitado ? "Marcado como evitável" : "Poderia ter evitado?"}
               </button>
             )}
             <div style={{ display: "flex", gap: "0.75rem" }}>
@@ -693,7 +724,7 @@ export default function PradexFinancas() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
         <div>
           <p style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "#555", textTransform: "uppercase", margin: "0 0 0.25rem" }}>
-            Pradex Finanças {userRole === "super_admin" ? "·  Y'' Admin" : userRole === "assessor" ? "·  Y'" Assessor" : ""}
+            Pradex Finanças {userRole === "super_admin" ? "· Admin" : userRole === "assessor" ? "· Assessor" : ""}
           </p>
           <h1 style={{ margin: 0, fontSize: "1.6rem", fontWeight: 600, color: "#F0F0F0", letterSpacing: "-0.03em" }}>
             {monthNames[new Date().getMonth()]} {new Date().getFullYear()}
@@ -716,10 +747,10 @@ export default function PradexFinancas() {
           <p style={{ margin: "0 0 0.4rem", fontSize: "0.65rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>Cartões</p>
           {gastosPorCartao.length > 0 ? gastosPorCartao.map((item, i) => (
             <div key={item.cartao.id} style={{ marginBottom: i < gastosPorCartao.length - 1 ? "0.35rem" : 0 }}>
-              <p style={{ margin: 0, fontSize: "0.62rem", color: "#666" }}>{item.cartao.nome}</p>
+              <p style={{ margin: 0, fontSize: "0.62rem", color: "#666" }}>{normalizeText(item.cartao.nome)}</p>
               <p style={{ margin: 0, fontSize: "0.82rem", fontWeight: 700, color: "#EF4444" }}>{formatBRL(item.total)}</p>
             </div>
-          )) : <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: "#333" }}> ?"</p>}
+          )) : <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: "#333" }}>—</p>}
         </div>
       </div>
 
@@ -734,16 +765,16 @@ export default function PradexFinancas() {
       {tela === "ia" && (
         <div>
           <div style={{ background: "#6366F110", borderRadius: "20px", padding: "1.75rem 1.5rem", marginBottom: "1.25rem", border: "1px solid #6366F140", textAlign: "center" }}>
-            <p style={{ margin: "0 0 0.5rem", fontSize: "2rem" }}> o </p>
+            <p style={{ margin: "0 0 0.5rem", fontSize: "2rem" }}>IA</p>
             <h2 style={{ margin: "0 0 0.5rem", fontSize: "1.2rem", fontWeight: 700, color: "#F0F0F0" }}>Importar com Inteligência Artificial</h2>
-            <p style={{ margin: 0, fontSize: "0.85rem", color: "#888", lineHeight: 1.6 }}>Cole seus gastos em texto livre  ?" extrato, WhatsApp, bloco de notas  ?" e a IA organiza tudo automaticamente.</p>
+            <p style={{ margin: 0, fontSize: "0.85rem", color: "#888", lineHeight: 1.6 }}>Cole seus gastos em texto livre, extrato, WhatsApp ou bloco de notas e a IA organiza tudo automaticamente.</p>
           </div>
           <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832", marginBottom: "1.25rem" }}>
             <textarea placeholder="Cole aqui o texto com seus gastos..." value={textoIA} onChange={e => setTextoIA(e.target.value)} rows={6} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }} />
             {erroIA && <p style={{ color: "#EF4444", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{erroIA}</p>}
             {preview.length === 0 && (
               <button onClick={processarComIA} disabled={processando} style={{ width: "100%", padding: "0.95rem", border: "none", borderRadius: "12px", background: processando ? "#4a4c9a" : "#6366F1", color: "#fff", fontSize: "1rem", fontWeight: 700, cursor: processando ? "not-allowed" : "pointer", transition: "all 0.2s", fontFamily: "inherit" }}>
-                {processando ? " o  Processando..." : " o  Processar com IA"}
+                {processando ? "Processando..." : "Processar com IA"}
               </button>
             )}
             {preview.length > 0 && (
@@ -751,10 +782,10 @@ export default function PradexFinancas() {
                 <p style={{ margin: "1rem 0 0.75rem", fontSize: "0.75rem", color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>{preview.length} lançamento{preview.length > 1 ? "s" : ""} identificado{preview.length > 1 ? "s" : ""}</p>
                 {preview.map((l, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "center", padding: "0.75rem 1rem", background: "#0F1117", borderRadius: "10px", marginBottom: "0.5rem", border: "1px solid #252832", gap: "0.75rem" }}>
-                    <div style={{ width: "32px", height: "32px", borderRadius: "8px", flexShrink: 0, background: l.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.9rem" }}>{l.tipo === "receita" ? " ?'" : " ?""}</div>
+                    <div style={{ width: "32px", height: "32px", borderRadius: "8px", flexShrink: 0, background: l.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.9rem" }}>{l.tipo === "receita" ? "+" : "-"}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 500, color: "#E8E8E8" }}>{l.descricao}</p>
-                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{l.categoria} · {l.forma_pagamento || " ?""} · {formatData(l.data_lancamento)}</p>
+                      <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 500, color: "#E8E8E8" }}>{normalizeText(l.descricao)}</p>
+                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{normalizeText(l.categoria)} · {normalizeText(l.forma_pagamento) || "Sem forma"} · {formatData(l.data_lancamento)}</p>
                     </div>
                     <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444", flexShrink: 0 }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
                   </div>
@@ -762,7 +793,7 @@ export default function PradexFinancas() {
                 <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
                   <button onClick={() => { setPreview([]); setTextoIA(""); }} style={{ flex: 1, padding: "0.75rem", border: "1px solid #252832", borderRadius: "10px", background: "transparent", color: "#888", fontSize: "0.9rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
                   <button onClick={confirmarImportacao} disabled={saving} style={{ flex: 2, padding: "0.75rem", border: "none", borderRadius: "10px", background: importado ? "#16A34A" : "#22C55E", color: "#fff", fontSize: "0.9rem", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, fontFamily: "inherit" }}>
-                    {saving ? "Salvando..." : importado ? " o" Importado!" : `Confirmar ${preview.length} lançamento${preview.length > 1 ? "s" : ""}`}
+                    {saving ? "Salvando..." : importado ? "Importado!" : `Confirmar ${preview.length} lançamento${preview.length > 1 ? "s" : ""}`}
                   </button>
                 </div>
               </>
@@ -770,21 +801,21 @@ export default function PradexFinancas() {
           </div>
           {rascunhos.length > 0 && (
             <div>
-              <p style={{ margin: "0 0 0.75rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}> Y"  Pendentes do WhatsApp ({rascunhos.length})</p>
+              <p style={{ margin: "0 0 0.75rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Pendentes do WhatsApp ({rascunhos.length})</p>
               {rascunhos.map(r => (
                 <div key={r.id} style={{ background: "#181B24", borderRadius: "16px", padding: "1.25rem", marginBottom: "0.75rem", border: "1px solid #252832" }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", marginBottom: "0.75rem" }}>
-                    <div style={{ width: "36px", height: "36px", borderRadius: "10px", flexShrink: 0, background: r.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem" }}>{r.tipo === "receita" ? " ?'" : " ?""}</div>
+                    <div style={{ width: "36px", height: "36px", borderRadius: "10px", flexShrink: 0, background: r.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem" }}>{r.tipo === "receita" ? "+" : "-"}</div>
                     <div style={{ flex: 1 }}>
-                      <p style={{ margin: "0 0 0.2rem", fontSize: "0.9rem", fontWeight: 600, color: "#E8E8E8" }}>{r.descricao}</p>
+                      <p style={{ margin: "0 0 0.2rem", fontSize: "0.9rem", fontWeight: 600, color: "#E8E8E8" }}>{normalizeText(r.descricao)}</p>
                       <p style={{ margin: "0 0 0.2rem", fontSize: "0.85rem", fontWeight: 700, color: r.tipo === "receita" ? "#22C55E" : "#EF4444" }}>{formatBRL(r.valor)}</p>
-                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{r.categoria} · {r.forma_pagamento || " ?""}</p>
+                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{normalizeText(r.categoria)} · {normalizeText(r.forma_pagamento) || "Sem forma"}</p>
                     </div>
                   </div>
-                  {r.texto_original && <div style={{ background: "#0F1117", borderRadius: "8px", padding: "0.5rem 0.75rem", marginBottom: "0.75rem" }}><p style={{ margin: 0, fontSize: "0.72rem", color: "#555" }}> Y'  "{r.texto_original}"</p></div>}
+                  {r.texto_original && <div style={{ background: "#0F1117", borderRadius: "8px", padding: "0.5rem 0.75rem", marginBottom: "0.75rem" }}><p style={{ margin: 0, fontSize: "0.72rem", color: "#555" }}>Texto original: "{r.texto_original}"</p></div>}
                   <div style={{ display: "flex", gap: "0.5rem" }}>
-                    <button onClick={() => rejeitarRascunho(r.id)} style={{ flex: 1, padding: "0.65rem", border: "1px solid #252832", borderRadius: "10px", background: "transparent", color: "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}> o. Rejeitar</button>
-                    <button onClick={() => confirmarRascunho(r)} style={{ flex: 2, padding: "0.65rem", border: "none", borderRadius: "10px", background: "#22C55E", color: "#fff", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}> o" Confirmar</button>
+                    <button onClick={() => rejeitarRascunho(r.id)} style={{ flex: 1, padding: "0.65rem", border: "1px solid #252832", borderRadius: "10px", background: "transparent", color: "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Rejeitar</button>
+                    <button onClick={() => confirmarRascunho(r)} style={{ flex: 2, padding: "0.65rem", border: "none", borderRadius: "10px", background: "#22C55E", color: "#fff", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Confirmar</button>
                   </div>
                 </div>
               ))}
@@ -798,16 +829,16 @@ export default function PradexFinancas() {
         <div>
           {lancamentos.length === 0 ? (
             <div style={{ textAlign: "center", padding: "3rem 0", color: "#444" }}>
-              <p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}> Y"S</p>
+              <p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>•</p>
               <p style={{ fontSize: "0.9rem" }}>Sem dados ainda.</p>
             </div>
           ) : (
             <>
               {gastosEvitaveis.length > 0 && (
                 <div style={{ background: "#F59E0B0F", borderRadius: "16px", padding: "1.25rem 1.5rem", marginBottom: "1rem", border: "1px solid #F59E0B30" }}>
-                  <p style={{ margin: "0 0 0.5rem", fontSize: "0.75rem", fontWeight: 600, color: "#F59E0B", textTransform: "uppercase", letterSpacing: "0.1em" }}> Y~  Botão do Arrependimento</p>
+                  <p style={{ margin: "0 0 0.5rem", fontSize: "0.75rem", fontWeight: 600, color: "#F59E0B", textTransform: "uppercase", letterSpacing: "0.1em" }}>Botão do Arrependimento</p>
                   <p style={{ margin: "0 0 0.25rem", fontSize: "0.9rem", color: "#E8E8E8" }}>Você marcou <strong style={{ color: "#F59E0B" }}>{formatBRL(totalEvitavel)}</strong> em gastos evitáveis.</p>
-                  <p style={{ margin: 0, fontSize: "0.8rem", color: "#888" }}>Investindo esse dinheiro, teria <strong style={{ color: "#22C55E" }}>{formatBRL(totalImpacto12m)}</strong> em 12 meses.  Y' </p>
+                  <p style={{ margin: 0, fontSize: "0.8rem", color: "#888" }}>Investindo esse dinheiro, teria <strong style={{ color: "#22C55E" }}>{formatBRL(totalImpacto12m)}</strong> em 12 meses.</p>
                 </div>
               )}
               <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
@@ -873,7 +904,7 @@ export default function PradexFinancas() {
                   {gastosPorCartao.map((item) => (
                     <div key={item.cartao.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem 0", borderBottom: "1px solid #252832" }}>
                       <div>
-                        <p style={{ margin: 0, fontSize: "0.9rem", color: "#E8E8E8", fontWeight: 500 }}> Y'  {item.cartao.nome}</p>
+                        <p style={{ margin: 0, fontSize: "0.9rem", color: "#E8E8E8", fontWeight: 500 }}>{normalizeText(item.cartao.nome)}</p>
                         <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>Fecha dia {item.cartao.dia_fechamento} · Vence dia {item.cartao.dia_vencimento}</p>
                       </div>
                       <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#EF4444" }}>{formatBRL(item.total)}</p>
@@ -882,17 +913,17 @@ export default function PradexFinancas() {
                 </div>
               )}
               <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
-                <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}> sltimos lançamentos</p>
+                <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Últimos lançamentos</p>
                 {lancamentos.slice(0, 5).map(l => (
                   <div key={l.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.6rem 0", borderBottom: "1px solid #252832", cursor: "pointer" }} onClick={() => handleEdit(l)}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ margin: 0, fontSize: "0.85rem", color: "#E8E8E8" }}>
-                        {l.poderia_ter_evitado && <span style={{ marginRight: "4px" }}> Y~ </span>}
-                        {l.recorrente && <span style={{ marginRight: "4px" }}> Y" </span>}
+                        {l.poderia_ter_evitado && <span style={{ marginRight: "6px", fontSize: "0.62rem", color: "#F59E0B", background: "#F59E0B15", padding: "1px 6px", borderRadius: "999px", verticalAlign: "middle" }}>⚠️ Evitável</span>}
+                        {l.recorrente && <span style={{ marginRight: "6px", fontSize: "0.62rem", color: "#22C55E", background: "#22C55E15", padding: "1px 6px", borderRadius: "999px", verticalAlign: "middle" }}>🔁 Recorrente</span>}
                         {l.descricao}
                         {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.7rem", color: "#555", background: "#252832", padding: "1px 6px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
                       </p>
-                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{l.categoria} · {l.forma_pagamento || " ?""} · {formatData(l.data_lancamento)}</p>
+                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{l.categoria} · {l.forma_pagamento || "Sem forma"} · {formatData(l.data_lancamento)}</p>
                     </div>
                     <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444" }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
                   </div>
@@ -903,21 +934,21 @@ export default function PradexFinancas() {
         </div>
       )}
 
-      {/* LAN ?AR */}
+      {/* LANÇAR */}
       {tela === "lancamentos" && (
         <>
           <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
             <p style={{ margin: "0 0 1rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Novo lançamento</p>
             <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1rem" }}>
               {["gasto", "receita"].map(t => (
-                <button key={t} onClick={() => { setTipo(t); setForm(f => ({ ...f, categoria: "", parcelado: false, parcela_atual: "1", total_parcelas: "" })); }} style={{ flex: 1, padding: "0.5rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600, background: tipo === t ? (t === "receita" ? "#22C55E" : "#EF4444") : "transparent", color: tipo === t ? "#fff" : "#555", transition: "all 0.2s", fontFamily: "inherit" }}>{t === "receita" ? " ?' Receita" : " ?" Gasto"}</button>
+                <button key={t} onClick={() => { setTipo(t); setForm(f => ({ ...f, categoria: "", parcelado: false, parcela_atual: "1", total_parcelas: "" })); }} style={{ flex: 1, padding: "0.5rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600, background: tipo === t ? (t === "receita" ? "#22C55E" : "#EF4444") : "transparent", color: tipo === t ? "#fff" : "#555", transition: "all 0.2s", fontFamily: "inherit" }}>{t === "receita" ? "Receita" : "Gasto"}</button>
               ))}
             </div>
             <input type="text" placeholder="Descrição" value={form.descricao} onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))} style={inputStyle} />
             <input type="text" placeholder={form.parcelado ? "Valor da parcela (R$)" : "Valor total (R$)"} value={form.valor} onChange={e => setForm(f => ({ ...f, valor: e.target.value }))} style={inputStyle} />
             <select value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))} style={{ ...inputStyle, color: form.categoria ? "#E8E8E8" : "#555", appearance: "none" }}>
               <option value="">Categoria</option>
-              {categories[tipo].map(c => <option key={c} value={c}>{c}</option>)}
+              {categories[tipo].map(c => <option key={c} value={c}>{normalizeText(c)}</option>)}
             </select>
             <select value={form.forma_pagamento} onChange={e => setForm(f => ({ ...f, forma_pagamento: e.target.value, cartao_id: "", parcelado: false, parcela_atual: "1", total_parcelas: "" }))} style={{ ...inputStyle, color: form.forma_pagamento ? "#E8E8E8" : "#555", appearance: "none" }}>
               <option value="">Forma de pagamento</option>
@@ -926,13 +957,13 @@ export default function PradexFinancas() {
             {form.forma_pagamento === "Crédito" && cartoes.length > 0 && (
               <select value={form.cartao_id} onChange={e => setForm(f => ({ ...f, cartao_id: e.target.value }))} style={{ ...inputStyle, color: form.cartao_id ? "#E8E8E8" : "#555", appearance: "none" }}>
                 <option value="">Selecione o cartão</option>
-                {cartoes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                {cartoes.map(c => <option key={c.id} value={c.id}>{normalizeText(c.nome)}</option>)}
               </select>
             )}
             {form.forma_pagamento === "Crédito" && (
               <div style={{ marginBottom: "0.75rem" }}>
                 <button onClick={() => setForm(f => ({ ...f, parcelado: !f.parcelado, parcela_atual: "1", total_parcelas: "", recorrente: false }))} style={{ width: "100%", padding: "0.65rem 1rem", border: `1px solid ${form.parcelado ? "#6366F1" : "#252832"}`, borderRadius: "10px", background: form.parcelado ? "#6366F118" : "transparent", color: form.parcelado ? "#6366F1" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s" }}>
-                  {form.parcelado ? " o" Compra parcelada" : "+ Parcelar no crédito"}
+                  {form.parcelado ? "Compra parcelada" : "+ Parcelar no crédito"}
                 </button>
                 {form.parcelado && (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginTop: "0.5rem" }}>
@@ -945,16 +976,16 @@ export default function PradexFinancas() {
             )}
             {tipo === "gasto" && !form.parcelado && (
               <button onClick={() => setForm(f => ({ ...f, recorrente: !f.recorrente }))} style={{ width: "100%", padding: "0.65rem 1rem", border: `1px solid ${form.recorrente ? "#6366F1" : "#252832"}`, borderRadius: "10px", background: form.recorrente ? "#6366F118" : "transparent", color: form.recorrente ? "#6366F1" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s", marginBottom: "0.75rem" }}>
-                {form.recorrente ? ` Y"  Recorrente  ?" criará até Dez/${new Date().getFullYear()}` : " Y"  Marcar como recorrente"}
+                {form.recorrente ? `Recorrente · criará até Dez/${new Date().getFullYear()}` : "Marcar como recorrente"}
               </button>
             )}
             <input type="date" value={form.data_lancamento} onChange={e => setForm(f => ({ ...f, data_lancamento: e.target.value }))} style={inputStyle} />
             {erro && <p style={{ color: "#EF4444", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{erro}</p>}
-            <button onClick={handleSubmit} disabled={saving} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", background: success ? "#16A34A" : tipo === "receita" ? "#22C55E" : "#EF4444", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, transition: "all 0.2s", fontFamily: "inherit" }}>{saving ? "Salvando..." : success ? " o" Salvo!" : form.parcelado && form.total_parcelas >= 2 ? `Parcelar em ${form.total_parcelas}x` : form.recorrente ? "Adicionar + criar recorrências" : "Adicionar"}</button>
+            <button onClick={handleSubmit} disabled={saving} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", background: success ? "#16A34A" : tipo === "receita" ? "#22C55E" : "#EF4444", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, transition: "all 0.2s", fontFamily: "inherit" }}>{saving ? "Salvando..." : success ? "Salvo!" : form.parcelado && form.total_parcelas >= 2 ? `Parcelar em ${form.total_parcelas}x` : form.recorrente ? "Adicionar + criar recorrências" : "Adicionar"}</button>
           </div>
 
           <button onClick={() => setMostrarCategorias(!mostrarCategorias)} style={{ width: "100%", padding: "0.65rem 1rem", border: "1px solid #252832", borderRadius: "10px", background: "transparent", color: "#555", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "center", transition: "all 0.2s", marginBottom: "0.75rem" }}>
-            {mostrarCategorias ? " o. Fechar categorias" : " Y  ️ Gerenciar categorias"}
+            {mostrarCategorias ? "Fechar categorias" : "Gerenciar categorias"}
           </button>
           {mostrarCategorias && (
             <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
@@ -962,7 +993,7 @@ export default function PradexFinancas() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginBottom: "0.75rem" }}>
                 {["gasto", "receita"].map(t => (
                   <button key={t} onClick={() => setNovaCategoria(n => ({ ...n, tipo: t }))} style={{ padding: "0.5rem", border: `1px solid ${novaCategoria.tipo === t ? "#6366F1" : "#252832"}`, borderRadius: "8px", background: novaCategoria.tipo === t ? "#6366F118" : "transparent", color: novaCategoria.tipo === t ? "#6366F1" : "#555", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-                    {t === "gasto" ? " ?" Gasto" : " ?' Receita"}
+                    {t === "gasto" ? "Gasto" : "Receita"}
                   </button>
                 ))}
               </div>
@@ -975,7 +1006,7 @@ export default function PradexFinancas() {
                 {categories.gasto.map(c => (
                   <div key={c} style={{ display: "flex", alignItems: "center", gap: "0.25rem", background: "#0F1117", borderRadius: "8px", padding: "0.3rem 0.6rem", border: "1px solid #252832" }}>
                     <span style={{ fontSize: "0.78rem", color: "#CCC" }}>{c}</span>
-                    <button onClick={() => handleRemoveCategoria(c, "gasto")} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "0.9rem", padding: 0, lineHeight: 1 }}> -</button>
+                    <button onClick={() => handleRemoveCategoria(c, "gasto")} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "0.9rem", padding: 0, lineHeight: 1 }}>×</button>
                   </div>
                 ))}
               </div>
@@ -984,7 +1015,7 @@ export default function PradexFinancas() {
                 {categories.receita.map(c => (
                   <div key={c} style={{ display: "flex", alignItems: "center", gap: "0.25rem", background: "#0F1117", borderRadius: "8px", padding: "0.3rem 0.6rem", border: "1px solid #252832" }}>
                     <span style={{ fontSize: "0.78rem", color: "#CCC" }}>{c}</span>
-                    <button onClick={() => handleRemoveCategoria(c, "receita")} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "0.9rem", padding: 0, lineHeight: 1 }}> -</button>
+                    <button onClick={() => handleRemoveCategoria(c, "receita")} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "0.9rem", padding: 0, lineHeight: 1 }}>×</button>
                   </div>
                 ))}
               </div>
@@ -992,7 +1023,7 @@ export default function PradexFinancas() {
           )}
 
           <button onClick={() => setMostrarFormCartao(!mostrarFormCartao)} style={{ width: "100%", padding: "0.65rem 1rem", border: "1px solid #252832", borderRadius: "10px", background: "transparent", color: "#555", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "center", transition: "all 0.2s", marginBottom: "1rem" }}>
-            {mostrarFormCartao ? " o. Fechar cartões" : " Y'  Gerenciar cartões"}
+            {mostrarFormCartao ? "Fechar cartões" : "Gerenciar cartões"}
           </button>
           {mostrarFormCartao && (
             <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
@@ -1004,16 +1035,16 @@ export default function PradexFinancas() {
                 <input type="number" placeholder="Dia vencimento" min="1" max="31" value={formCartao.dia_vencimento} onChange={e => setFormCartao(f => ({ ...f, dia_vencimento: e.target.value }))} style={{ ...inputStyle, marginBottom: 0 }} />
               </div>
               {erroCartao && <p style={{ color: "#EF4444", fontSize: "0.8rem", marginBottom: "0.75rem", marginTop: "0.75rem" }}>{erroCartao}</p>}
-              <button onClick={handleSaveCartao} disabled={savingCartao} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", marginTop: "0.75rem", background: successCartao ? "#16A34A" : "#6366F1", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: savingCartao ? "not-allowed" : "pointer", opacity: savingCartao ? 0.7 : 1, transition: "all 0.2s", fontFamily: "inherit" }}>{savingCartao ? "Salvando..." : successCartao ? " o" Salvo!" : "Adicionar cartão"}</button>
+              <button onClick={handleSaveCartao} disabled={savingCartao} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", marginTop: "0.75rem", background: successCartao ? "#16A34A" : "#6366F1", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: savingCartao ? "not-allowed" : "pointer", opacity: savingCartao ? 0.7 : 1, transition: "all 0.2s", fontFamily: "inherit" }}>{savingCartao ? "Salvando..." : successCartao ? "Salvo!" : "Adicionar cartão"}</button>
               {cartoes.length > 0 && (
                 <div style={{ marginTop: "1rem" }}>
                   {cartoes.map(c => (
                     <div key={c.id} style={{ display: "flex", alignItems: "center", padding: "0.75rem 0", borderBottom: "1px solid #252832", gap: "0.75rem" }}>
                       <div style={{ flex: 1 }}>
-                        <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 600, color: "#E8E8E8" }}> Y'  {c.nome}</p>
-                        <p style={{ margin: 0, fontSize: "0.72rem", color: "#555" }}>{c.bandeira && c.bandeira + " · "}Fecha dia {c.dia_fechamento || " ?""} · Vence dia {c.dia_vencimento || " ?""}</p>
+                        <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 600, color: "#E8E8E8" }}>{normalizeText(c.nome)}</p>
+                        <p style={{ margin: 0, fontSize: "0.72rem", color: "#555" }}>{normalizeText(c.bandeira) && normalizeText(c.bandeira) + " · "}Fecha dia {c.dia_fechamento || "—"} · Vence dia {c.dia_vencimento || "—"}</p>
                       </div>
-                      <button onClick={() => handleDeleteCartao(c.id)} style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem" }}> -</button>
+                      <button onClick={() => handleDeleteCartao(c.id)} style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem" }}>×</button>
                     </div>
                   ))}
                 </div>
@@ -1038,41 +1069,41 @@ export default function PradexFinancas() {
                 </div>
                 {cartaoSelecionado && (
                   <div style={{ background: "#181B24", borderRadius: "10px", border: "1px solid #252832", padding: "0.8rem 0.9rem" }}>
-                    <p style={{ margin: "0 0 0.25rem", fontSize: "0.66rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.08em" }}>{cartaoSelecionado.nome}</p>
+                    <p style={{ margin: "0 0 0.25rem", fontSize: "0.66rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.08em" }}>{normalizeText(cartaoSelecionado.nome)}</p>
                     <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 700, color: "#F59E0B" }}>{formatBRL(totalCartaoSelecionado)}</p>
                   </div>
                 )}
               </div>
               {cartaoSelecionado && (
                 <p style={{ margin: "0.6rem 0 0", fontSize: "0.76rem", color: "#777" }}>
-                  Mostrando apenas compras no cartão {cartaoSelecionado.nome}.
+                  Mostrando apenas compras no cartão {normalizeText(cartaoSelecionado.nome)}.
                 </p>
               )}
             </div>
             {!loading && lancamentosFiltrados.length === 0 && <p style={{ color: "#444", fontSize: "0.9rem", textAlign: "center", padding: "2rem 0" }}>Nenhum lançamento encontrado nesse filtro.</p>}
             {lancamentosFiltrados.map(l => (
               <div key={l._idsGrupo ? `grupo-${l._idsGrupo[0]}` : l.id} onClick={() => handleEdit(l)} style={{ display: "flex", alignItems: "center", padding: "0.9rem 1rem", background: l.poderia_ter_evitado ? "#F59E0B08" : "#181B24", borderRadius: "12px", marginBottom: "0.5rem", border: `1px solid ${l.poderia_ter_evitado ? "#F59E0B30" : "#252832"}`, gap: "0.75rem", cursor: "pointer" }}>
-                <div style={{ width: "36px", height: "36px", borderRadius: "10px", flexShrink: 0, background: l.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem" }}>{l.tipo === "receita" ? " ?'" : " ?""}</div>
+                <div style={{ width: "36px", height: "36px", borderRadius: "10px", flexShrink: 0, background: l.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem" }}>{l.tipo === "receita" ? "+" : "-"}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 500, color: "#E8E8E8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {l.descricao}
+                    {normalizeText(l.descricao)}
                     {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#6366F1", background: "#6366F115", padding: "1px 5px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
-                    {l._totalMeses && l._totalMeses > 1 && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#22C55E", background: "#22C55E15", padding: "1px 5px", borderRadius: "4px" }}> Y"  {l._totalMeses} meses</span>}
+                    {l._totalMeses && l._totalMeses > 1 && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#22C55E", background: "#22C55E15", padding: "1px 6px", borderRadius: "999px" }}>🔁 {l._totalMeses} meses</span>}
                   </p>
-                  <p style={{ margin: 0, fontSize: "0.72rem", color: "#555" }}>{l.categoria} · {l.forma_pagamento || " ?""} · {formatData(l.data_lancamento)}</p>
+                  <p style={{ margin: 0, fontSize: "0.72rem", color: "#555" }}>{normalizeText(l.categoria)} · {normalizeText(l.forma_pagamento) || "Sem forma"} · {formatData(l.data_lancamento)}</p>
                 </div>
                 <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444", flexShrink: 0 }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
                 {l.tipo === "gasto" && !l._totalMeses && (
-                  <button onClick={(e) => { e.stopPropagation(); handleToggleArrependimento(e, l); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1rem", padding: "0 0.1rem", flexShrink: 0, opacity: l.poderia_ter_evitado ? 1 : 0.25, transition: "opacity 0.2s" }}> Y~ </button>
+                  <button onClick={(e) => { e.stopPropagation(); handleToggleArrependimento(e, l); }} style={{ background: l.poderia_ter_evitado ? "#F59E0B15" : "transparent", border: `1px solid ${l.poderia_ter_evitado ? "#F59E0B35" : "transparent"}`, cursor: "pointer", fontSize: "0.78rem", padding: "2px 6px", flexShrink: 0, opacity: l.poderia_ter_evitado ? 1 : 0.45, transition: "opacity 0.2s, background 0.2s", color: "#F59E0B", fontWeight: 700, borderRadius: "999px" }}>⚠️</button>
                 )}
-                <button onClick={(e) => { e.stopPropagation(); handleDelete(l); }} style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem", flexShrink: 0 }}> -</button>
+                <button onClick={(e) => { e.stopPropagation(); handleDelete(l); }} style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem", flexShrink: 0 }}>×</button>
               </div>
             ))}
           </div>
         </>
       )}
 
-      {/* HIST "RICO */}
+      {/* HISTÓRICO */}
       {tela === "historico" && (() => {
         const { ano, mes } = mesHistorico;
         const prefixo = `${ano}-${String(mes + 1).padStart(2, "0")}`;
@@ -1090,12 +1121,12 @@ export default function PradexFinancas() {
         return (
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem" }}>
-              <button onClick={() => navegarMes(-1)} style={{ background: "#181B24", border: "1px solid #252832", borderRadius: "8px", color: "#888", cursor: "pointer", padding: "0.4rem 0.8rem", fontSize: "1rem", fontFamily: "inherit" }}> ? </button>
+              <button onClick={() => navegarMes(-1)} style={{ background: "#181B24", border: "1px solid #252832", borderRadius: "8px", color: "#888", cursor: "pointer", padding: "0.4rem 0.8rem", fontSize: "1rem", fontFamily: "inherit" }}>‹</button>
               <div style={{ textAlign: "center" }}>
                 <p style={{ margin: 0, fontSize: "1.1rem", fontWeight: 600, color: "#F0F0F0" }}>{monthNames[mes]} {ano}</p>
                 {ehMesAtual && <p style={{ margin: 0, fontSize: "0.7rem", color: "#6366F1" }}>mês atual</p>}
               </div>
-              <button onClick={() => navegarMes(1)} style={{ background: "#181B24", border: "1px solid #252832", borderRadius: "8px", color: "#888", cursor: "pointer", padding: "0.4rem 0.8rem", fontSize: "1rem", fontFamily: "inherit" }}> ?'</button>
+              <button onClick={() => navegarMes(1)} style={{ background: "#181B24", border: "1px solid #252832", borderRadius: "8px", color: "#888", cursor: "pointer", padding: "0.4rem 0.8rem", fontSize: "1rem", fontFamily: "inherit" }}>›</button>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "0.75rem" }}>
               {[{ label: "Receitas", value: receitasMes, color: "#22C55E" }, { label: "Débito", value: gastosDebitoMes, color: "#EF4444" }, { label: "Cartão", value: gastosCartaoMes, color: "#F59E0B" }, { label: "Saldo", value: saldoMes, color: saldoMes >= 0 ? "#22C55E" : "#EF4444" }].map(card => (
@@ -1108,12 +1139,12 @@ export default function PradexFinancas() {
             <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", color: "#666" }}>Gasto total do mês: <span style={{ color: "#E8E8E8", fontWeight: 600 }}>{formatBRL(gastosMes)}</span></p>
             {lancMes.length === 0 ? (
               <div style={{ textAlign: "center", padding: "3rem 0", color: "#444" }}>
-                <p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}> Y".</p>
+                <p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>•</p>
                 <p style={{ fontSize: "0.9rem" }}>Nenhum lançamento em {monthNames[mes]} {ano}.</p>
               </div>
             ) : (
               <>
-                {evitaveisMes > 0 && <div style={{ background: "#F59E0B0F", borderRadius: "12px", padding: "1rem 1.25rem", marginBottom: "1rem", border: "1px solid #F59E0B30" }}><p style={{ margin: 0, fontSize: "0.8rem", color: "#F59E0B" }}> Y~  <strong>{formatBRL(evitaveisMes)}</strong> em gastos evitáveis nesse mês</p></div>}
+                {evitaveisMes > 0 && <div style={{ background: "#F59E0B0F", borderRadius: "12px", padding: "1rem 1.25rem", marginBottom: "1rem", border: "1px solid #F59E0B30" }}><p style={{ margin: 0, fontSize: "0.8rem", color: "#F59E0B" }}><strong>{formatBRL(evitaveisMes)}</strong> em gastos evitáveis nesse mês</p></div>}
                 {gastosCat.length > 0 && (
                   <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
                     <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Gastos por categoria</p>
@@ -1132,15 +1163,15 @@ export default function PradexFinancas() {
                   <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>{lancMes.length} lançamento{lancMes.length > 1 ? "s" : ""}</p>
                   {lancMes.map(l => (
                     <div key={l.id} onClick={() => handleEdit(l)} style={{ display: "flex", alignItems: "center", padding: "0.7rem 0", borderBottom: "1px solid #1a1d26", cursor: "pointer", gap: "0.75rem" }}>
-                      <div style={{ width: "32px", height: "32px", borderRadius: "8px", flexShrink: 0, background: l.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem" }}>{l.tipo === "receita" ? " ?'" : " ?""}</div>
+                      <div style={{ width: "32px", height: "32px", borderRadius: "8px", flexShrink: 0, background: l.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem" }}>{l.tipo === "receita" ? "+" : "-"}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ margin: 0, fontSize: "0.85rem", color: "#E8E8E8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {l.poderia_ter_evitado && <span style={{ marginRight: "4px" }}> Y~ </span>}
-                          {l.recorrente && <span style={{ marginRight: "4px" }}> Y" </span>}
-                          {l.descricao}
+                          {l.poderia_ter_evitado && <span style={{ marginRight: "6px", fontSize: "0.62rem", color: "#F59E0B", background: "#F59E0B15", padding: "1px 6px", borderRadius: "999px", verticalAlign: "middle" }}>⚠️ Evitável</span>}
+                          {l.recorrente && <span style={{ marginRight: "6px", fontSize: "0.62rem", color: "#22C55E", background: "#22C55E15", padding: "1px 6px", borderRadius: "999px", verticalAlign: "middle" }}>🔁 Recorrente</span>}
+                          {normalizeText(l.descricao)}
                           {l.total_parcelas && <span style={{ marginLeft: "5px", fontSize: "0.65rem", color: "#6366F1", background: "#6366F115", padding: "1px 4px", borderRadius: "3px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
                         </p>
-                        <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{l.categoria} · {l.forma_pagamento || " ?""} · {formatData(l.data_lancamento)}</p>
+                        <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{normalizeText(l.categoria)} · {normalizeText(l.forma_pagamento) || "Sem forma"} · {formatData(l.data_lancamento)}</p>
                       </div>
                       <p style={{ margin: 0, fontSize: "0.88rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444", flexShrink: 0 }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
                     </div>
@@ -1171,7 +1202,7 @@ export default function PradexFinancas() {
         const progresso12 = meta > 0 ? Math.min((dadosComAporte[12] / meta) * 100, 100) : 0;
         const progresso36 = meta > 0 ? Math.min((dadosComAporte[36] / meta) * 100, 100) : 0;
         const progresso60 = meta > 0 ? Math.min((dadosComAporte[60] / meta) * 100, 100) : 0;
-        const labels = Array.from({ length: meses + 1 }, (_, i) => { if (i === 0) return "Hoje"; if (i % 12 === 0) return `${i / 12}a`; if (i === mesMeta) return " YZ "; return ""; });
+        const labels = Array.from({ length: meses + 1 }, (_, i) => { if (i === 0) return "Hoje"; if (i % 12 === 0) return `${i / 12}a`; if (i === mesMeta) return "Meta"; return ""; });
         const temDados = patrimonioAtual > 0 || aporteMensal > 0;
         return (
           <div>
@@ -1201,23 +1232,24 @@ export default function PradexFinancas() {
                     </div>
                   ))}
                 </div>
-                {meta > 0 && mesMeta > 0 && <div style={{ background: "#22C55E0F", borderRadius: "12px", padding: "1rem 1.25rem", marginBottom: "1rem", border: "1px solid #22C55E30" }}><p style={{ margin: 0, fontSize: "0.85rem", color: "#22C55E" }}> YZ  Você atinge sua meta em <strong>{mesMeta < 12 ? `${mesMeta} meses` : `${Math.floor(mesMeta / 12)} ano${Math.floor(mesMeta / 12) > 1 ? "s" : ""}${mesMeta % 12 > 0 ? ` e ${mesMeta % 12} meses` : ""}`}</strong></p></div>}
-                {meta > 0 && mesMeta === -1 && <div style={{ background: "#EF44440F", borderRadius: "12px", padding: "1rem 1.25rem", marginBottom: "1rem", border: "1px solid #EF444430" }}><p style={{ margin: 0, fontSize: "0.85rem", color: "#EF4444" }}> s ️ Com esse aporte, você não atinge a meta em 5 anos.</p></div>}
+                {meta > 0 && mesMeta > 0 && <div style={{ background: "#22C55E0F", borderRadius: "12px", padding: "1rem 1.25rem", marginBottom: "1rem", border: "1px solid #22C55E30" }}><p style={{ margin: 0, fontSize: "0.85rem", color: "#22C55E" }}>Você atinge sua meta em <strong>{mesMeta < 12 ? `${mesMeta} meses` : `${Math.floor(mesMeta / 12)} ano${Math.floor(mesMeta / 12) > 1 ? "s" : ""}${mesMeta % 12 > 0 ? ` e ${mesMeta % 12} meses` : ""}`}</strong></p></div>}
+                {meta > 0 && mesMeta === -1 && <div style={{ background: "#EF44440F", borderRadius: "12px", padding: "1rem 1.25rem", marginBottom: "1rem", border: "1px solid #EF444430" }}><p style={{ margin: 0, fontSize: "0.85rem", color: "#EF4444" }}>Com esse aporte, você não atinge a meta em 5 anos.</p></div>}
                 <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
                   <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Projeção patrimonial</p>
                   <div style={{ display: "flex", gap: "1rem", marginBottom: "1rem", flexWrap: "wrap" }}>
-                    <span style={{ fontSize: "0.7rem", color: "#6366F1" }}> ?" Com aportes</span>
-                    <span style={{ fontSize: "0.7rem", color: "#555" }}> ?" Só rendimento</span>
+                    <span style={{ fontSize: "0.7rem", color: "#6366F1" }}>Com aportes</span>
+                    <span style={{ fontSize: "0.7rem", color: "#555" }}>Só rendimento</span>
                     {meta > 0 && <span style={{ fontSize: "0.7rem", color: "#F59E0B" }}>- - Meta</span>}
                   </div>
                   <GraficoSimulador labels={labels} dadosComAporte={dadosComAporte} dadosSemAporte={dadosSemAporte} meta={meta} />
                 </div>
               </>
             )}
-            {!temDados && <div style={{ textAlign: "center", padding: "3rem 0", color: "#444" }}><p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}> YZ </p><p style={{ fontSize: "0.9rem" }}>Preencha os campos acima para ver a projeção.</p></div>}
+            {!temDados && <div style={{ textAlign: "center", padding: "3rem 0", color: "#444" }}><p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>•</p><p style={{ fontSize: "0.9rem" }}>Preencha os campos acima para ver a projeção.</p></div>}
           </div>
         );
       })()}
     </div>
   );
 }
+
