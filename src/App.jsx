@@ -1409,6 +1409,17 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
           </div>
         );
       })()}
+      {/* FP */}
+      {tela === "fp" && (() => {
+        return (
+          <div>
+            <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Planejamento Financeiro</p>
+            <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832", marginBottom: "1rem" }}>
+              <p style={{ margin: 0, fontSize: "0.9rem", color: "#555", textAlign: "center" }}>Em construção 🚧</p>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
