@@ -234,6 +234,7 @@ export default function PradexFinancas() {
   const [taxaFocus, setTaxaFocus] = useState(10.15);
   const [rascunhos, setRascunhos] = useState([]);
   const [filtroLancamentos, setFiltroLancamentos] = useState("todos");
+  const [fpAba, setFpAba] = useState("perfil");
 
   useEffect(() => { checkSession(); }, []);
 
@@ -1410,12 +1411,19 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
         );
       })()}
       {/* FP */}
-      {tela === "fp" && (() => {
+     {tela === "fp" && (() => {
         return (
           <div>
             <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Planejamento Financeiro</p>
-            <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832", marginBottom: "1rem" }}>
-              <p style={{ margin: 0, fontSize: "0.9rem", color: "#555", textAlign: "center" }}>Em construção 🚧</p>
+            <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", gap: "2px" }}>
+              {["perfil","objetivos","rendas","investimentos","bens","diagnostico"].map(aba => (
+                <button key={aba} onClick={() => setFpAba(aba)} style={{ flex: 1, padding: "0.4rem 0.1rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.6rem", fontWeight: 600, whiteSpace: "nowrap", background: fpAba === aba ? "#252832" : "transparent", color: fpAba === aba ? "#F0F0F0" : "#555", transition: "all 0.2s", fontFamily: "inherit" }}>
+                  {aba === "perfil" ? "Perfil" : aba === "objetivos" ? "Objetivos" : aba === "rendas" ? "Rendas" : aba === "investimentos" ? "Invest." : aba === "bens" ? "Bens" : "Diagnóstico"}
+                </button>
+              ))}
+            </div>
+            <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
+              <p style={{ margin: 0, fontSize: "0.9rem", color: "#555", textAlign: "center" }}>Em breve: {fpAba}</p>
             </div>
           </div>
         );
