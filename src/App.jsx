@@ -51,26 +51,11 @@ const normalizeText = (value = "") => {
     return decodeURIComponent(escape(text));
   } catch (e) {
     return text
-      .replace(/Ã¡/g, "á")
-      .replace(/Ã¢/g, "â")
-      .replace(/Ã£/g, "ã")
-      .replace(/Ã /g, "à")
-      .replace(/Ã©/g, "é")
-      .replace(/Ãª/g, "ê")
-      .replace(/Ã­/g, "í")
-      .replace(/Ã³/g, "ó")
-      .replace(/Ã´/g, "ô")
-      .replace(/Ãµ/g, "õ")
-      .replace(/Ãº/g, "ú")
-      .replace(/Ã§/g, "ç")
-      .replace(/Ã/g, "Á")
-      .replace(/Ã‰/g, "É")
-      .replace(/Ã/g, "Í")
-      .replace(/Ã“/g, "Ó")
-      .replace(/Ãš/g, "Ú")
-      .replace(/Ã‡/g, "Ç")
-      .replace(/Â·/g, "·")
-      .replace(/Â/g, "");
+      .replace(/Ã¡/g, "á").replace(/Ã¢/g, "â").replace(/Ã£/g, "ã").replace(/Ã /g, "à")
+      .replace(/Ã©/g, "é").replace(/Ãª/g, "ê").replace(/Ã­/g, "í").replace(/Ã³/g, "ó")
+      .replace(/Ã´/g, "ô").replace(/Ãµ/g, "õ").replace(/Ãº/g, "ú").replace(/Ã§/g, "ç")
+      .replace(/Ã/g, "Á").replace(/Ã‰/g, "É").replace(/Ã/g, "Í").replace(/Ã"/g, "Ó")
+      .replace(/Ãš/g, "Ú").replace(/Ã‡/g, "Ç").replace(/Â·/g, "·").replace(/Â/g, "");
   }
 };
 
@@ -151,12 +136,10 @@ async function criarRecorrentesAteDezembro(lancamento, dataInicio, token, grupoI
   return criados;
 }
 
-// Agrupa recorrentes pelo recorrente_grupo_id (preciso), fallback por descricao+valor+categoria
 function agruparLancamentos(lancamentos) {
   const grupos = {};
   const naoRecorrentes = lancamentos.filter(l => !l.recorrente);
   const recorrentes = lancamentos.filter(l => l.recorrente);
-
   for (const l of recorrentes) {
     const chave = l.recorrente_grupo_id || `${l.descricao}||${l.valor}||${l.categoria}`;
     if (!grupos[chave]) {
@@ -164,12 +147,9 @@ function agruparLancamentos(lancamentos) {
     } else {
       grupos[chave]._totalMeses += 1;
       grupos[chave]._idsGrupo.push(l.id);
-      if (l.data_lancamento < grupos[chave].data_lancamento) {
-        grupos[chave].data_lancamento = l.data_lancamento;
-      }
+      if (l.data_lancamento < grupos[chave].data_lancamento) grupos[chave].data_lancamento = l.data_lancamento;
     }
   }
-
   const recorrentesAgrupados = Object.values(grupos);
   const todos = [...recorrentesAgrupados, ...naoRecorrentes];
   todos.sort((a, b) => b.id - a.id);
@@ -195,6 +175,374 @@ function GraficoSimulador({ labels, dadosComAporte, dadosSemAporte, meta }) {
   }, [JSON.stringify(dadosComAporte), JSON.stringify(dadosSemAporte), meta]);
   return <canvas ref={canvasRef} style={{ width: "100%", maxHeight: "220px" }} />;
 }
+
+// ─── COMPONENTE: PERFIL FP ────────────────────────────────────────────────────
+function PerfilFP({ session }) {
+  const inputStyle = { width: "100%", background: "#0F1117", border: "1px solid #252832", borderRadius: "10px", padding: "0.75rem 1rem", color: "#E8E8E8", fontSize: "0.9rem", marginBottom: "0.75rem", outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
+  const labelStyle = { display: "block", fontSize: "0.68rem", color: "#666", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.35rem", fontWeight: 600 };
+
+  const tiposMembro = ["Cônjuge / Companheiro(a)", "Filho(a)", "Pai / Mãe", "Dependente genérico"];
+  const estadosCivis = ["Solteiro(a)", "Casado(a)", "União Estável", "Divorciado(a)", "Viúvo(a)", "Separado(a)"];
+  const regimesUniao = ["Comunhão Parcial de Bens", "Comunhão Universal de Bens", "Separação Total de Bens", "Participação Final nos Aquestos"];
+
+  const [perfil, setPerfil] = useState({
+    nome_completo: "", data_nascimento: "", profissao: "", estado_civil: "",
+    regime_uniao: "", expectativa_vida: "", esportes: "", hobbies: ""
+  });
+  const [familia, setFamilia] = useState([]);
+  const [savingPerfil, setSavingPerfil] = useState(false);
+  const [savingFamilia, setSavingFamilia] = useState(false);
+  const [successPerfil, setSuccessPerfil] = useState(false);
+  const [successFamilia, setSuccessFamilia] = useState(false);
+  const [loadingPerfil, setLoadingPerfil] = useState(true);
+
+  useEffect(() => { carregarPerfil(); }, []);
+
+  const carregarPerfil = async () => {
+    setLoadingPerfil(true);
+    try {
+      // Carrega perfil
+      const resPerfil = await fetch(
+        `${SUPABASE_URL}/rest/v1/fp_perfil?user_id=eq.${session.user.id}&limit=1`,
+        { headers: api(session.token) }
+      );
+      const dataPerfil = await resPerfil.json();
+      if (Array.isArray(dataPerfil) && dataPerfil[0]) {
+        const p = dataPerfil[0];
+        setPerfil({
+          nome_completo: p.nome_completo || "",
+          data_nascimento: p.data_nascimento || "",
+          profissao: p.profissao || "",
+          estado_civil: p.estado_civil || "",
+          regime_uniao: p.regime_uniao || "",
+          expectativa_vida: p.expectativa_vida ? String(p.expectativa_vida) : "",
+          esportes: p.esportes || "",
+          hobbies: p.hobbies || "",
+        });
+      }
+      // Carrega família
+      const resFamilia = await fetch(
+        `${SUPABASE_URL}/rest/v1/fp_familia?user_id=eq.${session.user.id}&order=id.asc`,
+        { headers: api(session.token) }
+      );
+      const dataFamilia = await resFamilia.json();
+      if (Array.isArray(dataFamilia)) {
+        setFamilia(dataFamilia.map(m => ({
+          id: m.id, nome: m.nome || "", tipo: m.tipo || "", data_nascimento: m.data_nascimento || "", observacao: m.observacao || ""
+        })));
+      }
+    } catch (e) {}
+    setLoadingPerfil(false);
+  };
+
+  const salvarPerfil = async () => {
+    setSavingPerfil(true);
+    try {
+      // Upsert em fp_perfil pelo user_id
+      const payload = {
+        user_id: session.user.id,
+        nome_completo: perfil.nome_completo,
+        data_nascimento: perfil.data_nascimento || null,
+        profissao: perfil.profissao,
+        estado_civil: perfil.estado_civil,
+        regime_uniao: perfil.regime_uniao,
+        expectativa_vida: perfil.expectativa_vida ? parseInt(perfil.expectativa_vida) : null,
+        esportes: perfil.esportes,
+        hobbies: perfil.hobbies,
+      };
+      await fetch(`${SUPABASE_URL}/rest/v1/fp_perfil`, {
+        method: "POST",
+        headers: { ...api(session.token), "Prefer": "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify(payload),
+      });
+      setSuccessPerfil(true);
+      setTimeout(() => setSuccessPerfil(false), 2500);
+    } catch (e) {}
+    setSavingPerfil(false);
+  };
+
+  const salvarFamilia = async () => {
+    setSavingFamilia(true);
+    try {
+      // Deleta os existentes e reinserere (mais simples sem multi-upsert)
+      await fetch(
+        `${SUPABASE_URL}/rest/v1/fp_familia?user_id=eq.${session.user.id}`,
+        { method: "DELETE", headers: api(session.token) }
+      );
+      for (const m of familia) {
+        if (!m.nome.trim()) continue;
+        await fetch(`${SUPABASE_URL}/rest/v1/fp_familia`, {
+          method: "POST",
+          headers: { ...api(session.token), "Prefer": "return=representation" },
+          body: JSON.stringify({
+            user_id: session.user.id,
+            nome: m.nome,
+            tipo: m.tipo,
+            data_nascimento: m.data_nascimento || null,
+            observacao: m.observacao || null,
+          }),
+        });
+      }
+      // Recarrega para pegar IDs reais
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/fp_familia?user_id=eq.${session.user.id}&order=id.asc`,
+        { headers: api(session.token) }
+      );
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setFamilia(data.map(m => ({ id: m.id, nome: m.nome || "", tipo: m.tipo || "", data_nascimento: m.data_nascimento || "", observacao: m.observacao || "" })));
+      }
+      setSuccessFamilia(true);
+      setTimeout(() => setSuccessFamilia(false), 2500);
+    } catch (e) {}
+    setSavingFamilia(false);
+  };
+
+  const adicionarMembro = () => {
+    setFamilia(prev => [...prev, { id: null, nome: "", tipo: "Filho(a)", data_nascimento: "", observacao: "" }]);
+  };
+
+  const atualizarMembro = (index, campo, valor) => {
+    setFamilia(prev => prev.map((m, i) => i === index ? { ...m, [campo]: valor } : m));
+  };
+
+  const removerMembro = (index) => {
+    setFamilia(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const mostrarRegime = ["Casado(a)", "União Estável"].includes(perfil.estado_civil);
+
+  if (loadingPerfil) return (
+    <div style={{ textAlign: "center", padding: "3rem 0" }}>
+      <p style={{ color: "#555", fontSize: "0.85rem" }}>Carregando perfil...</p>
+    </div>
+  );
+
+  return (
+    <div>
+      {/* SEÇÃO 1: DADOS PESSOAIS */}
+      <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
+        <p style={{ margin: "0 0 1.25rem", fontSize: "0.75rem", fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+          Dados Pessoais
+        </p>
+
+        <label style={labelStyle}>Nome completo</label>
+        <input
+          type="text"
+          placeholder="Nome completo do cliente"
+          value={perfil.nome_completo}
+          onChange={e => setPerfil(p => ({ ...p, nome_completo: e.target.value }))}
+          style={inputStyle}
+        />
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "0.75rem" }}>
+          <div>
+            <label style={labelStyle}>Data de nascimento</label>
+            <input
+              type="date"
+              value={perfil.data_nascimento}
+              onChange={e => setPerfil(p => ({ ...p, data_nascimento: e.target.value }))}
+              style={{ ...inputStyle, marginBottom: 0 }}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Expectativa de vida</label>
+            <input
+              type="number"
+              placeholder="Ex: 85"
+              min="50"
+              max="120"
+              value={perfil.expectativa_vida}
+              onChange={e => setPerfil(p => ({ ...p, expectativa_vida: e.target.value }))}
+              style={{ ...inputStyle, marginBottom: 0 }}
+            />
+          </div>
+        </div>
+
+        <label style={labelStyle}>Profissão</label>
+        <input
+          type="text"
+          placeholder="Ex: Médico, Empresário, Engenheiro..."
+          value={perfil.profissao}
+          onChange={e => setPerfil(p => ({ ...p, profissao: e.target.value }))}
+          style={inputStyle}
+        />
+
+        <div style={{ display: "grid", gridTemplateColumns: mostrarRegime ? "1fr 1fr" : "1fr", gap: "0.75rem", marginBottom: "0.75rem" }}>
+          <div>
+            <label style={labelStyle}>Estado civil</label>
+            <select
+              value={perfil.estado_civil}
+              onChange={e => setPerfil(p => ({ ...p, estado_civil: e.target.value, regime_uniao: "" }))}
+              style={{ ...inputStyle, marginBottom: 0, color: perfil.estado_civil ? "#E8E8E8" : "#555", appearance: "none" }}
+            >
+              <option value="">Selecione...</option>
+              {estadosCivis.map(ec => <option key={ec} value={ec}>{ec}</option>)}
+            </select>
+          </div>
+          {mostrarRegime && (
+            <div>
+              <label style={labelStyle}>Regime de união</label>
+              <select
+                value={perfil.regime_uniao}
+                onChange={e => setPerfil(p => ({ ...p, regime_uniao: e.target.value }))}
+                style={{ ...inputStyle, marginBottom: 0, color: perfil.regime_uniao ? "#E8E8E8" : "#555", appearance: "none" }}
+              >
+                <option value="">Selecione...</option>
+                {regimesUniao.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+          )}
+        </div>
+
+        <label style={labelStyle}>Esportes praticados</label>
+        <input
+          type="text"
+          placeholder="Ex: Tênis, Natação, Ciclismo..."
+          value={perfil.esportes}
+          onChange={e => setPerfil(p => ({ ...p, esportes: e.target.value }))}
+          style={inputStyle}
+        />
+
+        <label style={labelStyle}>Hobbies e interesses</label>
+        <input
+          type="text"
+          placeholder="Ex: Vinhos, Viagens, Fotografia..."
+          value={perfil.hobbies}
+          onChange={e => setPerfil(p => ({ ...p, hobbies: e.target.value }))}
+          style={{ ...inputStyle, marginBottom: "1.25rem" }}
+        />
+
+        <button
+          onClick={salvarPerfil}
+          disabled={savingPerfil}
+          style={{
+            width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px",
+            background: successPerfil ? "#16A34A" : "#6366F1",
+            color: "#fff", fontSize: "0.95rem", fontWeight: 700,
+            cursor: savingPerfil ? "not-allowed" : "pointer",
+            opacity: savingPerfil ? 0.7 : 1, transition: "all 0.2s", fontFamily: "inherit"
+          }}
+        >
+          {savingPerfil ? "Salvando..." : successPerfil ? "✓ Dados pessoais salvos!" : "Salvar dados pessoais"}
+        </button>
+      </div>
+
+      {/* SEÇÃO 2: ESTRUTURA FAMILIAR */}
+      <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+          <p style={{ margin: 0, fontSize: "0.75rem", fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+            Estrutura Familiar
+          </p>
+          <button
+            onClick={adicionarMembro}
+            style={{
+              background: "#6366F118", border: "1px solid #6366F140", borderRadius: "8px",
+              color: "#6366F1", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer",
+              padding: "0.35rem 0.75rem", fontFamily: "inherit"
+            }}
+          >
+            + Adicionar
+          </button>
+        </div>
+
+        {familia.length === 0 && (
+          <div style={{ textAlign: "center", padding: "1.5rem 0", color: "#444" }}>
+            <p style={{ margin: 0, fontSize: "0.85rem", color: "#555" }}>
+              Nenhum membro adicionado ainda.
+            </p>
+            <p style={{ margin: "0.35rem 0 0", fontSize: "0.75rem", color: "#444" }}>
+              Clique em "+ Adicionar" para incluir cônjuge, filhos e dependentes.
+            </p>
+          </div>
+        )}
+
+        {familia.map((membro, index) => (
+          <div
+            key={index}
+            style={{
+              background: "#0F1117", borderRadius: "12px", padding: "1rem",
+              marginBottom: "0.75rem", border: "1px solid #252832"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+              <select
+                value={membro.tipo}
+                onChange={e => atualizarMembro(index, "tipo", e.target.value)}
+                style={{
+                  background: "#181B24", border: "1px solid #252832", borderRadius: "8px",
+                  padding: "0.4rem 0.75rem", color: "#E8E8E8", fontSize: "0.78rem",
+                  fontWeight: 600, cursor: "pointer", outline: "none", fontFamily: "inherit",
+                  appearance: "none"
+                }}
+              >
+                {tiposMembro.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <button
+                onClick={() => removerMembro(index)}
+                style={{
+                  background: "none", border: "none", color: "#444", cursor: "pointer",
+                  fontSize: "1.1rem", padding: "0 0.25rem", lineHeight: 1
+                }}
+              >×</button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+              <div>
+                <label style={labelStyle}>Nome</label>
+                <input
+                  type="text"
+                  placeholder="Nome completo"
+                  value={membro.nome}
+                  onChange={e => atualizarMembro(index, "nome", e.target.value)}
+                  style={{ ...inputStyle, marginBottom: 0, fontSize: "0.84rem", padding: "0.65rem 0.85rem" }}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Data de nascimento</label>
+                <input
+                  type="date"
+                  value={membro.data_nascimento}
+                  onChange={e => atualizarMembro(index, "data_nascimento", e.target.value)}
+                  style={{ ...inputStyle, marginBottom: 0, fontSize: "0.84rem", padding: "0.65rem 0.85rem" }}
+                />
+              </div>
+            </div>
+
+            <div style={{ marginTop: "0.5rem" }}>
+              <label style={{ ...labelStyle, marginTop: "0.5rem" }}>Observação (opcional)</label>
+              <input
+                type="text"
+                placeholder="Ex: Estuda medicina, mora no exterior..."
+                value={membro.observacao}
+                onChange={e => atualizarMembro(index, "observacao", e.target.value)}
+                style={{ ...inputStyle, marginBottom: 0, fontSize: "0.84rem", padding: "0.65rem 0.85rem" }}
+              />
+            </div>
+          </div>
+        ))}
+
+        {familia.length > 0 && (
+          <button
+            onClick={salvarFamilia}
+            disabled={savingFamilia}
+            style={{
+              width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px",
+              background: successFamilia ? "#16A34A" : "#6366F1",
+              color: "#fff", fontSize: "0.95rem", fontWeight: 700,
+              cursor: savingFamilia ? "not-allowed" : "pointer",
+              opacity: savingFamilia ? 0.7 : 1, transition: "all 0.2s", fontFamily: "inherit",
+              marginTop: "0.25rem"
+            }}
+          >
+            {savingFamilia ? "Salvando..." : successFamilia ? "✓ Família salva!" : `Salvar ${familia.length} membro${familia.length > 1 ? "s" : ""}`}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function PradexFinancas() {
   const [session, setSession] = useState(null);
@@ -235,6 +583,8 @@ export default function PradexFinancas() {
   const [rascunhos, setRascunhos] = useState([]);
   const [filtroLancamentos, setFiltroLancamentos] = useState("todos");
   const [fpAba, setFpAba] = useState("perfil");
+
+  const inputStyle = { width: "100%", background: "#0F1117", border: "1px solid #252832", borderRadius: "10px", padding: "0.75rem 1rem", color: "#E8E8E8", fontSize: "0.9rem", marginBottom: "0.75rem", outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
 
   useEffect(() => { checkSession(); }, []);
 
@@ -406,7 +756,6 @@ export default function PradexFinancas() {
         setForm({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "", parcelado: false, parcela_atual: "1", total_parcelas: "", recorrente: false });
         setSuccess(true); setTimeout(() => setSuccess(false), 2000);
       } else {
-        // Gera grupo ID para a série recorrente
         const grupoId = form.recorrente ? generateUUID() : null;
         const bodyBase = { descricao: form.descricao, valor, tipo, categoria: form.categoria, data_lancamento: form.data_lancamento, user_id: session.user.id, forma_pagamento: form.forma_pagamento || null, cartao_id: form.forma_pagamento === "Crédito" && form.cartao_id ? parseInt(form.cartao_id) : null, poderia_ter_evitado: false, recorrente: form.recorrente || false, recorrente_grupo_id: grupoId, parcela_atual: null, total_parcelas: null, parcela_grupo_id: null };
         const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
@@ -432,7 +781,6 @@ export default function PradexFinancas() {
   const handleDelete = async (l) => {
     try {
       if (l._grupoId) {
-        // Deleta toda a série pelo recorrente_grupo_id
         await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?recorrente_grupo_id=eq.${l._grupoId}`, { method: "DELETE", headers: api(session?.token) });
         setLancamentos(prev => prev.filter(x => x.recorrente_grupo_id !== l._grupoId));
       } else {
@@ -465,29 +813,11 @@ export default function PradexFinancas() {
         const valorParcela = Math.round(valor * 100) / 100;
         const descricaoBase = limparDescricaoParcela(editando.descricao);
         if (editando._parcelaGrupoId) {
-          await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?parcela_grupo_id=eq.${editando._parcelaGrupoId}&id=neq.${editando.id}`, {
-            method: "DELETE",
-            headers: api(session?.token),
-          });
+          await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?parcela_grupo_id=eq.${editando._parcelaGrupoId}&id=neq.${editando.id}`, { method: "DELETE", headers: api(session?.token) });
         }
         const resAtual = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?id=eq.${editando.id}`, {
-          method: "PATCH",
-          headers: { ...api(session?.token), "Prefer": "return=representation" },
-          body: JSON.stringify({
-            descricao: montarDescricaoParcela(descricaoBase, parcelaAtual, totalParcelas),
-            valor: valorParcela,
-            tipo: editando.tipo,
-            categoria: editando.categoria,
-            data_lancamento: editando.data_lancamento,
-            forma_pagamento: "Crédito",
-            cartao_id: editando.cartao_id ? parseInt(editando.cartao_id) : null,
-            poderia_ter_evitado: editando.poderia_ter_evitado,
-            recorrente: false,
-            recorrente_grupo_id: null,
-            parcela_atual: parcelaAtual,
-            total_parcelas: totalParcelas,
-            parcela_grupo_id: grupoParcelaId,
-          }),
+          method: "PATCH", headers: { ...api(session?.token), "Prefer": "return=representation" },
+          body: JSON.stringify({ descricao: montarDescricaoParcela(descricaoBase, parcelaAtual, totalParcelas), valor: valorParcela, tipo: editando.tipo, categoria: editando.categoria, data_lancamento: editando.data_lancamento, forma_pagamento: "Crédito", cartao_id: editando.cartao_id ? parseInt(editando.cartao_id) : null, poderia_ter_evitado: editando.poderia_ter_evitado, recorrente: false, recorrente_grupo_id: null, parcela_atual: parcelaAtual, total_parcelas: totalParcelas, parcela_grupo_id: grupoParcelaId }),
         });
         const dataAtual = await resAtual.json();
         if (Array.isArray(dataAtual) && dataAtual[0]) {
@@ -496,24 +826,8 @@ export default function PradexFinancas() {
             const dataParcela = new Date(dataBase);
             dataParcela.setMonth(dataParcela.getMonth() + (i - parcelaAtual));
             await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
-              method: "POST",
-              headers: { ...api(session?.token), "Prefer": "return=representation" },
-              body: JSON.stringify({
-                descricao: montarDescricaoParcela(descricaoBase, i, totalParcelas),
-                valor: valorParcela,
-                tipo: editando.tipo,
-                categoria: editando.categoria,
-                data_lancamento: dataParcela.toISOString().split("T")[0],
-                user_id: session.user.id,
-                forma_pagamento: "Crédito",
-                cartao_id: editando.cartao_id ? parseInt(editando.cartao_id) : null,
-                poderia_ter_evitado: editando.poderia_ter_evitado,
-                recorrente: false,
-                recorrente_grupo_id: null,
-                parcela_atual: i,
-                total_parcelas: totalParcelas,
-                parcela_grupo_id: grupoParcelaId,
-              }),
+              method: "POST", headers: { ...api(session?.token), "Prefer": "return=representation" },
+              body: JSON.stringify({ descricao: montarDescricaoParcela(descricaoBase, i, totalParcelas), valor: valorParcela, tipo: editando.tipo, categoria: editando.categoria, data_lancamento: dataParcela.toISOString().split("T")[0], user_id: session.user.id, forma_pagamento: "Crédito", cartao_id: editando.cartao_id ? parseInt(editando.cartao_id) : null, poderia_ter_evitado: editando.poderia_ter_evitado, recorrente: false, recorrente_grupo_id: null, parcela_atual: i, total_parcelas: totalParcelas, parcela_grupo_id: grupoParcelaId }),
             });
           }
           await fetchLancamentos();
@@ -522,12 +836,8 @@ export default function PradexFinancas() {
         setSavingEdit(false);
         return;
       }
-
       if (editando._parcelaGrupoId) {
-        await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?parcela_grupo_id=eq.${editando._parcelaGrupoId}&id=neq.${editando.id}`, {
-          method: "DELETE",
-          headers: api(session?.token),
-        });
+        await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?parcela_grupo_id=eq.${editando._parcelaGrupoId}&id=neq.${editando.id}`, { method: "DELETE", headers: api(session?.token) });
       }
       const grupoId = (!editando._recorrenteOriginal && editando.recorrente) ? generateUUID() : editando._grupoId;
       const body = { descricao: limparDescricaoParcela(editando.descricao), valor, tipo: editando.tipo, categoria: editando.categoria, data_lancamento: editando.data_lancamento, forma_pagamento: editando.forma_pagamento || null, cartao_id: editando.forma_pagamento === "Crédito" && editando.cartao_id ? parseInt(editando.cartao_id) : null, poderia_ter_evitado: editando.poderia_ter_evitado, recorrente: editando.recorrente || false, recorrente_grupo_id: grupoId, parcela_atual: null, total_parcelas: null, parcela_grupo_id: null };
@@ -661,13 +971,7 @@ export default function PradexFinancas() {
       .sort((a, b) => Number(b.valor) - Number(a.valor));
     const total = parcelasMes.reduce((s, l) => s + Number(l.valor), 0);
     const comprasAtivas = new Set(parcelasMes.map(l => l.parcela_grupo_id || `${limparDescricaoParcela(l.descricao)}-${l.cartao_id || "sem-cartao"}`)).size;
-    return {
-      key: monthKey,
-      label: getMonthLabel(monthKey),
-      total,
-      comprasAtivas,
-      parcelas: parcelasMes.slice(0, 3),
-    };
+    return { key: monthKey, label: getMonthLabel(monthKey), total, comprasAtivas, parcelas: parcelasMes.slice(0, 3) };
   });
   const formatData = (d) => { if (!d) return ""; const [y, m, day] = d.split("-"); return `${day} ${monthNames[parseInt(m)-1]}`; };
 
@@ -690,15 +994,11 @@ export default function PradexFinancas() {
     }
     return true;
   });
-  const cartaoSelecionado = filtroLancamentos.startsWith("cartao-")
-    ? cartoes.find(cartao => `cartao-${cartao.id}` === filtroLancamentos) || null
-    : null;
+  const cartaoSelecionado = filtroLancamentos.startsWith("cartao-") ? cartoes.find(cartao => `cartao-${cartao.id}` === filtroLancamentos) || null : null;
   const totalFiltradoLancamentos = lancamentosFiltrados.reduce((s, lancamento) => s + Number(lancamento.valor || 0), 0);
   const quantidadeFiltradaLancamentos = lancamentosFiltrados.length;
   const totalCartaoSelecionado = cartaoSelecionado
-    ? lancamentosAgrupados
-        .filter(lancamento => lancamento.tipo === "gasto" && lancamento.forma_pagamento === "Crédito" && Number(lancamento.cartao_id) === Number(cartaoSelecionado.id))
-        .reduce((s, lancamento) => s + Number(lancamento.valor || 0), 0)
+    ? lancamentosAgrupados.filter(lancamento => lancamento.tipo === "gasto" && lancamento.forma_pagamento === "Crédito" && Number(lancamento.cartao_id) === Number(cartaoSelecionado.id)).reduce((s, lancamento) => s + Number(lancamento.valor || 0), 0)
     : 0;
   const previewAgrupado = preview.reduce((acc, item) => {
     const grupo = getPreviewGroupLabel(item);
@@ -707,8 +1007,7 @@ export default function PradexFinancas() {
     return acc;
   }, {});
 
-  const inputStyle = { width: "100%", background: "#0F1117", border: "1px solid #252832", borderRadius: "10px", padding: "0.75rem 1rem", color: "#E8E8E8", fontSize: "0.9rem", marginBottom: "0.75rem", outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
-const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashboard" }, { key: "lancamentos", label: "Lançar" }, { key: "historico", label: "Histórico" }, { key: "metas", label: "Metas" }];
+  const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashboard" }, { key: "lancamentos", label: "Lançar" }, { key: "historico", label: "Histórico" }, { key: "metas", label: "Metas" }, { key: "fp", label: "FP" }];
 
   if (loadingAuth) return <div style={{ minHeight: "100vh", background: "#0F1117", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "#555", fontFamily: "'DM Sans', sans-serif" }}>Carregando...</p></div>;
 
@@ -1038,8 +1337,8 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
                   {gastosPorCartao.map((item) => (
                     <div key={item.cartao.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem 0", borderBottom: "1px solid #252832" }}>
                       <div>
-                      <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", color: "#E8E8E8", fontWeight: 500, lineHeight: 1.25 }}>{normalizeText(item.cartao.nome)}</p>
-                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#555", lineHeight: 1.25 }}>Fecha dia {item.cartao.dia_fechamento} · Vence dia {item.cartao.dia_vencimento}</p>
+                        <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", color: "#E8E8E8", fontWeight: 500, lineHeight: 1.25 }}>{normalizeText(item.cartao.nome)}</p>
+                        <p style={{ margin: 0, fontSize: "0.7rem", color: "#555", lineHeight: 1.25 }}>Fecha dia {item.cartao.dia_fechamento} · Vence dia {item.cartao.dia_vencimento}</p>
                       </div>
                       <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#EF4444" }}>{formatBRL(item.total)}</p>
                     </div>
@@ -1229,28 +1528,15 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
                   <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", fontWeight: 500, color: "#E8E8E8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.25 }}>
                     {normalizeText(l.descricao)}
                     {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#6366F1", background: "#6366F115", padding: "1px 5px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
-                  {l._totalMeses && l._totalMeses > 1 && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#22C55E", background: "#22C55E15", padding: "1px 6px", borderRadius: "999px" }}>{l._totalMeses} meses</span>}
-                </p>
-                <p style={{ margin: 0, fontSize: "0.72rem", color: "#555", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}</p>
+                    {l._totalMeses && l._totalMeses > 1 && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#22C55E", background: "#22C55E15", padding: "1px 6px", borderRadius: "999px" }}>{l._totalMeses} meses</span>}
+                  </p>
+                  <p style={{ margin: 0, fontSize: "0.72rem", color: "#555", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}</p>
                 </div>
                 {l.tipo === "gasto" && !l._totalMeses && (
                   <div style={{ width: "76px", display: "flex", justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleToggleArrependimento(e, l); }}
-                      style={{
-                        background: l.poderia_ter_evitado ? "#F59E0B15" : "transparent",
-                        border: `1px solid ${l.poderia_ter_evitado ? "#F59E0B35" : "#252832"}`,
-                        cursor: "pointer",
-                        fontSize: "0.66rem",
-                        padding: "3px 8px",
-                        opacity: l.poderia_ter_evitado ? 1 : 0.5,
-                        transition: "opacity 0.2s, background 0.2s, border-color 0.2s",
-                        color: "#F59E0B",
-                        fontWeight: 700,
-                        borderRadius: "999px",
-                        whiteSpace: "nowrap",
-                        fontFamily: "inherit",
-                      }}
+                      style={{ background: l.poderia_ter_evitado ? "#F59E0B15" : "transparent", border: `1px solid ${l.poderia_ter_evitado ? "#F59E0B35" : "#252832"}`, cursor: "pointer", fontSize: "0.66rem", padding: "3px 8px", opacity: l.poderia_ter_evitado ? 1 : 0.5, transition: "opacity 0.2s, background 0.2s, border-color 0.2s", color: "#F59E0B", fontWeight: 700, borderRadius: "999px", whiteSpace: "nowrap", fontFamily: "inherit" }}
                     >
                       Evitável
                     </button>
@@ -1410,25 +1696,56 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
           </div>
         );
       })()}
+
       {/* FP */}
-     {tela === "fp" && (() => {
-        return (
-          <div>
-            <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Planejamento Financeiro</p>
-            <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", gap: "2px" }}>
-              {["perfil","objetivos","rendas","investimentos","bens","diagnostico"].map(aba => (
-                <button key={aba} onClick={() => setFpAba(aba)} style={{ flex: 1, padding: "0.4rem 0.1rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.6rem", fontWeight: 600, whiteSpace: "nowrap", background: fpAba === aba ? "#252832" : "transparent", color: fpAba === aba ? "#F0F0F0" : "#555", transition: "all 0.2s", fontFamily: "inherit" }}>
-                  {aba === "perfil" ? "Perfil" : aba === "objetivos" ? "Objetivos" : aba === "rendas" ? "Rendas" : aba === "investimentos" ? "Invest." : aba === "bens" ? "Bens" : "Diagnóstico"}
-                </button>
-              ))}
-            </div>
-            <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
-              <p style={{ margin: 0, fontSize: "0.9rem", color: "#555", textAlign: "center" }}>Em breve: {fpAba}</p>
-            </div>
+      {tela === "fp" && (
+        <div>
+          <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Planejamento Financeiro</p>
+
+          {/* Subabas */}
+          <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", gap: "2px", border: "1px solid #252832" }}>
+            {[
+              { key: "perfil", label: "Perfil" },
+              { key: "objetivos", label: "Objetivos" },
+              { key: "rendas", label: "Rendas" },
+              { key: "investimentos", label: "Invest." },
+              { key: "bens", label: "Bens" },
+              { key: "diagnostico", label: "Diagnóstico" },
+            ].map(aba => (
+              <button
+                key={aba.key}
+                onClick={() => setFpAba(aba.key)}
+                style={{
+                  flex: 1, padding: "0.4rem 0.1rem", border: "none", borderRadius: "8px",
+                  cursor: "pointer", fontSize: "0.6rem", fontWeight: 600, whiteSpace: "nowrap",
+                  background: fpAba === aba.key ? "#252832" : "transparent",
+                  color: fpAba === aba.key ? "#F0F0F0" : "#555",
+                  transition: "all 0.2s", fontFamily: "inherit"
+                }}
+              >
+                {aba.label}
+              </button>
+            ))}
           </div>
-        );
-      })()}
+
+          {/* Aba Perfil */}
+          {fpAba === "perfil" && <PerfilFP session={session} />}
+
+          {/* Outras abas — em breve */}
+          {fpAba !== "perfil" && (
+            <div style={{ background: "#181B24", borderRadius: "16px", padding: "2rem 1.5rem", border: "1px solid #252832", textAlign: "center" }}>
+              <p style={{ margin: "0 0 0.4rem", fontSize: "1.5rem" }}>🚧</p>
+              <p style={{ margin: "0 0 0.25rem", fontSize: "0.9rem", color: "#CFCFCF", fontWeight: 600 }}>Em construção</p>
+              <p style={{ margin: 0, fontSize: "0.8rem", color: "#555" }}>
+                A aba <strong style={{ color: "#888" }}>
+                  {fpAba === "objetivos" ? "Objetivos" : fpAba === "rendas" ? "Rendas" : fpAba === "investimentos" ? "Investimentos" : fpAba === "bens" ? "Bens" : "Diagnóstico"}
+                </strong> será implementada em breve.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
     </div>
   );
 }
-
