@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect, useRef } from "react";
 import ObjetivosFP from "./components/fp/ObjetivosFP";
+import RendasDespesasFP from "./components/fp/RendasDespesasFP";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdnVocXFzamJvbmN3cGJvY2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTM1NzEsImV4cCI6MjA5MTI2OTU3MX0.qpOXjpyJ29Hr9kvee3uxNS1LmJNUEZqDtMCCEpaHjsE";
@@ -1735,14 +1736,17 @@ export default function PradexFinancas() {
           {/* Aba Objetivos */}
           {fpAba === "objetivos" && <ObjetivosFP />}
 
+          {/* Aba Rendas e Despesas */}
+          {fpAba === "rendas" && <RendasDespesasFP />}
+
           {/* Outras abas — em breve */}
-          {fpAba !== "perfil" && fpAba !== "objetivos" && (
+          {fpAba !== "perfil" && fpAba !== "objetivos" && fpAba !== "rendas" && (
             <div style={{ background: "#181B24", borderRadius: "16px", padding: "2rem 1.5rem", border: "1px solid #252832", textAlign: "center" }}>
               <p style={{ margin: "0 0 0.4rem", fontSize: "1.5rem" }}>🚧</p>
               <p style={{ margin: "0 0 0.25rem", fontSize: "0.9rem", color: "#CFCFCF", fontWeight: 600 }}>Em construção</p>
               <p style={{ margin: 0, fontSize: "0.8rem", color: "#555" }}>
                 A aba <strong style={{ color: "#888" }}>
-                  {fpAba === "rendas" ? "Rendas" : fpAba === "investimentos" ? "Investimentos" : fpAba === "bens" ? "Bens" : "Diagnóstico"}
+                  {fpAba === "investimentos" ? "Investimentos" : fpAba === "bens" ? "Bens" : "Diagnóstico"}
                 </strong> será implementada em breve.
               </p>
             </div>
