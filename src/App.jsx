@@ -46,7 +46,7 @@ const sectionToggleStyle = {
 const normalizeText = (value = "") => {
   if (value === null || value === undefined) return "";
   const text = String(value);
-  if (!/[ÃÂ�]/.test(text)) return text;
+  if (!/[ÃÂ ]/.test(text)) return text;
   try {
     return decodeURIComponent(escape(text));
   } catch (e) {
@@ -90,6 +90,42 @@ const getMonthLabel = (key) => {
   return `${monthNames[parseInt(mes, 10) - 1]} ${ano}`;
 };
 const getFormaPagamentoLabel = (value) => normalizeText(value) || "Não informado";
+const isValidDateString = (value = "") => /^\d{4}-\d{2}-\d{2}$/.test(String(value));
+const getPreviewScore = (item) => {
+  let score = 0;
+  if ((item.descricao || "").trim().length >= 3) score += 2;
+  if (Number(item.valor) > 0) score += 2;
+  if (["gasto", "receita"].includes(item.tipo)) score += 2;
+  if ((item.categoria || "").trim()) score += 2;
+  if (isValidDateString(item.data_lancamento)) score += 1;
+  if (formasPagamento.includes(item.forma_pagamento)) score += 1;
+  if (item.forma_pagamento === "Crédito" && item.cartao_id) score += 1;
+  return score;
+};
+const getPreviewConfidence = (item) => {
+  const score = getPreviewScore(item);
+  if (score >= 8) return { label: "Alta confiança", color: "#22C55E", background: "#22C55E15", border: "#22C55E30" };
+  if (score >= 6) return { label: "Média confiança", color: "#F59E0B", background: "#F59E0B15", border: "#F59E0B30" };
+  return { label: "Baixa confiança", color: "#EF4444", background: "#EF444415", border: "#EF444430" };
+};
+const getPreviewGroupLabel = (item) => {
+  if (item.tipo === "receita") return "Receitas identificadas";
+  if (isValidDateString(item.data_lancamento) && item.data_lancamento > today) return "Contas e lançamentos futuros";
+  if (item.forma_pagamento === "Crédito") return "Compras no crédito";
+  if (["Débito", "PIX", "Dinheiro"].includes(item.forma_pagamento)) return "Saídas do dia a dia";
+  return "Lançamentos para revisar";
+};
+const enrichPreviewItem = (item) => ({
+  ...item,
+  id_preview: generateUUID(),
+  descricao: normalizeText(item.descricao || ""),
+  categoria: normalizeText(item.categoria || ""),
+  forma_pagamento: item.forma_pagamento || "",
+  data_lancamento: item.data_lancamento || today,
+  poderia_ter_evitado: Boolean(item.poderia_ter_evitado),
+  cartao_id: item.cartao_id ?? "",
+  _editando: false,
+});
 
 async function fetchTaxaFocus() {
   return 5.65 + 4.5;
@@ -559,17 +595,30 @@ export default function PradexFinancas() {
       const data = await res.json();
       const text = data.content?.[0]?.text || "";
       const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
-      if (Array.isArray(parsed) && parsed.length > 0) setPreview(parsed);
+      if (Array.isArray(parsed) && parsed.length > 0) setPreview(parsed.map(enrichPreviewItem));
       else setErroIA("Não consegui identificar lançamentos.");
     } catch (e) { setErroIA("Erro ao processar."); }
     setProcessando(false);
+  };
+
+  const atualizarPreviewItem = (id, updates) => {
+    setPreview(prev => prev.map(item => item.id_preview === id ? { ...item, ...updates } : item));
+  };
+
+  const togglePreviewEdit = (id) => {
+    setPreview(prev => prev.map(item => item.id_preview === id ? { ...item, _editando: !item._editando } : item));
+  };
+
+  const removerPreviewItem = (id) => {
+    setPreview(prev => prev.filter(item => item.id_preview !== id));
   };
 
   const confirmarImportacao = async () => {
     setSaving(true);
     try {
       for (const l of preview) {
-        await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, { method: "POST", headers: { ...api(session?.token), "Prefer": "return=representation" }, body: JSON.stringify({ ...l, user_id: session.user.id, poderia_ter_evitado: false }) });
+        const { id_preview, _editando, ...payload } = l;
+        await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, { method: "POST", headers: { ...api(session?.token), "Prefer": "return=representation" }, body: JSON.stringify({ ...payload, user_id: session.user.id, poderia_ter_evitado: false, cartao_id: payload.cartao_id ? Number(payload.cartao_id) : null }) });
       }
       await fetchLancamentos();
       setTextoIA(""); setPreview([]);
@@ -650,6 +699,12 @@ export default function PradexFinancas() {
         .filter(lancamento => lancamento.tipo === "gasto" && lancamento.forma_pagamento === "Crédito" && Number(lancamento.cartao_id) === Number(cartaoSelecionado.id))
         .reduce((s, lancamento) => s + Number(lancamento.valor || 0), 0)
     : 0;
+  const previewAgrupado = preview.reduce((acc, item) => {
+    const grupo = getPreviewGroupLabel(item);
+    if (!acc[grupo]) acc[grupo] = [];
+    acc[grupo].push(item);
+    return acc;
+  }, {});
 
   const inputStyle = { width: "100%", background: "#0F1117", border: "1px solid #252832", borderRadius: "10px", padding: "0.75rem 1rem", color: "#E8E8E8", fontSize: "0.9rem", marginBottom: "0.75rem", outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
 const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashboard" }, { key: "lancamentos", label: "Lançar" }, { key: "historico", label: "Histórico" }, { key: "metas", label: "Metas" }];
@@ -803,15 +858,68 @@ const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashb
             )}
             {preview.length > 0 && (
               <>
-                <p style={{ margin: "1rem 0 0.75rem", fontSize: "0.75rem", color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>{preview.length} lançamento{preview.length > 1 ? "s" : ""} identificado{preview.length > 1 ? "s" : ""}</p>
-                {preview.map((l, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", padding: "0.75rem 1rem", background: "#0F1117", borderRadius: "10px", marginBottom: "0.5rem", border: "1px solid #252832", gap: "0.75rem" }}>
-                    <div style={{ width: "32px", height: "32px", borderRadius: "8px", flexShrink: 0, background: l.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.9rem" }}>{l.tipo === "receita" ? "+" : "-"}</div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: "0 0 0.12rem", fontSize: "0.85rem", fontWeight: 500, color: "#E8E8E8", lineHeight: 1.25 }}>{normalizeText(l.descricao)}</p>
-                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#555", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}</p>
-                    </div>
-                    <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444", flexShrink: 0 }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
+                <div style={{ background: "#121521", borderRadius: "14px", border: "1px solid #252832", padding: "0.9rem 1rem", margin: "1rem 0 0.9rem" }}>
+                  <p style={{ margin: "0 0 0.25rem", fontSize: "0.76rem", color: "#A3A3A3", textTransform: "uppercase", letterSpacing: "0.1em" }}>{preview.length} lançamento{preview.length > 1 ? "s" : ""} identificado{preview.length > 1 ? "s" : ""}</p>
+                  <p style={{ margin: 0, fontSize: "0.8rem", color: "#666", lineHeight: 1.5 }}>A prévia agora agrupa os itens por contexto, mostra o nível de confiança da IA e permite edição rápida antes de confirmar.</p>
+                </div>
+                {Object.entries(previewAgrupado).map(([grupo, itens]) => (
+                  <div key={grupo} style={{ marginBottom: "0.9rem" }}>
+                    <p style={{ margin: "0 0 0.55rem", fontSize: "0.72rem", color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>{grupo}</p>
+                    {itens.map((l) => {
+                      const confianca = getPreviewConfidence(l);
+                      return (
+                        <div key={l.id_preview} style={{ background: "#0F1117", borderRadius: "12px", marginBottom: "0.55rem", border: `1px solid ${confianca.border}`, padding: "0.9rem 1rem" }}>
+                          <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
+                            <div style={{ width: "34px", height: "34px", borderRadius: "10px", flexShrink: 0, background: l.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.95rem" }}>{l.tipo === "receita" ? "+" : "-"}</div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", flexWrap: "wrap", marginBottom: "0.2rem" }}>
+                                <p style={{ margin: 0, fontSize: "0.88rem", fontWeight: 600, color: "#E8E8E8", lineHeight: 1.25 }}>{normalizeText(l.descricao)}</p>
+                                <span style={{ ...badgeBaseStyle, color: confianca.color, background: confianca.background }}>{confianca.label}</span>
+                              </div>
+                              <p style={{ margin: 0, fontSize: "0.72rem", color: "#666", lineHeight: 1.3 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}</p>
+                            </div>
+                            <p style={{ margin: 0, fontSize: "0.92rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444", flexShrink: 0 }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
+                          </div>
+                          <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
+                            <button onClick={() => togglePreviewEdit(l.id_preview)} style={{ padding: "0.45rem 0.75rem", borderRadius: "8px", border: "1px solid #252832", background: l._editando ? "#6366F118" : "transparent", color: l._editando ? "#6366F1" : "#888", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{l._editando ? "Fechar edição" : "Editar"}</button>
+                            <button onClick={() => removerPreviewItem(l.id_preview)} style={{ padding: "0.45rem 0.75rem", borderRadius: "8px", border: "1px solid #252832", background: "transparent", color: "#888", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Remover</button>
+                          </div>
+                          {l._editando && (
+                            <div style={{ marginTop: "0.75rem", paddingTop: "0.75rem", borderTop: "1px solid #1B1F2A" }}>
+                              <input type="text" value={l.descricao} onChange={e => atualizarPreviewItem(l.id_preview, { descricao: e.target.value })} placeholder="Descrição" style={{ ...inputStyle, marginBottom: "0.6rem", fontSize: "0.84rem", padding: "0.65rem 0.85rem" }} />
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.55rem" }}>
+                                <input type="text" value={String(l.valor ?? "")} onChange={e => atualizarPreviewItem(l.id_preview, { valor: e.target.value })} placeholder="Valor" style={{ ...inputStyle, marginBottom: "0.6rem", fontSize: "0.84rem", padding: "0.65rem 0.85rem" }} />
+                                <input type="date" value={l.data_lancamento || today} onChange={e => atualizarPreviewItem(l.id_preview, { data_lancamento: e.target.value })} style={{ ...inputStyle, marginBottom: "0.6rem", fontSize: "0.84rem", padding: "0.65rem 0.85rem" }} />
+                              </div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.55rem" }}>
+                                <select value={l.tipo || "gasto"} onChange={e => atualizarPreviewItem(l.id_preview, { tipo: e.target.value, categoria: "" })} style={{ ...inputStyle, marginBottom: "0.6rem", fontSize: "0.84rem", padding: "0.65rem 0.85rem", color: "#E8E8E8", appearance: "none" }}>
+                                  <option value="gasto">Gasto</option>
+                                  <option value="receita">Receita</option>
+                                </select>
+                                <select value={l.categoria || ""} onChange={e => atualizarPreviewItem(l.id_preview, { categoria: e.target.value })} style={{ ...inputStyle, marginBottom: "0.6rem", fontSize: "0.84rem", padding: "0.65rem 0.85rem", color: l.categoria ? "#E8E8E8" : "#555", appearance: "none" }}>
+                                  <option value="">Categoria</option>
+                                  {categories[l.tipo || "gasto"].map(c => <option key={`${l.id_preview}-${c}`} value={c}>{normalizeText(c)}</option>)}
+                                </select>
+                              </div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.55rem" }}>
+                                <select value={l.forma_pagamento || ""} onChange={e => atualizarPreviewItem(l.id_preview, { forma_pagamento: e.target.value, cartao_id: e.target.value === "Crédito" ? l.cartao_id : "" })} style={{ ...inputStyle, marginBottom: "0.6rem", fontSize: "0.84rem", padding: "0.65rem 0.85rem", color: l.forma_pagamento ? "#E8E8E8" : "#555", appearance: "none" }}>
+                                  <option value="">Forma de pagamento</option>
+                                  {formasPagamento.map(f => <option key={`${l.id_preview}-${f}`} value={f}>{f}</option>)}
+                                </select>
+                                {l.forma_pagamento === "Crédito" && cartoes.length > 0 ? (
+                                  <select value={l.cartao_id || ""} onChange={e => atualizarPreviewItem(l.id_preview, { cartao_id: e.target.value })} style={{ ...inputStyle, marginBottom: "0.6rem", fontSize: "0.84rem", padding: "0.65rem 0.85rem", color: l.cartao_id ? "#E8E8E8" : "#555", appearance: "none" }}>
+                                    <option value="">Selecione o cartão</option>
+                                    {cartoes.map(c => <option key={`${l.id_preview}-cartao-${c.id}`} value={c.id}>{normalizeText(c.nome)}</option>)}
+                                  </select>
+                                ) : (
+                                  <div style={{ ...inputStyle, marginBottom: "0.6rem", fontSize: "0.78rem", padding: "0.65rem 0.85rem", color: "#666", display: "flex", alignItems: "center" }}>Cartão não aplicável</div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 ))}
                 <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
