@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/lucas/OneDrive/Documentos/New project/pradex-financas-main/pradex-financas-GITHUB/**)",
+      "Bash(npm run *)",
+      "Bash(npm install *)"
+    ]
+  }
+}

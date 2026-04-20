@@ -1,5 +1,12 @@
 import { useState, useEffect } from "react";
-import { supabase } from "../../supabaseClient";
+
+const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdnVocXFzamJvbmN3cGJvY2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTM1NzEsImV4cCI6MjA5MTI2OTU3MX0.qpOXjpyJ29Hr9kvee3uxNS1LmJNUEZqDtMCCEpaHjsE";
+const sbApi = (token) => ({
+  "Content-Type": "application/json",
+  "apikey": SUPABASE_KEY,
+  "Authorization": `Bearer ${token || SUPABASE_KEY}`,
+});
 
 // ── Categorias disponíveis para objetivos secundários
 const CATEGORIAS = [
@@ -28,8 +35,9 @@ const objetivoVazio = () => ({
 const moeda = (v) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
-export default function ObjetivosFP() {
-  const [userId, setUserId] = useState(null);
+export default function ObjetivosFP({ session }) {
+  const userId = session?.user?.id ?? null;
+  const token = session?.token ?? null;
   const [salvandoAp, setSalvandoAp] = useState(false);
   const [salvandoOutros, setSalvandoOutros] = useState(false);
   const [sucesso, setSucesso] = useState(null);
@@ -44,65 +52,64 @@ export default function ObjetivosFP() {
   const [outros, setOutros] = useState([objetivoVazio()]);
 
   useEffect(() => {
+    if (!userId) return;
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      setUserId(user.id);
-
-      const { data } = await supabase
-        .from("fp_objetivos")
-        .select("*")
-        .eq("user_id", user.id)
-        .single();
-
-      if (data) {
-        setApIdade(data.aposentadoria_idade_alvo ?? "");
-        setApFrequencia(data.aposentadoria_frequencia ?? "Parcelada");
-        setApReceita(data.aposentadoria_renda_mensal ?? "");
-        setApExpectativa(data.aposentadoria_expectativa_vida ?? "");
-        setOutros(data.outros_objetivos?.length > 0 ? data.outros_objetivos : [objetivoVazio()]);
-      }
+      try {
+        const res = await fetch(
+          `${SUPABASE_URL}/rest/v1/fp_objetivos?user_id=eq.${userId}&limit=1`,
+          { headers: sbApi(token) }
+        );
+        const rows = await res.json();
+        const data = Array.isArray(rows) ? rows[0] : null;
+        if (data) {
+          setApIdade(data.aposentadoria_idade_alvo ?? "");
+          setApFrequencia(data.aposentadoria_frequencia ?? "Parcelada");
+          setApReceita(data.aposentadoria_renda_mensal ?? "");
+          setApExpectativa(data.aposentadoria_expectativa_vida ?? "");
+          setOutros(data.outros_objetivos?.length > 0 ? data.outros_objetivos : [objetivoVazio()]);
+        }
+      } catch (e) {}
     };
     init();
-  }, []);
+  }, [userId]);
 
   const ok = (secao) => {
     setSucesso(secao);
     setTimeout(() => setSucesso(null), 2500);
   };
 
+  const upsertObjetivos = async (payload) => {
+    await fetch(`${SUPABASE_URL}/rest/v1/fp_objetivos`, {
+      method: "POST",
+      headers: { ...sbApi(token), "Prefer": "resolution=merge-duplicates,return=representation" },
+      body: JSON.stringify({ user_id: userId, ...payload, updated_at: new Date().toISOString() }),
+    });
+  };
+
   const salvarAposentadoria = async () => {
     if (!userId) return;
     setSalvandoAp(true);
-    await supabase.from("fp_objetivos").upsert(
-      {
-        user_id: userId,
+    try {
+      await upsertObjetivos({
         aposentadoria_idade_alvo: apIdade || null,
         aposentadoria_frequencia: apFrequencia,
         aposentadoria_renda_mensal: apReceita || null,
         aposentadoria_expectativa_vida: apExpectativa || null,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" }
-    );
+      });
+      ok("aposentadoria");
+    } catch (e) {}
     setSalvandoAp(false);
-    ok("aposentadoria");
   };
 
   const salvarOutros = async () => {
     if (!userId) return;
     setSalvandoOutros(true);
-    const limpos = outros.filter((o) => o.nome.trim() !== "");
-    await supabase.from("fp_objetivos").upsert(
-      {
-        user_id: userId,
-        outros_objetivos: limpos,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" }
-    );
+    try {
+      const limpos = outros.filter((o) => o.nome.trim() !== "");
+      await upsertObjetivos({ outros_objetivos: limpos });
+      ok("outros");
+    } catch (e) {}
     setSalvandoOutros(false);
-    ok("outros");
   };
 
   const addObjetivo = () => setOutros((p) => [...p, objetivoVazio()]);

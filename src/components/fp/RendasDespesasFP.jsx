@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../supabaseClient";
 
+const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdnVocXFzamJvbmN3cGJvY2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTM1NzEsImV4cCI6MjA5MTI2OTU3MX0.qpOXjpyJ29Hr9kvee3uxNS1LmJNUEZqDtMCCEpaHjsE";
+
+const sbApi = (token) => ({
+  "Content-Type": "application/json",
+  "apikey": SUPABASE_KEY,
+  "Authorization": `Bearer ${token || SUPABASE_KEY}`,
+});
+
 // ─── Constantes ──────────────────────────────────────────────────────────────
 
 const CATEGORIAS_RENDA = [
@@ -76,15 +85,21 @@ const ANOS = Array.from({ length: 80 }, (_, i) => anoAtual - 5 + i);
 
 // ─── Modal de adicionar/editar ────────────────────────────────────────────────
 
-function Modal({ tipo, membros, item, onClose, onSaved }) {
+function Modal({ tipo, membros, item, onClose, onSaved, userId, token, valorInicial }) {
   const isRenda = tipo === "renda";
   const titulo = item ? `Editar ${tipo}` : `Adicionar ${tipo}`;
 
+  const membrosOrdenados = [...membros].sort((a, b) => {
+    if (a.parentesco === "Titular") return -1;
+    if (b.parentesco === "Titular") return 1;
+    return 0;
+  });
+
   const [form, setForm] = useState({
-    membro_id: item?.membro_id || (membros[0]?.id ?? ""),
+    membro_id: item?.membro_id || (membrosOrdenados[0]?.id ?? ""),
     categoria: item?.categoria || (isRenda ? CATEGORIAS_RENDA[0] : CATEGORIAS_DESPESA[0]),
     descricao: item?.descricao || "",
-    valor_bruto: item?.valor_bruto ? formatBRL(item.valor_bruto) : "",
+    valor_bruto: item?.valor_bruto ? formatBRL(item.valor_bruto) : (valorInicial ? formatBRL(valorInicial) : ""),
     imposto_percent: item?.imposto_percent ?? 0,
     frequencia: item?.frequencia || "Mensal",
     data_inicio_mes: item?.data_inicio ? MESES[new Date(item.data_inicio + "T00:00:00").getMonth()] : MESES[new Date().getMonth()],
@@ -116,10 +131,9 @@ function Modal({ tipo, membros, item, onClose, onSaved }) {
     if (!form.data_inicio_mes || !form.data_inicio_ano) return setErro("Informe a data de início.");
 
     setSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
 
     const payload = {
-      user_id: user.id,
+      user_id: userId,
       membro_id: form.membro_id || null,
       categoria: form.categoria,
       descricao: form.descricao.trim(),
@@ -142,16 +156,25 @@ function Modal({ tipo, membros, item, onClose, onSaved }) {
     }
 
     const tabela = isRenda ? "fp_rendas" : "fp_despesas";
-    let result;
-    if (item) {
-      result = await supabase.from(tabela).update(payload).eq("id", item.id);
-    } else {
-      result = await supabase.from(tabela).insert(payload);
+    try {
+      if (item) {
+        await fetch(`${SUPABASE_URL}/rest/v1/${tabela}?id=eq.${item.id}`, {
+          method: "PATCH",
+          headers: { ...sbApi(token), "Prefer": "return=representation" },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await fetch(`${SUPABASE_URL}/rest/v1/${tabela}`, {
+          method: "POST",
+          headers: { ...sbApi(token), "Prefer": "return=representation" },
+          body: JSON.stringify(payload),
+        });
+      }
+      onSaved();
+    } catch (e) {
+      setErro("Erro ao salvar. Tente novamente.");
     }
-
     setSaving(false);
-    if (result.error) return setErro(result.error.message);
-    onSaved();
   }
 
   return (
@@ -172,7 +195,7 @@ function Modal({ tipo, membros, item, onClose, onSaved }) {
               value={form.membro_id}
               onChange={(e) => set("membro_id", e.target.value)}
             >
-              {membros.map((m) => (
+              {membrosOrdenados.map((m) => (
                 <option key={m.id} value={m.id}>{m.nome}</option>
               ))}
             </select>
@@ -203,7 +226,7 @@ function Modal({ tipo, membros, item, onClose, onSaved }) {
               style={styles.input}
               value={form.descricao}
               onChange={(e) => set("descricao", e.target.value)}
-              placeholder="Ex: Salário principal"
+              placeholder={isRenda ? "Ex: Salário principal" : "Ex: Conta de luz"}
             />
           </div>
 
@@ -428,36 +451,84 @@ function ItemCard({ item, tipo, membros, onEdit, onDelete }) {
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
-export default function RendasDespesasFP() {
+export default function RendasDespesasFP({ session }) {
   const [membros, setMembros] = useState([]);
   const [rendas, setRendas] = useState([]);
   const [despesas, setDespesas] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [modal, setModal] = useState(null); // { tipo: "renda"|"despesa", item: null|{...} }
+  const [modal, setModal] = useState(null); // { tipo: "renda"|"despesa", item: null|{...}, valorInicial?: number }
+  const [totalLancamentos, setTotalLancamentos] = useState(null);
+
+  const userId = session?.user?.id;
+  const token = session?.token;
+
+  useEffect(() => {
+    if (session?.token) {
+      supabase.auth.setSession({ access_token: session.token, refresh_token: "" });
+    }
+  }, []);
 
   async function carregar() {
+    console.log("[rendas] user_id:", session?.user?.id);
+    if (!userId) return;
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
+    try {
+      const [resM, resR, resD] = await Promise.all([
+        fetch(`${SUPABASE_URL}/rest/v1/fp_membros?user_id=eq.${userId}&order=nome.asc`, { headers: sbApi(token) }),
+        fetch(`${SUPABASE_URL}/rest/v1/fp_rendas?user_id=eq.${userId}&order=created_at.asc`, { headers: sbApi(token) }),
+        fetch(`${SUPABASE_URL}/rest/v1/fp_despesas?user_id=eq.${userId}&order=created_at.asc`, { headers: sbApi(token) }),
+      ]);
+      const [m, r, d] = await Promise.all([resM.json(), resR.json(), resD.json()]);
+      setMembros(Array.isArray(m) ? m : []);
+      setRendas(Array.isArray(r) ? r : []);
+      setDespesas(Array.isArray(d) ? d : []);
 
-    const [{ data: m }, { data: r }, { data: d }] = await Promise.all([
-      supabase.from("fp_membros").select("*").eq("user_id", user.id).order("nome"),
-      supabase.from("fp_rendas").select("*").eq("user_id", user.id).order("created_at"),
-      supabase.from("fp_despesas").select("*").eq("user_id", user.id).order("created_at"),
-    ]);
-
-    setMembros(m || []);
-    setRendas(r || []);
-    setDespesas(d || []);
+      // Tenta buscar total de despesas recorrentes nos lançamentos
+      try {
+        const resLanc = await fetch(
+          `${SUPABASE_URL}/rest/v1/lancamentos?user_id=eq.${userId}&tipo=eq.despesa&recorrente=eq.true&select=valor`,
+          { headers: sbApi(token) }
+        );
+        const lancRec = await resLanc.json();
+        if (Array.isArray(lancRec) && lancRec.length > 0) {
+          setTotalLancamentos(lancRec.reduce((s, l) => s + Number(l.valor || 0), 0));
+        } else {
+          // Fallback: média dos últimos 3 meses
+          const tresMesesAtras = new Date();
+          tresMesesAtras.setMonth(tresMesesAtras.getMonth() - 3);
+          const dataStr = tresMesesAtras.toISOString().split("T")[0];
+          const resLanc2 = await fetch(
+            `${SUPABASE_URL}/rest/v1/lancamentos?user_id=eq.${userId}&tipo=eq.despesa&data=gte.${dataStr}&select=valor,data`,
+            { headers: sbApi(token) }
+          );
+          const lancAll = await resLanc2.json();
+          if (Array.isArray(lancAll) && lancAll.length > 0) {
+            const byMonth = {};
+            lancAll.forEach((l) => {
+              const key = (l.data || "").slice(0, 7);
+              if (key) byMonth[key] = (byMonth[key] || 0) + Number(l.valor || 0);
+            });
+            const vals = Object.values(byMonth);
+            if (vals.length > 0) {
+              setTotalLancamentos(vals.reduce((s, v) => s + v, 0) / vals.length);
+            }
+          }
+        }
+      } catch (_) {}
+    } catch (e) {}
     setLoading(false);
   }
 
-  useEffect(() => { carregar(); }, []);
+  useEffect(() => { carregar(); }, [userId]);
 
   async function handleDelete(tipo, id) {
     if (!window.confirm(`Remover este ${tipo}?`)) return;
     const tabela = tipo === "renda" ? "fp_rendas" : "fp_despesas";
-    await supabase.from(tabela).delete().eq("id", id);
+    await fetch(`${SUPABASE_URL}/rest/v1/${tabela}?id=eq.${id}`, {
+      method: "DELETE",
+      headers: sbApi(token),
+    });
     carregar();
   }
 
@@ -538,6 +609,27 @@ export default function RendasDespesasFP() {
           </button>
         </div>
 
+        {totalLancamentos !== null && totalLancamentos > 0 && (
+          <div style={styles.cardLancamentos}>
+            <div>
+              <div style={styles.cardLancTitulo}>📊 Despesas nos Lançamentos</div>
+              <div style={styles.cardLancSub}>
+                Total mensal estimado com base nos lançamentos cadastrados
+              </div>
+            </div>
+            <div style={{ textAlign: "right", flexShrink: 0 }}>
+              <div style={styles.cardLancValor}>{formatBRL(totalLancamentos)}</div>
+              <button
+                style={styles.btnUsarTotal}
+                onClick={() => setModal({ tipo: "despesa", item: null, valorInicial: totalLancamentos })}
+                disabled={membros.length === 0}
+              >
+                Usar como despesa total
+              </button>
+            </div>
+          </div>
+        )}
+
         {despesas.length === 0 ? (
           <div style={styles.vazio}>Nenhuma despesa cadastrada.</div>
         ) : (
@@ -562,6 +654,9 @@ export default function RendasDespesasFP() {
           item={modal.item}
           onClose={() => setModal(null)}
           onSaved={() => { setModal(null); carregar(); }}
+          userId={userId}
+          token={token}
+          valorInicial={modal.valorInicial}
         />
       )}
     </div>
@@ -866,5 +961,43 @@ const styles = {
     fontSize: 14,
     cursor: "pointer",
     padding: "10px 16px",
+  },
+  cardLancamentos: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 16,
+    background: "rgba(33,150,243,0.06)",
+    border: "1px solid rgba(33,150,243,0.25)",
+    borderRadius: 10,
+    padding: "14px 18px",
+    marginBottom: 16,
+  },
+  cardLancTitulo: {
+    fontWeight: 700,
+    fontSize: 14,
+    color: "#1a1a1a",
+    marginBottom: 3,
+  },
+  cardLancSub: {
+    fontSize: 12,
+    color: "#777",
+  },
+  cardLancValor: {
+    fontWeight: 700,
+    fontSize: 18,
+    color: "#f44336",
+    marginBottom: 6,
+  },
+  btnUsarTotal: {
+    background: "transparent",
+    border: "1px solid #1976d2",
+    color: "#1976d2",
+    borderRadius: 6,
+    padding: "6px 12px",
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
   },
 };
