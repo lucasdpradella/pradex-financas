@@ -84,8 +84,31 @@ export default function PerfilFP({ session }) {
       comentarios: perfil.comentarios || null,
     }, { onConflict: "user_id" });
     console.log("[fp_perfil] upsert:", { data: res.data, error: res.error, status: res.status });
-    if (res.error) console.error("[fp_perfil] Erro ao salvar:", res.error);
-    else { setSuccessPerfil(true); setTimeout(() => setSuccessPerfil(false), 2500); }
+    if (res.error) {
+      console.error("[fp_perfil] Erro ao salvar:", res.error);
+    } else {
+      setSuccessPerfil(true);
+      setTimeout(() => setSuccessPerfil(false), 2500);
+
+      // Cria Titular em fp_membros automaticamente se ainda não existir
+      if (perfil.nome.trim()) {
+        const { data: titulares } = await supabase
+          .from("fp_membros")
+          .select("id")
+          .eq("user_id", session.user.id)
+          .eq("parentesco", "Titular")
+          .limit(1);
+        if (!titulares || titulares.length === 0) {
+          const ins = await supabase.from("fp_membros").insert({
+            user_id: session.user.id,
+            nome: perfil.nome.trim(),
+            parentesco: "Titular",
+          });
+          console.log("[fp_membros] titular criado automaticamente:", { data: ins.data, error: ins.error });
+          if (!ins.error) carregarMembros();
+        }
+      }
+    }
     setSavingPerfil(false);
   };
 
