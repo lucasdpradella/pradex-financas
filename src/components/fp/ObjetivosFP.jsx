@@ -1,133 +1,273 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdnVocXFzamJvbmN3cGJvY2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTM1NzEsImV4cCI6MjA5MTI2OTU3MX0.qpOXjpyJ29Hr9kvee3uxNS1LmJNUEZqDtMCCEpaHjsE";
+
 const sbApi = (token) => ({
   "Content-Type": "application/json",
-  "apikey": SUPABASE_KEY,
-  "Authorization": `Bearer ${token || SUPABASE_KEY}`,
+  apikey: SUPABASE_KEY,
+  Authorization: `Bearer ${token || SUPABASE_KEY}`,
 });
 
-// ── Categorias disponíveis para objetivos secundários
 const CATEGORIAS = [
-  "Imóveis",
-  "Veículos",
+  "Imoveis",
+  "Veiculos",
   "Viagem",
-  "Educação",
-  "Saúde",
-  "Negócio próprio",
-  "Reserva de emergência",
+  "Educacao",
+  "Saude",
+  "Negocio proprio",
+  "Reserva de emergencia",
   "Outros",
 ];
 
-const FREQUENCIAS = ["Única", "Parcelada", "Mensal", "Anual"];
+const FREQUENCIAS = ["Unica", "Parcelada", "Mensal", "Anual"];
+
+function buildComentarios(extra = {}) {
+  const parts = [];
+  if (extra.expectativa_vida) parts.push(`[Expectativa:${extra.expectativa_vida}]`);
+  if (extra.tipo) parts.push(`[Tipo:${extra.tipo}]`);
+  if (Array.isArray(extra.outros) && extra.outros.length > 0) {
+    parts.push(`[Outros:${encodeURIComponent(JSON.stringify(extra.outros))}]`);
+  }
+  return parts.join(" ").trim() || null;
+}
+
+function parseComentarios(comentarios = "") {
+  const text = String(comentarios || "");
+  const extract = (key) => {
+    const match = text.match(new RegExp(`\\[${key}:([^\\]]+)\\]`, "i"));
+    return match ? match[1].trim() : "";
+  };
+  return {
+    expectativa_vida: extract("Expectativa"),
+    tipo: extract("Tipo"),
+    outros: (() => {
+      const raw = extract("Outros");
+      if (!raw) return [];
+      try {
+        const parsed = JSON.parse(decodeURIComponent(raw));
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (_) {
+        return [];
+      }
+    })(),
+  };
+}
 
 const objetivoVazio = () => ({
-  id: crypto.randomUUID(),
+  localId: crypto.randomUUID(),
+  id: null,
   nome: "",
-  categoria: "Imóveis",
+  categoria: "Imoveis",
   idade_atingimento: "",
-  frequencia: "Única",
+  frequencia: "Unica",
   valor: "",
   ocorrencias: "",
 });
 
-const moeda = (v) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+function mapObjetivoRow(row) {
+  return {
+    localId: crypto.randomUUID(),
+    id: row.id ?? null,
+    nome: row.nome ?? "",
+    categoria: row.categoria ?? "Imoveis",
+    idade_atingimento: row.idade_atingimento ?? "",
+    frequencia: row.frequencia ?? "Unica",
+    valor: row.valor ?? "",
+    ocorrencias: row.ocorrencias ?? "",
+  };
+}
+
+function mapObjetivoItem(objetivo = {}) {
+  return {
+    localId: crypto.randomUUID(),
+    id: objetivo.id ?? null,
+    nome: objetivo.nome ?? "",
+    categoria: objetivo.categoria ?? "Imoveis",
+    idade_atingimento: objetivo.idade_atingimento ?? "",
+    frequencia: objetivo.frequencia ?? "Unica",
+    valor: objetivo.valor ?? "",
+    ocorrencias: objetivo.ocorrencias ?? "",
+  };
+}
 
 export default function ObjetivosFP({ session }) {
   const userId = session?.user?.id ?? null;
   const token = session?.token ?? null;
+
+  const [aposentadoriaId, setAposentadoriaId] = useState(null);
   const [salvandoAp, setSalvandoAp] = useState(false);
   const [salvandoOutros, setSalvandoOutros] = useState(false);
   const [sucesso, setSucesso] = useState(null);
+  const [erro, setErro] = useState("");
 
-  // Aposentadoria
   const [apIdade, setApIdade] = useState("");
   const [apFrequencia, setApFrequencia] = useState("Parcelada");
   const [apReceita, setApReceita] = useState("");
   const [apExpectativa, setApExpectativa] = useState("");
 
-  // Outros objetivos
   const [outros, setOutros] = useState([objetivoVazio()]);
 
   useEffect(() => {
-    if (!userId) return;
     const init = async () => {
+      if (!token || !userId) return;
       try {
         const res = await fetch(
-          `${SUPABASE_URL}/rest/v1/fp_objetivos?user_id=eq.${userId}&limit=1`,
+          `${SUPABASE_URL}/rest/v1/fp_objetivos?user_id=eq.${userId}&select=*&order=id.asc&limit=1`,
           { headers: sbApi(token) }
         );
         const rows = await res.json();
-        const data = Array.isArray(rows) ? rows[0] : null;
-        if (data) {
-          setApIdade(data.aposentadoria_idade_alvo ?? "");
-          setApFrequencia(data.aposentadoria_frequencia ?? "Parcelada");
-          setApReceita(data.aposentadoria_renda_mensal ?? "");
-          setApExpectativa(data.aposentadoria_expectativa_vida ?? "");
-          setOutros(data.outros_objetivos?.length > 0 ? data.outros_objetivos : [objetivoVazio()]);
+        if (!Array.isArray(rows)) return;
+        const registro = rows[0] || null;
+
+        if (registro) {
+          const meta = parseComentarios(registro.comentarios);
+          setAposentadoriaId(registro.id ?? null);
+          setApIdade(registro.idade_atingimento ?? "");
+          setApFrequencia(registro.frequencia ?? "Parcelada");
+          setApReceita(registro.valor ?? "");
+          setApExpectativa(meta.expectativa_vida || "");
+          if (Array.isArray(meta.outros) && meta.outros.length > 0) {
+            setOutros(meta.outros.map(mapObjetivoItem));
+          } else {
+            setOutros([objetivoVazio()]);
+          }
         }
-      } catch (e) {}
+      } catch (error) {
+        console.error("[fp_objetivos] Erro ao carregar:", error);
+      }
     };
     init();
-  }, [userId]);
+  }, [token, userId]);
 
   const ok = (secao) => {
     setSucesso(secao);
     setTimeout(() => setSucesso(null), 2500);
   };
 
-  const upsertObjetivos = async (payload) => {
-    await fetch(`${SUPABASE_URL}/rest/v1/fp_objetivos`, {
-      method: "POST",
-      headers: { ...sbApi(token), "Prefer": "resolution=merge-duplicates,return=representation" },
-      body: JSON.stringify({ user_id: userId, ...payload, updated_at: new Date().toISOString() }),
-    });
-  };
+  async function salvarLinha({ id, payload }) {
+    const res = await fetch(
+      id
+        ? `${SUPABASE_URL}/rest/v1/fp_objetivos?id=eq.${id}`
+        : `${SUPABASE_URL}/rest/v1/fp_objetivos?user_id=eq.${userId}`,
+      {
+        method: id ? "PATCH" : "PATCH",
+        headers: { ...sbApi(token), Prefer: "return=representation" },
+        body: JSON.stringify({ user_id: userId, ...payload }),
+      }
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.message || "Erro ao salvar objetivo.");
+    if (Array.isArray(data) && data[0]) return data[0];
+
+    if (!id) {
+      const createRes = await fetch(`${SUPABASE_URL}/rest/v1/fp_objetivos`, {
+        method: "POST",
+        headers: { ...sbApi(token), Prefer: "return=representation" },
+        body: JSON.stringify({ user_id: userId, ...payload }),
+      });
+      const created = await createRes.json();
+      if (!createRes.ok) throw new Error(created?.message || "Erro ao criar objetivo.");
+      return Array.isArray(created) ? created[0] : null;
+    }
+
+    return null;
+  }
 
   const salvarAposentadoria = async () => {
-    if (!userId) return;
+    if (!userId || !token) return;
+    setErro("");
     setSalvandoAp(true);
     try {
-      await upsertObjetivos({
-        aposentadoria_idade_alvo: apIdade || null,
-        aposentadoria_frequencia: apFrequencia,
-        aposentadoria_renda_mensal: apReceita || null,
-        aposentadoria_expectativa_vida: apExpectativa || null,
+      const saved = await salvarLinha({
+        id: aposentadoriaId,
+        payload: {
+          nome: "Aposentadoria",
+          categoria: "Aposentadoria",
+          idade_atingimento: apIdade || null,
+          frequencia: apFrequencia,
+          valor: apReceita || null,
+          comentarios: buildComentarios({
+            expectativa_vida: apExpectativa,
+            tipo: "aposentadoria",
+            outros: outros
+              .filter((objetivo) => objetivo.nome.trim() !== "")
+              .map((objetivo) => ({
+                nome: objetivo.nome.trim(),
+                categoria: objetivo.categoria,
+                idade_atingimento: objetivo.idade_atingimento || null,
+                frequencia: objetivo.frequencia,
+                valor: objetivo.valor || null,
+                ocorrencias: objetivo.frequencia !== "Unica" ? (objetivo.ocorrencias || null) : null,
+              })),
+          }),
+        },
       });
+      if (saved?.id) setAposentadoriaId(saved.id);
       ok("aposentadoria");
-    } catch (e) {}
+    } catch (error) {
+      setErro(error.message);
+      console.error("[fp_objetivos] Erro ao salvar aposentadoria:", error);
+    }
     setSalvandoAp(false);
   };
 
   const salvarOutros = async () => {
-    if (!userId) return;
+    if (!userId || !token) return;
+    setErro("");
     setSalvandoOutros(true);
     try {
-      const limpos = outros.filter((o) => o.nome.trim() !== "");
-      await upsertObjetivos({ outros_objetivos: limpos });
+      const preenchidos = outros.filter((objetivo) => objetivo.nome.trim() !== "");
+
+      const saved = await salvarLinha({
+        id: aposentadoriaId,
+        payload: {
+          nome: "Aposentadoria",
+          categoria: "Aposentadoria",
+          idade_atingimento: apIdade || null,
+          frequencia: apFrequencia,
+          valor: apReceita || null,
+          comentarios: buildComentarios({
+            expectativa_vida: apExpectativa,
+            tipo: "aposentadoria",
+            outros: preenchidos.map((objetivo) => ({
+              nome: objetivo.nome.trim(),
+              categoria: objetivo.categoria,
+              idade_atingimento: objetivo.idade_atingimento || null,
+              frequencia: objetivo.frequencia,
+              valor: objetivo.valor || null,
+              ocorrencias: objetivo.frequencia !== "Unica" ? (objetivo.ocorrencias || null) : null,
+            })),
+          }),
+        },
+      });
+      if (saved?.id) setAposentadoriaId(saved.id);
+      setOutros(preenchidos.length > 0 ? preenchidos.map(mapObjetivoItem) : [objetivoVazio()]);
       ok("outros");
-    } catch (e) {}
+    } catch (error) {
+      setErro(error.message);
+      console.error("[fp_objetivos] Erro ao salvar outros objetivos:", error);
+    }
     setSalvandoOutros(false);
   };
 
-  const addObjetivo = () => setOutros((p) => [...p, objetivoVazio()]);
-  const removeObjetivo = (id) => setOutros((p) => p.filter((o) => o.id !== id));
-  const updateObjetivo = (id, campo, valor) =>
-    setOutros((p) => p.map((o) => (o.id === id ? { ...o, [campo]: valor } : o)));
+  const addObjetivo = () => setOutros((prev) => [...prev, objetivoVazio()]);
+  const removeObjetivo = async (localId) => {
+    setOutros((prev) => {
+      const next = prev.filter((objetivo) => objetivo.localId !== localId);
+      return next.length > 0 ? next : [objetivoVazio()];
+    });
+  };
+  const updateObjetivo = (localId, campo, valor) =>
+    setOutros((prev) => prev.map((objetivo) => (objetivo.localId === localId ? { ...objetivo, [campo]: valor } : objetivo)));
 
   return (
     <div style={{ maxWidth: 700, margin: "0 auto", padding: "24px 16px" }}>
-
-      {/* ── APOSENTADORIA ── */}
       <div style={card}>
         <div style={cardHeader}>
-          <span style={badge}>Obrigatório</span>
-          <h2 style={titulo}>🏖️ Aposentadoria</h2>
-          <p style={subtitulo}>
-            O primeiro objetivo do planejamento é garantir a estabilidade financeira após o encerramento da vida profissional.
-          </p>
+          <span style={badge}>Obrigatorio</span>
+          <h2 style={titulo}>Aposentadoria</h2>
+          <p style={subtitulo}>O primeiro objetivo do planejamento e garantir a estabilidade financeira apos o encerramento da vida profissional.</p>
         </div>
 
         <div style={grid}>
@@ -144,16 +284,12 @@ export default function ObjetivosFP({ session }) {
         <div style={grid}>
           <div style={campo}>
             <label style={lbl}>Idade que deseja atingir o objetivo</label>
-            <input
-              type="number" placeholder="65"
-              value={apIdade} onChange={(e) => setApIdade(e.target.value)}
-              style={input}
-            />
+            <input type="number" placeholder="65" value={apIdade} onChange={(e) => setApIdade(e.target.value)} style={input} />
           </div>
           <div style={campo}>
-            <label style={lbl}>Frequência do resgate</label>
+            <label style={lbl}>Frequencia do resgate</label>
             <select value={apFrequencia} onChange={(e) => setApFrequencia(e.target.value)} style={input}>
-              {FREQUENCIAS.map((f) => <option key={f}>{f}</option>)}
+              {FREQUENCIAS.map((frequencia) => <option key={frequencia}>{frequencia}</option>)}
             </select>
           </div>
         </div>
@@ -161,74 +297,48 @@ export default function ObjetivosFP({ session }) {
         <div style={grid}>
           <div style={campo}>
             <label style={lbl}>Receita mensal desejada (R$)</label>
-            <input
-              type="number" placeholder="20.000"
-              value={apReceita} onChange={(e) => setApReceita(e.target.value)}
-              style={input}
-            />
+            <input type="number" placeholder="20000" value={apReceita} onChange={(e) => setApReceita(e.target.value)} style={input} />
           </div>
           <div style={campo}>
             <label style={lbl}>Expectativa de vida</label>
-            <input
-              type="number" placeholder="90"
-              value={apExpectativa} onChange={(e) => setApExpectativa(e.target.value)}
-              style={input}
-            />
+            <input type="number" placeholder="90" value={apExpectativa} onChange={(e) => setApExpectativa(e.target.value)} style={input} />
           </div>
         </div>
 
-        {apReceita && apIdade && apExpectativa && (
-          <p style={dica}>
-            💡 Referência (regra dos 4%): patrimônio necessário ≈ <strong>{moeda(apReceita * 12 * 25)}</strong>
-          </p>
-        )}
-
         <div style={rodape}>
-          {sucesso === "aposentadoria" && <span style={okStyle}>✓ Salvo!</span>}
+          {sucesso === "aposentadoria" && <span style={okStyle}>Salvo!</span>}
           <button onClick={salvarAposentadoria} disabled={salvandoAp} style={btnPrimario}>
             {salvandoAp ? "Salvando..." : "Salvar aposentadoria"}
           </button>
         </div>
       </div>
 
-      {/* ── OUTROS OBJETIVOS ── */}
       <div style={{ ...card, marginTop: 24 }}>
         <div style={cardHeader}>
-          <h2 style={titulo}>🎯 Outros Objetivos</h2>
-          <p style={subtitulo}>
-            Conheça as metas que o cliente deseja realizar ao longo de sua vida.
-          </p>
+          <h2 style={titulo}>Outros Objetivos</h2>
+          <p style={subtitulo}>Conheca as metas que o cliente deseja realizar ao longo de sua vida.</p>
           <div style={aviso}>
-            <span>ℹ️</span>
-            <span>Não recadastre os objetivos secundários nas despesas, pois eles já serão considerados no cálculo.</span>
+            <span>i</span>
+            <span>Nao recadastre os objetivos secundarios nas despesas, pois eles ja serao considerados no calculo.</span>
           </div>
         </div>
 
-        {outros.map((obj, idx) => (
-          <div key={obj.id} style={linhaObjetivo}>
+        {outros.map((objetivo, index) => (
+          <div key={objetivo.localId} style={linhaObjetivo}>
             <div style={linhaHeader}>
-              <span style={numeroBadge}>{idx + 1}</span>
-              <button onClick={() => removeObjetivo(obj.id)} style={btnRemover}>× Remover</button>
+              <span style={numeroBadge}>{index + 1}</span>
+              <button onClick={() => removeObjetivo(objetivo.localId)} style={btnRemover}>Remover</button>
             </div>
 
             <div style={grid}>
               <div style={campo}>
                 <label style={lbl}>Nome do objetivo *</label>
-                <input
-                  type="text" placeholder="Ex: Casa de campo"
-                  value={obj.nome}
-                  onChange={(e) => updateObjetivo(obj.id, "nome", e.target.value)}
-                  style={input}
-                />
+                <input type="text" placeholder="Ex: Casa de campo" value={objetivo.nome} onChange={(e) => updateObjetivo(objetivo.localId, "nome", e.target.value)} style={input} />
               </div>
               <div style={campo}>
                 <label style={lbl}>Categoria *</label>
-                <select
-                  value={obj.categoria}
-                  onChange={(e) => updateObjetivo(obj.id, "categoria", e.target.value)}
-                  style={input}
-                >
-                  {CATEGORIAS.map((c) => <option key={c}>{c}</option>)}
+                <select value={objetivo.categoria} onChange={(e) => updateObjetivo(objetivo.localId, "categoria", e.target.value)} style={input}>
+                  {CATEGORIAS.map((categoria) => <option key={categoria}>{categoria}</option>)}
                 </select>
               </div>
             </div>
@@ -236,47 +346,25 @@ export default function ObjetivosFP({ session }) {
             <div style={grid}>
               <div style={campo}>
                 <label style={lbl}>Idade que deseja atingir o objetivo *</label>
-                <input
-                  type="number" placeholder="35"
-                  value={obj.idade_atingimento}
-                  onChange={(e) => updateObjetivo(obj.id, "idade_atingimento", e.target.value)}
-                  style={input}
-                />
+                <input type="number" placeholder="35" value={objetivo.idade_atingimento} onChange={(e) => updateObjetivo(objetivo.localId, "idade_atingimento", e.target.value)} style={input} />
               </div>
               <div style={campo}>
-                <label style={lbl}>Frequência do resgate *</label>
-                <select
-                  value={obj.frequencia}
-                  onChange={(e) => updateObjetivo(obj.id, "frequencia", e.target.value)}
-                  style={input}
-                >
-                  {FREQUENCIAS.map((f) => <option key={f}>{f}</option>)}
+                <label style={lbl}>Frequencia do resgate *</label>
+                <select value={objetivo.frequencia} onChange={(e) => updateObjetivo(objetivo.localId, "frequencia", e.target.value)} style={input}>
+                  {FREQUENCIAS.map((frequencia) => <option key={frequencia}>{frequencia}</option>)}
                 </select>
               </div>
             </div>
 
             <div style={grid}>
               <div style={campo}>
-                <label style={lbl}>
-                  {obj.frequencia === "Única" ? "Valor do objetivo (R$) *" : "Valor do resgate (R$) *"}
-                </label>
-                <input
-                  type="number"
-                  placeholder={obj.frequencia === "Única" ? "2.000.000" : "5.000"}
-                  value={obj.valor}
-                  onChange={(e) => updateObjetivo(obj.id, "valor", e.target.value)}
-                  style={input}
-                />
+                <label style={lbl}>{objetivo.frequencia === "Unica" ? "Valor do objetivo (R$) *" : "Valor do resgate (R$) *"}</label>
+                <input type="number" placeholder={objetivo.frequencia === "Unica" ? "2000000" : "5000"} value={objetivo.valor} onChange={(e) => updateObjetivo(objetivo.localId, "valor", e.target.value)} style={input} />
               </div>
-              {obj.frequencia !== "Única" && (
+              {objetivo.frequencia !== "Unica" && (
                 <div style={campo}>
-                  <label style={lbl}>Quantidade de ocorrências *</label>
-                  <input
-                    type="number" placeholder="12"
-                    value={obj.ocorrencias}
-                    onChange={(e) => updateObjetivo(obj.id, "ocorrencias", e.target.value)}
-                    style={input}
-                  />
+                  <label style={lbl}>Quantidade de ocorrencias *</label>
+                  <input type="number" placeholder="12" value={objetivo.ocorrencias} onChange={(e) => updateObjetivo(objetivo.localId, "ocorrencias", e.target.value)} style={input} />
                 </div>
               )}
             </div>
@@ -286,17 +374,23 @@ export default function ObjetivosFP({ session }) {
         <button onClick={addObjetivo} style={btnSecundario}>+ Adicionar objetivo</button>
 
         <div style={rodape}>
-          {sucesso === "outros" && <span style={okStyle}>✓ Salvo!</span>}
+          {sucesso === "outros" && <span style={okStyle}>Salvo!</span>}
           <button onClick={salvarOutros} disabled={salvandoOutros} style={btnPrimario}>
             {salvandoOutros ? "Salvando..." : "Salvar objetivos"}
           </button>
         </div>
       </div>
+
+      {erro && (
+        <div style={{ ...aviso, marginTop: 16, background: "rgba(244,67,54,0.08)", border: "1px solid rgba(244,67,54,0.3)", color: "#ef9a9a" }}>
+          <span>!</span>
+          <span>{erro}</span>
+        </div>
+      )}
     </div>
   );
 }
 
-// ── Estilos
 const card = {
   background: "var(--card-bg, #1a1a2e)",
   border: "1px solid var(--border, #2a2a4a)",
@@ -319,42 +413,78 @@ const badge = {
 const titulo = { margin: "0 0 6px", fontSize: 18, fontWeight: 700, color: "var(--text-primary, #e8e8f0)" };
 const subtitulo = { margin: "0 0 12px", fontSize: 13, color: "var(--text-muted, #888)" };
 const aviso = {
-  display: "flex", gap: 10, alignItems: "flex-start",
-  background: "rgba(33,150,243,0.08)", border: "1px solid rgba(33,150,243,0.2)",
-  borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#90caf9",
+  display: "flex",
+  gap: 10,
+  alignItems: "flex-start",
+  background: "rgba(33,150,243,0.08)",
+  border: "1px solid rgba(33,150,243,0.2)",
+  borderRadius: 8,
+  padding: "10px 14px",
+  fontSize: 13,
+  color: "#90caf9",
 };
 const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 16 };
 const campo = { display: "flex", flexDirection: "column", gap: 6 };
 const lbl = { fontSize: 12, fontWeight: 600, color: "var(--text-secondary, #aaa)", textTransform: "uppercase", letterSpacing: "0.05em" };
 const input = {
-  background: "var(--input-bg, #0f0f1e)", border: "1px solid var(--border, #2a2a4a)",
-  borderRadius: 8, padding: "10px 12px", color: "var(--text-primary, #e8e8f0)", fontSize: 14, outline: "none",
-};
-const dica = {
-  marginTop: 4, marginBottom: 16, fontSize: 13, color: "var(--accent, #7c6af7)",
-  background: "rgba(124,106,247,0.08)", borderRadius: 8, padding: "8px 12px",
+  background: "var(--input-bg, #0f0f1e)",
+  border: "1px solid var(--border, #2a2a4a)",
+  borderRadius: 8,
+  padding: "10px 12px",
+  color: "var(--text-primary, #e8e8f0)",
+  fontSize: 14,
+  outline: "none",
 };
 const linhaObjetivo = {
-  background: "rgba(255,255,255,0.03)", border: "1px solid var(--border, #2a2a4a)",
-  borderRadius: 10, padding: "16px", marginBottom: 16,
+  background: "rgba(255,255,255,0.03)",
+  border: "1px solid var(--border, #2a2a4a)",
+  borderRadius: 10,
+  padding: "16px",
+  marginBottom: 16,
 };
 const linhaHeader = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 };
 const numeroBadge = {
-  width: 26, height: 26, background: "var(--accent, #7c6af7)", borderRadius: "50%",
-  display: "flex", alignItems: "center", justifyContent: "center",
-  fontSize: 12, fontWeight: 700, color: "#fff",
+  width: 26,
+  height: 26,
+  background: "var(--accent, #7c6af7)",
+  borderRadius: "50%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: 12,
+  fontWeight: 700,
+  color: "#fff",
 };
 const rodape = { display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 16, marginTop: 20 };
 const okStyle = { fontSize: 13, color: "#4caf50", fontWeight: 600 };
 const btnPrimario = {
-  background: "var(--accent, #7c6af7)", color: "#fff", border: "none",
-  borderRadius: 8, padding: "10px 20px", fontWeight: 600, fontSize: 14, cursor: "pointer",
+  background: "var(--accent, #7c6af7)",
+  color: "#fff",
+  border: "none",
+  borderRadius: 8,
+  padding: "10px 20px",
+  fontWeight: 600,
+  fontSize: 14,
+  cursor: "pointer",
 };
 const btnSecundario = {
-  background: "transparent", color: "var(--accent, #7c6af7)", border: "1px solid var(--accent, #7c6af7)",
-  borderRadius: 8, padding: "8px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 4,
+  background: "transparent",
+  color: "var(--accent, #7c6af7)",
+  border: "1px solid var(--accent, #7c6af7)",
+  borderRadius: 8,
+  padding: "8px 16px",
+  fontSize: 13,
+  fontWeight: 600,
+  cursor: "pointer",
+  marginTop: 4,
 };
 const btnRemover = {
-  background: "transparent", color: "#e57373", border: "1px solid rgba(229,115,115,0.3)",
-  borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer",
+  background: "transparent",
+  color: "#e57373",
+  border: "1px solid rgba(229,115,115,0.3)",
+  borderRadius: 6,
+  padding: "4px 10px",
+  fontSize: 12,
+  fontWeight: 600,
+  cursor: "pointer",
 };

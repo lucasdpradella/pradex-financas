@@ -6,3 +6,8 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: true, autoRefreshToken: true }
 });
+
+export async function syncSupabaseSession(token) {
+  if (!token) return;
+  await supabase.auth.setSession({ access_token: token, refresh_token: "" });
+}

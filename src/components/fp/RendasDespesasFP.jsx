@@ -1,407 +1,318 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../../supabaseClient";
+import { syncSupabaseSession } from "../../supabaseClient";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdnVocXFzamJvbmN3cGJvY2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTM1NzEsImV4cCI6MjA5MTI2OTU3MX0.qpOXjpyJ29Hr9kvee3uxNS1LmJNUEZqDtMCCEpaHjsE";
 
 const sbApi = (token) => ({
   "Content-Type": "application/json",
-  "apikey": SUPABASE_KEY,
-  "Authorization": `Bearer ${token || SUPABASE_KEY}`,
+  apikey: SUPABASE_KEY,
+  Authorization: `Bearer ${token || SUPABASE_KEY}`,
 });
-
-// ─── Constantes ──────────────────────────────────────────────────────────────
 
 const CATEGORIAS_RENDA = [
   "Rendimento",
   "Aluguel",
-  "Pensão",
-  "Renda variável",
-  "Pró-labore",
+  "Pensao",
+  "Renda variavel",
+  "Pro-labore",
   "Dividendos",
-  "Aposentadoria/Previdência",
+  "Aposentadoria/Previdencia",
   "Outras rendas",
 ];
 
 const CATEGORIAS_DESPESA = [
   "Todas as despesas",
   "Moradia",
-  "Alimentação",
+  "Alimentacao",
   "Transporte",
-  "Educação",
-  "Saúde",
+  "Educacao",
+  "Saude",
   "Lazer",
-  "Vestuário",
+  "Vestuario",
   "Seguros",
   "Financiamentos",
   "Outras despesas",
 ];
 
-const FREQUENCIAS = ["Mensal", "Quinzenal", "Semanal", "Anual", "Única"];
-
-const PREVISOES_TERMINO = [
-  "Sem previsão",
-  "Após algumas ocorrências",
-  "Ao se aposentar",
-];
-
-const MESES = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
-];
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+const FREQUENCIAS = ["Mensal", "Quinzenal", "Semanal", "Anual", "Unica"];
+const PREVISOES_TERMINO = ["Sem previsao", "Apos algumas ocorrencias", "Ao se aposentar"];
+const MESES = ["Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+const ANO_ATUAL = new Date().getFullYear();
+const ANOS = Array.from({ length: 80 }, (_, i) => ANO_ATUAL - 5 + i);
 
 function formatBRL(value) {
-  if (!value && value !== 0) return "";
-  return Number(value).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
+  if (value === null || value === undefined || value === "") return "";
+  return Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-function parseBRL(str) {
-  if (!str) return 0;
-  const cleaned = str.replace(/[R$\s.]/g, "").replace(",", ".");
-  const num = parseFloat(cleaned);
-  return isNaN(num) ? 0 : num;
+function parseBRL(value) {
+  if (!value) return 0;
+  const normalized = String(value).replace(/[R$\s.]/g, "").replace(",", ".");
+  const parsed = parseFloat(normalized);
+  return Number.isNaN(parsed) ? 0 : parsed;
 }
 
 function dateToMonthYear(dateStr) {
   if (!dateStr) return "";
-  const d = new Date(dateStr + "T00:00:00");
-  return `${MESES[d.getMonth()]}/${d.getFullYear()}`;
+  const date = new Date(`${dateStr}T00:00:00`);
+  return `${MESES[date.getMonth()]}/${date.getFullYear()}`;
 }
 
 function monthYearToDate(mes, ano) {
   if (!mes || !ano) return null;
-  const mesIdx = MESES.indexOf(mes);
-  if (mesIdx === -1) return null;
-  return `${ano}-${String(mesIdx + 1).padStart(2, "0")}-01`;
+  const mesIndex = MESES.indexOf(mes);
+  if (mesIndex === -1) return null;
+  return `${ano}-${String(mesIndex + 1).padStart(2, "0")}-01`;
 }
 
-const anoAtual = new Date().getFullYear();
-const ANOS = Array.from({ length: 80 }, (_, i) => anoAtual - 5 + i);
+function getMonthKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
 
-// ─── Modal de adicionar/editar ────────────────────────────────────────────────
+function ordenarMembros(lista = []) {
+  return [...lista].sort((a, b) => {
+    if (a.parentesco === "Titular") return -1;
+    if (b.parentesco === "Titular") return 1;
+    return (a.nome || "").localeCompare(b.nome || "");
+  });
+}
+
+function parseMeta(comentarios = "") {
+  const text = String(comentarios || "");
+  const extract = (key) => {
+    const match = text.match(new RegExp(`\\[${key}:([^\\]]+)\\]`, "i"));
+    return match ? match[1].trim() : "";
+  };
+  const cleaned = text.replace(/\[[^\]]+:[^\]]+\]\s*/g, "").trim();
+  return {
+    responsavel: extract("Responsavel"),
+    previsao: extract("Previsao"),
+    ocorrencias: extract("Ocorrencias"),
+    texto: cleaned,
+  };
+}
+
+function buildComentarios({ responsavel = "", previsao = "", ocorrencias = "", texto = "" }) {
+  const parts = [];
+  if (responsavel) parts.push(`[Responsavel:${responsavel}]`);
+  if (previsao) parts.push(`[Previsao:${previsao}]`);
+  if (ocorrencias) parts.push(`[Ocorrencias:${ocorrencias}]`);
+  if (texto) parts.push(texto.trim());
+  return parts.join(" ").trim() || null;
+}
 
 function Modal({ tipo, membros, item, onClose, onSaved, userId, token, valorInicial }) {
   const isRenda = tipo === "renda";
-  const titulo = item ? `Editar ${tipo}` : `Adicionar ${tipo}`;
-
-  const membrosOrdenados = [...membros].sort((a, b) => {
-    if (a.parentesco === "Titular") return -1;
-    if (b.parentesco === "Titular") return 1;
-    return 0;
-  });
+  const membrosOrdenados = ordenarMembros(membros);
+  const meta = parseMeta(item?.comentarios);
 
   const [form, setForm] = useState({
-    membro_id: item?.membro_id || (membrosOrdenados[0]?.id ?? ""),
+    responsavel: meta.responsavel || membrosOrdenados[0]?.nome || "",
     categoria: item?.categoria || (isRenda ? CATEGORIAS_RENDA[0] : CATEGORIAS_DESPESA[0]),
     descricao: item?.descricao || "",
     valor_bruto: item?.valor_bruto ? formatBRL(item.valor_bruto) : (valorInicial ? formatBRL(valorInicial) : ""),
-    imposto_percent: item?.imposto_percent ?? 0,
     frequencia: item?.frequencia || "Mensal",
-    data_inicio_mes: item?.data_inicio ? MESES[new Date(item.data_inicio + "T00:00:00").getMonth()] : MESES[new Date().getMonth()],
-    data_inicio_ano: item?.data_inicio ? String(new Date(item.data_inicio + "T00:00:00").getFullYear()) : String(anoAtual),
-    data_fim_mes: item?.data_fim ? MESES[new Date(item.data_fim + "T00:00:00").getMonth()] : "",
-    data_fim_ano: item?.data_fim ? String(new Date(item.data_fim + "T00:00:00").getFullYear()) : "",
-    previsao_termino: item?.previsao_termino || "Sem previsão",
-    ocorrencias: item?.ocorrencias || "",
-    comentarios: item?.comentarios || "",
-    tributavel_compensavel: item?.tributavel_compensavel || false,
+    data_inicio_mes: item?.data_inicio ? MESES[new Date(`${item.data_inicio}T00:00:00`).getMonth()] : MESES[new Date().getMonth()],
+    data_inicio_ano: item?.data_inicio ? String(new Date(`${item.data_inicio}T00:00:00`).getFullYear()) : String(ANO_ATUAL),
+    data_fim_mes: item?.data_fim ? MESES[new Date(`${item.data_fim}T00:00:00`).getMonth()] : "",
+    data_fim_ano: item?.data_fim ? String(new Date(`${item.data_fim}T00:00:00`).getFullYear()) : "",
+    previsao_termino: meta.previsao || "Sem previsao",
+    ocorrencias: meta.ocorrencias || "",
+    comentarios: meta.texto || "",
   });
-
   const [saving, setSaving] = useState(false);
   const [erro, setErro] = useState("");
 
-  const valorBrutoNum = parseBRL(form.valor_bruto);
-  const valorLiquido = isRenda
-    ? valorBrutoNum * (1 - Number(form.imposto_percent) / 100)
-    : null;
-
-  function set(field, value) {
+  function setField(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
   async function handleSalvar() {
     setErro("");
-    if (!form.descricao.trim()) return setErro("Informe a descrição.");
+    if (!form.descricao.trim()) return setErro("Informe a descricao.");
     if (!form.valor_bruto) return setErro("Informe o valor.");
-    if (!form.data_inicio_mes || !form.data_inicio_ano) return setErro("Informe a data de início.");
+    if (!form.data_inicio_mes || !form.data_inicio_ano) return setErro("Informe a data de inicio.");
 
     setSaving(true);
 
     const payload = {
       user_id: userId,
-      membro_id: form.membro_id || null,
       categoria: form.categoria,
       descricao: form.descricao.trim(),
-      valor_bruto: valorBrutoNum,
+      valor_bruto: parseBRL(form.valor_bruto),
       frequencia: form.frequencia,
       data_inicio: monthYearToDate(form.data_inicio_mes, form.data_inicio_ano),
-      data_fim: form.data_fim_mes && form.data_fim_ano
-        ? monthYearToDate(form.data_fim_mes, form.data_fim_ano)
-        : null,
-      previsao_termino: form.previsao_termino,
-      ocorrencias: form.previsao_termino === "Após algumas ocorrências"
-        ? Number(form.ocorrencias) || null
-        : null,
-      comentarios: form.comentarios.trim() || null,
+      data_fim: form.data_fim_mes && form.data_fim_ano ? monthYearToDate(form.data_fim_mes, form.data_fim_ano) : null,
+      comentarios: buildComentarios({
+        responsavel: form.responsavel,
+        previsao: form.previsao_termino,
+        ocorrencias: form.previsao_termino === "Apos algumas ocorrencias" ? form.ocorrencias : "",
+        texto: form.comentarios,
+      }),
     };
 
-    if (isRenda) {
-      payload.imposto_percent = Number(form.imposto_percent) || 0;
-      payload.tributavel_compensavel = form.tributavel_compensavel;
-    }
-
-    const tabela = isRenda ? "fp_rendas" : "fp_despesas";
     try {
-      if (item) {
-        await fetch(`${SUPABASE_URL}/rest/v1/${tabela}?id=eq.${item.id}`, {
-          method: "PATCH",
-          headers: { ...sbApi(token), "Prefer": "return=representation" },
+      const res = await fetch(
+        item
+          ? `${SUPABASE_URL}/rest/v1/${isRenda ? "fp_rendas" : "fp_despesas"}?id=eq.${item.id}`
+          : `${SUPABASE_URL}/rest/v1/${isRenda ? "fp_rendas" : "fp_despesas"}`,
+        {
+          method: item ? "PATCH" : "POST",
+          headers: { ...sbApi(token), Prefer: "return=representation" },
           body: JSON.stringify(payload),
-        });
-      } else {
-        await fetch(`${SUPABASE_URL}/rest/v1/${tabela}`, {
-          method: "POST",
-          headers: { ...sbApi(token), "Prefer": "return=representation" },
-          body: JSON.stringify(payload),
-        });
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        setErro(data?.message || "Erro ao salvar. Revise os campos e tente novamente.");
+        setSaving(false);
+        return;
       }
       onSaved();
-    } catch (e) {
+    } catch (error) {
       setErro("Erro ao salvar. Tente novamente.");
     }
+
     setSaving(false);
   }
 
   return (
     <div style={styles.overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div style={styles.modal}>
-        {/* Header */}
         <div style={styles.modalHeader}>
-          <span style={styles.modalTitulo}>{titulo}</span>
+          <span style={styles.modalTitulo}>{item ? `Editar ${tipo}` : `Adicionar ${tipo}`}</span>
           <button style={styles.btnFechar} onClick={onClose}>×</button>
         </div>
 
         <div style={styles.modalBody}>
-          {/* Responsável */}
           <div style={styles.campo}>
-            <label style={styles.label}>Selecione o responsável *</label>
-            <select
-              style={styles.select}
-              value={form.membro_id}
-              onChange={(e) => set("membro_id", e.target.value)}
-            >
-              {membrosOrdenados.map((m) => (
-                <option key={m.id} value={m.id}>{m.nome}</option>
+            <label style={styles.label}>Selecione o responsavel *</label>
+            <select style={styles.select} value={form.responsavel} onChange={(e) => setField("responsavel", e.target.value)}>
+              {membrosOrdenados.map((membro) => (
+                <option key={membro.id} value={membro.nome}>{membro.nome}</option>
               ))}
             </select>
           </div>
 
-          <div style={styles.tagFamiliar}>Renda/Despesa familiares ℹ️</div>
+          <div style={styles.tagFamiliar}>Renda/Despesa familiares</div>
 
-          {/* Categoria */}
           <div style={styles.campo}>
-            <label style={styles.label}>
-              Selecione categoria da {tipo} *
-            </label>
-            <select
-              style={styles.select}
-              value={form.categoria}
-              onChange={(e) => set("categoria", e.target.value)}
-            >
-              {(isRenda ? CATEGORIAS_RENDA : CATEGORIAS_DESPESA).map((c) => (
-                <option key={c}>{c}</option>
+            <label style={styles.label}>Categoria *</label>
+            <select style={styles.select} value={form.categoria} onChange={(e) => setField("categoria", e.target.value)}>
+              {(isRenda ? CATEGORIAS_RENDA : CATEGORIAS_DESPESA).map((categoria) => (
+                <option key={categoria}>{categoria}</option>
               ))}
             </select>
           </div>
 
-          {/* Descrição */}
           <div style={styles.campo}>
-            <label style={styles.label}>Descrição *</label>
+            <label style={styles.label}>Descricao *</label>
             <input
               style={styles.input}
               value={form.descricao}
-              onChange={(e) => set("descricao", e.target.value)}
-              placeholder={isRenda ? "Ex: Salário principal" : "Ex: Conta de luz"}
+              onChange={(e) => setField("descricao", e.target.value)}
+              placeholder={isRenda ? "Ex: Salario principal" : "Ex: Conta de luz"}
             />
           </div>
 
-          {/* Valor bruto */}
           <div style={styles.campo}>
             <label style={styles.label}>Valor bruto (R$) *</label>
             <input
               style={styles.input}
               value={form.valor_bruto}
-              onChange={(e) => set("valor_bruto", e.target.value)}
+              onChange={(e) => setField("valor_bruto", e.target.value)}
               onBlur={() => {
-                const num = parseBRL(form.valor_bruto);
-                if (num > 0) set("valor_bruto", formatBRL(num));
+                const valor = parseBRL(form.valor_bruto);
+                if (valor > 0) setField("valor_bruto", formatBRL(valor));
               }}
               placeholder="R$ 0,00"
             />
           </div>
 
-          {/* Imposto + Valor líquido (só renda) */}
-          {isRenda && (
-            <>
-              <div style={styles.campo}>
-                <label style={styles.label}>Imposto (%) *</label>
-                <input
-                  style={styles.input}
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={form.imposto_percent}
-                  onChange={(e) => set("imposto_percent", e.target.value)}
-                />
-              </div>
-              <div style={styles.campo}>
-                <label style={styles.label}>Valor líquido (R$) *</label>
-                <input
-                  style={{ ...styles.input, background: "#f5f5f5", color: "#888" }}
-                  value={valorLiquido !== null ? formatBRL(valorLiquido) : ""}
-                  readOnly
-                />
-              </div>
-            </>
-          )}
-
-          {/* Frequência */}
           <div style={styles.campo}>
-            <label style={styles.label}>Frequência *</label>
-            <select
-              style={styles.select}
-              value={form.frequencia}
-              onChange={(e) => set("frequencia", e.target.value)}
-            >
-              {FREQUENCIAS.map((f) => (
-                <option key={f}>{f}</option>
+            <label style={styles.label}>Frequencia *</label>
+            <select style={styles.select} value={form.frequencia} onChange={(e) => setField("frequencia", e.target.value)}>
+              {FREQUENCIAS.map((frequencia) => (
+                <option key={frequencia}>{frequencia}</option>
               ))}
             </select>
           </div>
 
-          {/* Datas */}
           <div style={styles.duasColunas}>
             <div style={styles.campo}>
-              <label style={styles.label}>Data início *</label>
+              <label style={styles.label}>Data inicio *</label>
               <div style={styles.dateRow}>
-                <select
-                  style={styles.selectSmall}
-                  value={form.data_inicio_mes}
-                  onChange={(e) => set("data_inicio_mes", e.target.value)}
-                >
-                  {MESES.map((m) => <option key={m}>{m}</option>)}
+                <select style={styles.selectSmall} value={form.data_inicio_mes} onChange={(e) => setField("data_inicio_mes", e.target.value)}>
+                  {MESES.map((mes) => <option key={mes}>{mes}</option>)}
                 </select>
-                <select
-                  style={styles.selectSmall}
-                  value={form.data_inicio_ano}
-                  onChange={(e) => set("data_inicio_ano", e.target.value)}
-                >
-                  {ANOS.map((a) => <option key={a}>{a}</option>)}
+                <select style={styles.selectSmall} value={form.data_inicio_ano} onChange={(e) => setField("data_inicio_ano", e.target.value)}>
+                  {ANOS.map((ano) => <option key={ano}>{ano}</option>)}
                 </select>
               </div>
             </div>
             <div style={styles.campo}>
-              <label style={styles.label}>Data de fim</label>
+              <label style={styles.label}>Data fim</label>
               <div style={styles.dateRow}>
-                <select
-                  style={styles.selectSmall}
-                  value={form.data_fim_mes}
-                  onChange={(e) => set("data_fim_mes", e.target.value)}
-                >
+                <select style={styles.selectSmall} value={form.data_fim_mes} onChange={(e) => setField("data_fim_mes", e.target.value)}>
                   <option value="">-</option>
-                  {MESES.map((m) => <option key={m}>{m}</option>)}
+                  {MESES.map((mes) => <option key={mes}>{mes}</option>)}
                 </select>
-                <select
-                  style={styles.selectSmall}
-                  value={form.data_fim_ano}
-                  onChange={(e) => set("data_fim_ano", e.target.value)}
-                >
+                <select style={styles.selectSmall} value={form.data_fim_ano} onChange={(e) => setField("data_fim_ano", e.target.value)}>
                   <option value="">-</option>
-                  {ANOS.map((a) => <option key={a}>{a}</option>)}
+                  {ANOS.map((ano) => <option key={ano}>{ano}</option>)}
                 </select>
               </div>
             </div>
           </div>
 
-          {/* Previsão de término */}
           <div style={styles.campo}>
-            <label style={{ ...styles.label, marginBottom: 8 }}>Previsão de término</label>
-            {PREVISOES_TERMINO.map((p) => (
-              <label key={p} style={styles.radioLabel}>
+            <label style={{ ...styles.label, marginBottom: 8 }}>Previsao de termino</label>
+            {PREVISOES_TERMINO.map((previsao) => (
+              <label key={previsao} style={styles.radioLabel}>
                 <input
                   type="radio"
-                  name="previsao"
-                  value={p}
-                  checked={form.previsao_termino === p}
-                  onChange={() => set("previsao_termino", p)}
+                  name={`previsao-${tipo}`}
+                  value={previsao}
+                  checked={form.previsao_termino === previsao}
+                  onChange={() => setField("previsao_termino", previsao)}
                   style={{ marginRight: 8 }}
                 />
-                {p}
+                {previsao}
               </label>
             ))}
           </div>
 
-          {/* Ocorrências */}
-          {form.previsao_termino === "Após algumas ocorrências" && (
+          {form.previsao_termino === "Apos algumas ocorrencias" && (
             <div style={styles.campo}>
-              <label style={styles.label}>Ocorrências *</label>
+              <label style={styles.label}>Ocorrencias</label>
               <input
                 style={styles.input}
                 type="number"
                 min="1"
                 value={form.ocorrencias}
-                onChange={(e) => set("ocorrencias", e.target.value)}
-                placeholder="Ex: 340"
+                onChange={(e) => setField("ocorrencias", e.target.value)}
+                placeholder="Ex: 12"
               />
             </div>
           )}
 
-          {/* Comentários */}
           <div style={styles.campo}>
-            <label style={styles.label}>Comentários</label>
+            <label style={styles.label}>Comentarios</label>
             <textarea
               style={{ ...styles.input, minHeight: 72, resize: "vertical" }}
               value={form.comentarios}
-              onChange={(e) => set("comentarios", e.target.value)}
-              placeholder="Observações opcionais"
+              onChange={(e) => setField("comentarios", e.target.value)}
+              placeholder="Observacoes opcionais"
             />
           </div>
-
-          {/* Tributável (só renda) */}
-          {isRenda && (
-            <label style={styles.checkboxLabel}>
-              <input
-                type="checkbox"
-                checked={form.tributavel_compensavel}
-                onChange={(e) => set("tributavel_compensavel", e.target.checked)}
-                style={{ marginRight: 8 }}
-              />
-              Receita bruta tributável compensável
-              <span style={styles.linkSaiba}> Saiba mais</span>
-            </label>
-          )}
 
           {erro && <div style={styles.erro}>{erro}</div>}
         </div>
 
-        {/* Footer */}
         <div style={styles.modalFooter}>
           <button style={styles.btnCancelar} onClick={onClose}>Cancelar</button>
-          <button
-            style={{
-              ...styles.btnAdicionar,
-              opacity: saving ? 0.7 : 1,
-              cursor: saving ? "not-allowed" : "pointer",
-            }}
-            onClick={handleSalvar}
-            disabled={saving}
-          >
+          <button style={{ ...styles.btnAdicionar, opacity: saving ? 0.7 : 1 }} onClick={handleSalvar} disabled={saving}>
             {saving ? "Salvando..." : item ? "Salvar" : "Adicionar"}
           </button>
         </div>
@@ -410,220 +321,168 @@ function Modal({ tipo, membros, item, onClose, onSaved, userId, token, valorInic
   );
 }
 
-// ─── Card de item na lista ────────────────────────────────────────────────────
-
-function ItemCard({ item, tipo, membros, onEdit, onDelete }) {
-  const isRenda = tipo === "renda";
-  const membro = membros.find((m) => m.id === item.membro_id);
-
+function ItemCard({ item, tipo, onEdit, onDelete }) {
+  const meta = parseMeta(item.comentarios);
   return (
     <div style={styles.card}>
       <div style={styles.cardLeft}>
         <div style={styles.cardTitulo}>{item.descricao}</div>
         <div style={styles.cardSub}>
           {item.categoria}
-          {membro ? ` · ${membro.nome}` : ""}
-          {" · "}
-          {item.frequencia}
+          {meta.responsavel ? ` · ${meta.responsavel}` : ""}
+          {item.frequencia ? ` · ${item.frequencia}` : ""}
         </div>
         {item.data_inicio && (
           <div style={styles.cardDatas}>
             {dateToMonthYear(item.data_inicio)}
-            {item.data_fim ? ` → ${dateToMonthYear(item.data_fim)}` : " → sem previsão"}
+            {item.data_fim ? ` -> ${dateToMonthYear(item.data_fim)}` : ""}
           </div>
         )}
       </div>
       <div style={styles.cardRight}>
-        <div style={styles.cardValor}>
-          {formatBRL(isRenda ? (item.valor_liquido ?? item.valor_bruto) : item.valor_bruto)}
-        </div>
-        {isRenda && item.imposto_percent > 0 && (
-          <div style={styles.cardImposto}>bruto: {formatBRL(item.valor_bruto)}</div>
-        )}
+        <div style={styles.cardValor}>{formatBRL(item.valor_bruto)}</div>
         <div style={styles.cardAcoes}>
-          <button style={styles.btnAcao} onClick={() => onEdit(item)} title="Editar">✏️</button>
-          <button style={styles.btnAcao} onClick={() => onDelete(item.id)} title="Remover">🗑️</button>
+          <button style={styles.btnAcao} onClick={() => onEdit(item)}>Editar</button>
+          <button style={styles.btnAcao} onClick={() => onDelete(item.id)}>Remover</button>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Componente principal ─────────────────────────────────────────────────────
-
 export default function RendasDespesasFP({ session }) {
   const [membros, setMembros] = useState([]);
   const [rendas, setRendas] = useState([]);
   const [despesas, setDespesas] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const [modal, setModal] = useState(null); // { tipo: "renda"|"despesa", item: null|{...}, valorInicial?: number }
-  const [totalLancamentos, setTotalLancamentos] = useState(null);
+  const [resumoLancamentos, setResumoLancamentos] = useState({ receitasMesAtual: 0, despesasMesAtual: 0 });
+  const [totalLancamentos, setTotalLancamentos] = useState(0);
+  const [modal, setModal] = useState(null);
 
   const userId = session?.user?.id;
   const token = session?.token;
 
-  useEffect(() => {
-    if (session?.token) {
-      supabase.auth.setSession({ access_token: session.token, refresh_token: "" });
-    }
-  }, []);
-
   async function carregar() {
-    console.log("[rendas] user_id:", session?.user?.id);
     if (!userId) return;
     setLoading(true);
     try {
-      const [resM, resR, resD] = await Promise.all([
+      const [resM, resR, resD, resLancReceitas, resLancDespesas] = await Promise.all([
         fetch(`${SUPABASE_URL}/rest/v1/fp_membros?user_id=eq.${userId}&order=nome.asc`, { headers: sbApi(token) }),
         fetch(`${SUPABASE_URL}/rest/v1/fp_rendas?user_id=eq.${userId}&order=created_at.asc`, { headers: sbApi(token) }),
         fetch(`${SUPABASE_URL}/rest/v1/fp_despesas?user_id=eq.${userId}&order=created_at.asc`, { headers: sbApi(token) }),
+        fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?user_id=eq.${userId}&tipo=eq.receita&select=valor,data_lancamento`, { headers: sbApi(token) }),
+        fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?user_id=eq.${userId}&tipo=eq.gasto&select=valor,data_lancamento`, { headers: sbApi(token) }),
       ]);
-      const [m, r, d] = await Promise.all([resM.json(), resR.json(), resD.json()]);
-      setMembros(Array.isArray(m) ? m : []);
-      setRendas(Array.isArray(r) ? r : []);
-      setDespesas(Array.isArray(d) ? d : []);
 
-      // Tenta buscar total de despesas recorrentes nos lançamentos
-      try {
-        const resLanc = await fetch(
-          `${SUPABASE_URL}/rest/v1/lancamentos?user_id=eq.${userId}&tipo=eq.despesa&recorrente=eq.true&select=valor`,
-          { headers: sbApi(token) }
-        );
-        const lancRec = await resLanc.json();
-        if (Array.isArray(lancRec) && lancRec.length > 0) {
-          setTotalLancamentos(lancRec.reduce((s, l) => s + Number(l.valor || 0), 0));
-        } else {
-          // Fallback: média dos últimos 3 meses
-          const tresMesesAtras = new Date();
-          tresMesesAtras.setMonth(tresMesesAtras.getMonth() - 3);
-          const dataStr = tresMesesAtras.toISOString().split("T")[0];
-          const resLanc2 = await fetch(
-            `${SUPABASE_URL}/rest/v1/lancamentos?user_id=eq.${userId}&tipo=eq.despesa&data=gte.${dataStr}&select=valor,data`,
-            { headers: sbApi(token) }
-          );
-          const lancAll = await resLanc2.json();
-          if (Array.isArray(lancAll) && lancAll.length > 0) {
-            const byMonth = {};
-            lancAll.forEach((l) => {
-              const key = (l.data || "").slice(0, 7);
-              if (key) byMonth[key] = (byMonth[key] || 0) + Number(l.valor || 0);
-            });
-            const vals = Object.values(byMonth);
-            if (vals.length > 0) {
-              setTotalLancamentos(vals.reduce((s, v) => s + v, 0) / vals.length);
-            }
-          }
-        }
-      } catch (_) {}
-    } catch (e) {}
+      const [membrosData, rendasData, despesasData, receitasLanc, despesasLanc] = await Promise.all([
+        resM.json(),
+        resR.json(),
+        resD.json(),
+        resLancReceitas.json(),
+        resLancDespesas.json(),
+      ]);
+
+      setMembros(Array.isArray(membrosData) ? ordenarMembros(membrosData) : []);
+      setRendas(Array.isArray(rendasData) ? rendasData : []);
+      setDespesas(Array.isArray(despesasData) ? despesasData : []);
+
+      const mesAtual = getMonthKey(new Date());
+      const receitasPorMes = {};
+
+      if (Array.isArray(receitasLanc)) {
+        receitasLanc.forEach((lancamento) => {
+          const key = (lancamento.data_lancamento || "").slice(0, 7);
+          if (key) receitasPorMes[key] = (receitasPorMes[key] || 0) + Number(lancamento.valor || 0);
+        });
+      }
+
+      const receitasMesAtual = receitasPorMes[mesAtual] || 0;
+      const despesasMesAtual = Array.isArray(despesasLanc)
+        ? despesasLanc
+            .filter((lancamento) => (lancamento.data_lancamento || "").startsWith(mesAtual))
+            .reduce((sum, lancamento) => sum + Number(lancamento.valor || 0), 0)
+        : 0;
+
+      setResumoLancamentos({ receitasMesAtual, despesasMesAtual });
+      setTotalLancamentos(despesasMesAtual);
+    } catch (error) {
+      console.error("[fp_rendas_despesas] Erro ao carregar:", error);
+    }
     setLoading(false);
   }
 
-  useEffect(() => { carregar(); }, [userId]);
+  useEffect(() => {
+    const init = async () => {
+      if (!session?.token) return;
+      await syncSupabaseSession(session.token);
+      await carregar();
+    };
+    init();
+  }, [session?.token]);
 
   async function handleDelete(tipo, id) {
     if (!window.confirm(`Remover este ${tipo}?`)) return;
-    const tabela = tipo === "renda" ? "fp_rendas" : "fp_despesas";
-    await fetch(`${SUPABASE_URL}/rest/v1/${tabela}?id=eq.${id}`, {
+    await fetch(`${SUPABASE_URL}/rest/v1/${tipo === "renda" ? "fp_rendas" : "fp_despesas"}?id=eq.${id}`, {
       method: "DELETE",
       headers: sbApi(token),
     });
     carregar();
   }
 
-  const totalRendas = rendas.reduce((s, r) => s + Number(r.valor_liquido ?? r.valor_bruto), 0);
-  const totalDespesas = despesas.reduce((s, d) => s + Number(d.valor_bruto), 0);
-  const saldo = totalRendas - totalDespesas;
-
-  if (loading) {
-    return <div style={styles.loading}>Carregando...</div>;
-  }
+  if (loading) return <div style={styles.loading}>Carregando...</div>;
 
   return (
     <div style={styles.container}>
-      {/* Resumo */}
       <div style={styles.resumoRow}>
         <div style={{ ...styles.resumoCard, borderColor: "#4caf50" }}>
-          <div style={styles.resumoLabel}>Total de Rendas</div>
-          <div style={{ ...styles.resumoValor, color: "#4caf50" }}>{formatBRL(totalRendas)}</div>
+          <div style={styles.resumoLabel}>RECEITA DO MES ATUAL</div>
+          <div style={{ ...styles.resumoValor, color: "#4caf50" }}>{formatBRL(resumoLancamentos.receitasMesAtual)}</div>
         </div>
         <div style={{ ...styles.resumoCard, borderColor: "#f44336" }}>
-          <div style={styles.resumoLabel}>Total de Despesas</div>
-          <div style={{ ...styles.resumoValor, color: "#f44336" }}>{formatBRL(totalDespesas)}</div>
-        </div>
-        <div style={{ ...styles.resumoCard, borderColor: saldo >= 0 ? "#2196f3" : "#ff9800" }}>
-          <div style={styles.resumoLabel}>Saldo Mensal</div>
-          <div style={{ ...styles.resumoValor, color: saldo >= 0 ? "#2196f3" : "#ff9800" }}>
-            {formatBRL(saldo)}
-          </div>
+          <div style={styles.resumoLabel}>DESPESA DO MES ATUAL</div>
+          <div style={{ ...styles.resumoValor, color: "#f44336" }}>{formatBRL(resumoLancamentos.despesasMesAtual)}</div>
         </div>
       </div>
 
-      {/* Aviso sem membros */}
       {membros.length === 0 && (
         <div style={styles.aviso}>
-          ⚠️ Nenhum membro cadastrado. Cadastre os membros da família na aba <strong>Perfil</strong> antes de adicionar rendas e despesas.
+          Nenhum membro cadastrado. Cadastre os membros da familia na aba Perfil antes de adicionar rendas e despesas.
         </div>
       )}
 
-      {/* RENDAS */}
       <section style={styles.section}>
         <div style={styles.sectionHeader}>
           <h2 style={styles.sectionTitulo}>Rendas</h2>
-          <button
-            style={styles.btnAdicionar}
-            onClick={() => setModal({ tipo: "renda", item: null })}
-            disabled={membros.length === 0}
-          >
+          <button style={styles.btnAdicionar} onClick={() => setModal({ tipo: "renda", item: null })} disabled={membros.length === 0}>
             + Adicionar renda
           </button>
         </div>
-
         {rendas.length === 0 ? (
           <div style={styles.vazio}>Nenhuma renda cadastrada.</div>
         ) : (
-          rendas.map((r) => (
-            <ItemCard
-              key={r.id}
-              item={r}
-              tipo="renda"
-              membros={membros}
-              onEdit={(item) => setModal({ tipo: "renda", item })}
-              onDelete={(id) => handleDelete("renda", id)}
-            />
+          rendas.map((item) => (
+            <ItemCard key={item.id} item={item} tipo="renda" onEdit={(selected) => setModal({ tipo: "renda", item: selected })} onDelete={(id) => handleDelete("renda", id)} />
           ))
         )}
       </section>
 
-      {/* DESPESAS */}
       <section style={styles.section}>
         <div style={styles.sectionHeader}>
           <h2 style={styles.sectionTitulo}>Despesas</h2>
-          <button
-            style={styles.btnAdicionar}
-            onClick={() => setModal({ tipo: "despesa", item: null })}
-            disabled={membros.length === 0}
-          >
+          <button style={styles.btnAdicionar} onClick={() => setModal({ tipo: "despesa", item: null })} disabled={membros.length === 0}>
             + Adicionar despesa
           </button>
         </div>
 
-        {totalLancamentos !== null && totalLancamentos > 0 && (
+        {totalLancamentos > 0 && (
           <div style={styles.cardLancamentos}>
             <div>
-              <div style={styles.cardLancTitulo}>📊 Despesas nos Lançamentos</div>
-              <div style={styles.cardLancSub}>
-                Total mensal estimado com base nos lançamentos cadastrados
-              </div>
+              <div style={styles.cardLancTitulo}>Despesas do mes nos lancamentos</div>
+              <div style={styles.cardLancSub}>Total do mes atual com base nos lancamentos reais</div>
             </div>
             <div style={{ textAlign: "right", flexShrink: 0 }}>
               <div style={styles.cardLancValor}>{formatBRL(totalLancamentos)}</div>
-              <button
-                style={styles.btnUsarTotal}
-                onClick={() => setModal({ tipo: "despesa", item: null, valorInicial: totalLancamentos })}
-                disabled={membros.length === 0}
-              >
+              <button style={styles.btnUsarTotal} onClick={() => setModal({ tipo: "despesa", item: null, valorInicial: totalLancamentos })} disabled={membros.length === 0}>
                 Usar como despesa total
               </button>
             </div>
@@ -633,27 +492,22 @@ export default function RendasDespesasFP({ session }) {
         {despesas.length === 0 ? (
           <div style={styles.vazio}>Nenhuma despesa cadastrada.</div>
         ) : (
-          despesas.map((d) => (
-            <ItemCard
-              key={d.id}
-              item={d}
-              tipo="despesa"
-              membros={membros}
-              onEdit={(item) => setModal({ tipo: "despesa", item })}
-              onDelete={(id) => handleDelete("despesa", id)}
-            />
+          despesas.map((item) => (
+            <ItemCard key={item.id} item={item} tipo="despesa" onEdit={(selected) => setModal({ tipo: "despesa", item: selected })} onDelete={(id) => handleDelete("despesa", id)} />
           ))
         )}
       </section>
 
-      {/* Modal */}
       {modal && (
         <Modal
           tipo={modal.tipo}
           membros={membros}
           item={modal.item}
           onClose={() => setModal(null)}
-          onSaved={() => { setModal(null); carregar(); }}
+          onSaved={() => {
+            setModal(null);
+            carregar();
+          }}
           userId={userId}
           token={token}
           valorInicial={modal.valorInicial}
@@ -662,8 +516,6 @@ export default function RendasDespesasFP({ session }) {
     </div>
   );
 }
-
-// ─── Estilos ──────────────────────────────────────────────────────────────────
 
 const styles = {
   container: {
@@ -687,14 +539,12 @@ const styles = {
     color: "#5d4037",
   },
   resumoRow: {
-    display: "flex",
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
     gap: 16,
     marginBottom: 32,
-    flexWrap: "wrap",
   },
   resumoCard: {
-    flex: 1,
-    minWidth: 180,
     background: "#fff",
     border: "2px solid",
     borderRadius: 10,
@@ -703,7 +553,7 @@ const styles = {
   },
   resumoLabel: {
     fontSize: 12,
-    color: "#888",
+    color: "#777",
     marginBottom: 6,
     textTransform: "uppercase",
     letterSpacing: 0.5,
@@ -725,7 +575,7 @@ const styles = {
     fontSize: 18,
     fontWeight: 700,
     margin: 0,
-    color: "#1a1a1a",
+    color: "#E8E8E8",
   },
   vazio: {
     padding: "24px 0",
@@ -777,10 +627,6 @@ const styles = {
     fontSize: 16,
     color: "#1a1a1a",
   },
-  cardImposto: {
-    fontSize: 11,
-    color: "#aaa",
-  },
   cardAcoes: {
     display: "flex",
     gap: 6,
@@ -788,14 +634,13 @@ const styles = {
   },
   btnAcao: {
     background: "none",
-    border: "none",
+    border: "1px solid #d9d9d9",
     cursor: "pointer",
-    fontSize: 15,
-    padding: "2px 4px",
-    borderRadius: 4,
-    lineHeight: 1,
+    fontSize: 12,
+    padding: "4px 8px",
+    borderRadius: 6,
+    lineHeight: 1.2,
   },
-  // Modal
   overlay: {
     position: "fixed",
     inset: 0,
@@ -871,7 +716,6 @@ const styles = {
     background: "#fafafa",
     outline: "none",
     boxSizing: "border-box",
-    transition: "border-color 0.2s",
   },
   select: {
     width: "100%",
@@ -921,21 +765,6 @@ const styles = {
     marginBottom: 8,
     cursor: "pointer",
   },
-  checkboxLabel: {
-    display: "flex",
-    alignItems: "center",
-    fontSize: 13,
-    color: "#333",
-    marginTop: 4,
-    cursor: "pointer",
-  },
-  linkSaiba: {
-    color: "#1976d2",
-    fontSize: 12,
-    marginLeft: 4,
-    textDecoration: "underline",
-    cursor: "pointer",
-  },
   erro: {
     background: "#ffebee",
     color: "#c62828",
@@ -976,12 +805,12 @@ const styles = {
   cardLancTitulo: {
     fontWeight: 700,
     fontSize: 14,
-    color: "#1a1a1a",
+    color: "#E8E8E8",
     marginBottom: 3,
   },
   cardLancSub: {
     fontSize: 12,
-    color: "#777",
+    color: "#C8D3E2",
   },
   cardLancValor: {
     fontWeight: 700,
@@ -992,7 +821,7 @@ const styles = {
   btnUsarTotal: {
     background: "transparent",
     border: "1px solid #1976d2",
-    color: "#1976d2",
+    color: "#8EC5FF",
     borderRadius: 6,
     padding: "6px 12px",
     fontSize: 12,

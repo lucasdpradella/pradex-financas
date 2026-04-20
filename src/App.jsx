@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect, useRef } from "react";
-import { supabase } from "./supabaseClient";
+import { supabase, syncSupabaseSession } from "./supabaseClient";
 import PerfilFP from "./components/fp/PerfilFP";
 import ObjetivosFP from "./components/fp/ObjetivosFP";
 import RendasDespesasFP from "./components/fp/RendasDespesasFP";
@@ -231,7 +231,7 @@ export default function PradexFinancas() {
       if (data.id) {
         const token = localStorage.getItem("sb_token");
         setSession({ user: data, token });
-        supabase.auth.setSession({ access_token: token, refresh_token: "" });
+        await syncSupabaseSession(token);
         fetchUserRole(data.id, token);
       }
     } catch (e) {}
@@ -258,7 +258,7 @@ export default function PradexFinancas() {
       if (data.access_token) {
         localStorage.setItem("sb_token", data.access_token);
         setSession({ user: data.user, token: data.access_token });
-        supabase.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token ?? "" });
+        await syncSupabaseSession(data.access_token);
         fetchUserRole(data.user.id, data.access_token);
       } else { setAuthErro(authMode === "login" ? "Email ou senha incorretos." : "Erro ao criar conta."); }
     } catch (e) { setAuthErro("Erro de conexão."); }
@@ -266,6 +266,7 @@ export default function PradexFinancas() {
   };
 
   const handleLogout = () => {
+    supabase.auth.signOut().catch(() => {});
     localStorage.removeItem("sb_token");
     setSession(null); setUserRole(null);
     setLancamentos([]); setCartoes([]);
