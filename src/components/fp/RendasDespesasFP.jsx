@@ -93,10 +93,8 @@ function parseMeta(comentarios = "") {
   };
 }
 
-function buildComentarios({ responsavel = "", previsao = "", ocorrencias = "", texto = "" }) {
+function buildComentarios({ ocorrencias = "", texto = "" }) {
   const parts = [];
-  if (responsavel) parts.push(`[Responsavel:${responsavel}]`);
-  if (previsao) parts.push(`[Previsao:${previsao}]`);
   if (ocorrencias) parts.push(`[Ocorrencias:${ocorrencias}]`);
   if (texto) parts.push(texto.trim());
   return parts.join(" ").trim() || null;
@@ -108,7 +106,7 @@ function Modal({ tipo, membros, item, onClose, onSaved, userId, token, valorInic
   const meta = parseMeta(item?.comentarios);
 
   const [form, setForm] = useState({
-    responsavel: meta.responsavel || membrosOrdenados[0]?.nome || "",
+    responsavel: item?.membro_familiar || meta.responsavel || membrosOrdenados[0]?.nome || "",
     categoria: item?.categoria || (isRenda ? CATEGORIAS_RENDA[0] : CATEGORIAS_DESPESA[0]),
     descricao: item?.descricao || "",
     valor_bruto: item?.valor_bruto ? formatBRL(item.valor_bruto) : (valorInicial ? formatBRL(valorInicial) : ""),
@@ -117,7 +115,7 @@ function Modal({ tipo, membros, item, onClose, onSaved, userId, token, valorInic
     data_inicio_ano: item?.data_inicio ? String(new Date(`${item.data_inicio}T00:00:00`).getFullYear()) : String(ANO_ATUAL),
     data_fim_mes: item?.data_fim ? MESES[new Date(`${item.data_fim}T00:00:00`).getMonth()] : "",
     data_fim_ano: item?.data_fim ? String(new Date(`${item.data_fim}T00:00:00`).getFullYear()) : "",
-    previsao_termino: meta.previsao || "Sem previsao",
+    previsao_termino: item?.previsao_termino || meta.previsao || "Sem previsao",
     ocorrencias: meta.ocorrencias || "",
     comentarios: meta.texto || "",
   });
@@ -138,15 +136,15 @@ function Modal({ tipo, membros, item, onClose, onSaved, userId, token, valorInic
 
     const payload = {
       user_id: userId,
+      membro_familiar: form.responsavel || null,
       categoria: form.categoria,
       descricao: form.descricao.trim(),
       valor_bruto: parseBRL(form.valor_bruto),
       frequencia: form.frequencia,
+      previsao_termino: form.previsao_termino,
       data_inicio: monthYearToDate(form.data_inicio_mes, form.data_inicio_ano),
       data_fim: form.data_fim_mes && form.data_fim_ano ? monthYearToDate(form.data_fim_mes, form.data_fim_ano) : null,
       comentarios: buildComentarios({
-        responsavel: form.responsavel,
-        previsao: form.previsao_termino,
         ocorrencias: form.previsao_termino === "Apos algumas ocorrencias" ? form.ocorrencias : "",
         texto: form.comentarios,
       }),
