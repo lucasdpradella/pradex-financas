@@ -153,10 +153,9 @@ function Modal({ tipo, membros, item, onClose, onSaved, userId, token, valorInic
     };
 
     try {
+      const endpoint = `${SUPABASE_URL}/rest/v1/${isRenda ? "fp_rendas" : "fp_despesas"}`;
       const res = await fetch(
-        item
-          ? `${SUPABASE_URL}/rest/v1/${isRenda ? "fp_rendas" : "fp_despesas"}?id=eq.${item.id}`
-          : `${SUPABASE_URL}/rest/v1/${isRenda ? "fp_rendas" : "fp_despesas"}`,
+        item ? `${endpoint}?id=eq.${item.id}` : endpoint,
         {
           method: item ? "PATCH" : "POST",
           headers: { ...sbApi(token), Prefer: "return=representation" },
@@ -165,6 +164,41 @@ function Modal({ tipo, membros, item, onClose, onSaved, userId, token, valorInic
       );
       const data = await res.json();
       if (!res.ok) {
+        const updatedAtTriggerError =
+          item &&
+          typeof data?.message === "string" &&
+          data.message.includes('record "new" has no field "updated_at"');
+
+        if (updatedAtTriggerError) {
+          const createRes = await fetch(endpoint, {
+            method: "POST",
+            headers: { ...sbApi(token), Prefer: "return=representation" },
+            body: JSON.stringify(payload),
+          });
+          const createData = await createRes.json();
+
+          if (!createRes.ok) {
+            setErro(createData?.message || "Erro ao atualizar. Revise os campos e tente novamente.");
+            setSaving(false);
+            return;
+          }
+
+          const deleteRes = await fetch(`${endpoint}?id=eq.${item.id}`, {
+            method: "DELETE",
+            headers: sbApi(token),
+          });
+
+          if (!deleteRes.ok) {
+            setErro("A edicao foi recriada, mas o registro antigo nao foi removido. Atualize a tela e remova o antigo.");
+            setSaving(false);
+            return;
+          }
+
+          onSaved();
+          setSaving(false);
+          return;
+        }
+
         setErro(data?.message || "Erro ao salvar. Revise os campos e tente novamente.");
         setSaving(false);
         return;
