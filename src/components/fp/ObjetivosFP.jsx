@@ -22,38 +22,6 @@ const CATEGORIAS = [
 
 const FREQUENCIAS = ["Unica", "Parcelada", "Mensal", "Anual"];
 
-function buildComentarios(extra = {}) {
-  const parts = [];
-  if (extra.expectativa_vida) parts.push(`[Expectativa:${extra.expectativa_vida}]`);
-  if (extra.tipo) parts.push(`[Tipo:${extra.tipo}]`);
-  if (Array.isArray(extra.outros) && extra.outros.length > 0) {
-    parts.push(`[Outros:${encodeURIComponent(JSON.stringify(extra.outros))}]`);
-  }
-  return parts.join(" ").trim() || null;
-}
-
-function parseComentarios(comentarios = "") {
-  const text = String(comentarios || "");
-  const extract = (key) => {
-    const match = text.match(new RegExp(`\\[${key}:([^\\]]+)\\]`, "i"));
-    return match ? match[1].trim() : "";
-  };
-  return {
-    expectativa_vida: extract("Expectativa"),
-    tipo: extract("Tipo"),
-    outros: (() => {
-      const raw = extract("Outros");
-      if (!raw) return [];
-      try {
-        const parsed = JSON.parse(decodeURIComponent(raw));
-        return Array.isArray(parsed) ? parsed : [];
-      } catch (_) {
-        return [];
-      }
-    })(),
-  };
-}
-
 const objetivoVazio = () => ({
   localId: crypto.randomUUID(),
   id: null,
@@ -65,7 +33,7 @@ const objetivoVazio = () => ({
   ocorrencias: "",
 });
 
-function mapObjetivoRow(row) {
+function rowParaObjetivo(row) {
   return {
     localId: crypto.randomUUID(),
     id: row.id ?? null,
@@ -75,19 +43,6 @@ function mapObjetivoRow(row) {
     frequencia: row.frequencia ?? "Unica",
     valor: row.valor ?? "",
     ocorrencias: row.ocorrencias ?? "",
-  };
-}
-
-function mapObjetivoItem(objetivo = {}) {
-  return {
-    localId: crypto.randomUUID(),
-    id: objetivo.id ?? null,
-    nome: objetivo.nome ?? "",
-    categoria: objetivo.categoria ?? "Imoveis",
-    idade_atingimento: objetivo.idade_atingimento ?? "",
-    frequencia: objetivo.frequencia ?? "Unica",
-    valor: objetivo.valor ?? "",
-    ocorrencias: objetivo.ocorrencias ?? "",
   };
 }
 
@@ -113,26 +68,24 @@ export default function ObjetivosFP({ session }) {
       if (!token || !userId) return;
       try {
         const res = await fetch(
-          `${SUPABASE_URL}/rest/v1/fp_objetivos?user_id=eq.${userId}&select=*&order=id.asc&limit=1`,
+          `${SUPABASE_URL}/rest/v1/fp_objetivos?user_id=eq.${userId}&select=*&order=id.asc`,
           { headers: sbApi(token) }
         );
         const rows = await res.json();
         if (!Array.isArray(rows)) return;
-        const registro = rows[0] || null;
 
-        if (registro) {
-          const meta = parseComentarios(registro.comentarios);
-          setAposentadoriaId(registro.id ?? null);
-          setApIdade(registro.idade_atingimento ?? "");
-          setApFrequencia(registro.frequencia ?? "Parcelada");
-          setApReceita(registro.valor ?? "");
-          setApExpectativa(meta.expectativa_vida || "");
-          if (Array.isArray(meta.outros) && meta.outros.length > 0) {
-            setOutros(meta.outros.map(mapObjetivoItem));
-          } else {
-            setOutros([objetivoVazio()]);
-          }
+        const aposentadoria = rows.find((r) => r.nome === "Aposentadoria");
+        const secundarios = rows.filter((r) => r.nome !== "Aposentadoria");
+
+        if (aposentadoria) {
+          setAposentadoriaId(aposentadoria.id ?? null);
+          setApIdade(aposentadoria.idade_atingimento ?? "");
+          setApFrequencia(aposentadoria.aposentadoria_frequencia || aposentadoria.frequencia || "Parcelada");
+          setApReceita(aposentadoria.valor ?? "");
+          setApExpectativa(aposentadoria.aposentadoria_expectativa_vida ?? aposentadoria.expectativa_vida ?? "");
         }
+
+        setOutros(secundarios.length > 0 ? secundarios.map(rowParaObjetivo) : [objetivoVazio()]);
       } catch (error) {
         console.error("[fp_objetivos] Erro ao carregar:", error);
       }
@@ -145,33 +98,26 @@ export default function ObjetivosFP({ session }) {
     setTimeout(() => setSucesso(null), 2500);
   };
 
-  async function salvarLinha({ id, payload }) {
-    const res = await fetch(
-      id
-        ? `${SUPABASE_URL}/rest/v1/fp_objetivos?id=eq.${id}`
-        : `${SUPABASE_URL}/rest/v1/fp_objetivos?user_id=eq.${userId}`,
-      {
-        method: id ? "PATCH" : "PATCH",
-        headers: { ...sbApi(token), Prefer: "return=representation" },
-        body: JSON.stringify({ user_id: userId, ...payload }),
-      }
-    );
+  async function upsertObjetivo({ id, payload }) {
+    const url = id
+      ? `${SUPABASE_URL}/rest/v1/fp_objetivos?id=eq.${id}`
+      : `${SUPABASE_URL}/rest/v1/fp_objetivos`;
+    const res = await fetch(url, {
+      method: id ? "PATCH" : "POST",
+      headers: { ...sbApi(token), Prefer: "return=representation" },
+      body: JSON.stringify({ user_id: userId, ...payload }),
+    });
     const data = await res.json();
     if (!res.ok) throw new Error(data?.message || "Erro ao salvar objetivo.");
-    if (Array.isArray(data) && data[0]) return data[0];
+    return Array.isArray(data) ? data[0] : null;
+  }
 
-    if (!id) {
-      const createRes = await fetch(`${SUPABASE_URL}/rest/v1/fp_objetivos`, {
-        method: "POST",
-        headers: { ...sbApi(token), Prefer: "return=representation" },
-        body: JSON.stringify({ user_id: userId, ...payload }),
-      });
-      const created = await createRes.json();
-      if (!createRes.ok) throw new Error(created?.message || "Erro ao criar objetivo.");
-      return Array.isArray(created) ? created[0] : null;
-    }
-
-    return null;
+  async function deletarObjetivo(id) {
+    if (!id) return;
+    await fetch(`${SUPABASE_URL}/rest/v1/fp_objetivos?id=eq.${id}`, {
+      method: "DELETE",
+      headers: sbApi(token),
+    });
   }
 
   const salvarAposentadoria = async () => {
@@ -179,28 +125,17 @@ export default function ObjetivosFP({ session }) {
     setErro("");
     setSalvandoAp(true);
     try {
-      const saved = await salvarLinha({
+      const saved = await upsertObjetivo({
         id: aposentadoriaId,
         payload: {
           nome: "Aposentadoria",
           categoria: "Aposentadoria",
           idade_atingimento: apIdade || null,
           frequencia: apFrequencia,
+          aposentadoria_frequencia: apFrequencia,
           valor: apReceita || null,
-          comentarios: buildComentarios({
-            expectativa_vida: apExpectativa,
-            tipo: "aposentadoria",
-            outros: outros
-              .filter((objetivo) => objetivo.nome.trim() !== "")
-              .map((objetivo) => ({
-                nome: objetivo.nome.trim(),
-                categoria: objetivo.categoria,
-                idade_atingimento: objetivo.idade_atingimento || null,
-                frequencia: objetivo.frequencia,
-                valor: objetivo.valor || null,
-                ocorrencias: objetivo.frequencia !== "Unica" ? (objetivo.ocorrencias || null) : null,
-              })),
-          }),
+          expectativa_vida: apExpectativa || null,
+          aposentadoria_expectativa_vida: apExpectativa || null,
         },
       });
       if (saved?.id) setAposentadoriaId(saved.id);
@@ -217,32 +152,23 @@ export default function ObjetivosFP({ session }) {
     setErro("");
     setSalvandoOutros(true);
     try {
-      const preenchidos = outros.filter((objetivo) => objetivo.nome.trim() !== "");
-
-      const saved = await salvarLinha({
-        id: aposentadoriaId,
-        payload: {
-          nome: "Aposentadoria",
-          categoria: "Aposentadoria",
-          idade_atingimento: apIdade || null,
-          frequencia: apFrequencia,
-          valor: apReceita || null,
-          comentarios: buildComentarios({
-            expectativa_vida: apExpectativa,
-            tipo: "aposentadoria",
-            outros: preenchidos.map((objetivo) => ({
-              nome: objetivo.nome.trim(),
-              categoria: objetivo.categoria,
-              idade_atingimento: objetivo.idade_atingimento || null,
-              frequencia: objetivo.frequencia,
-              valor: objetivo.valor || null,
-              ocorrencias: objetivo.frequencia !== "Unica" ? (objetivo.ocorrencias || null) : null,
-            })),
-          }),
-        },
-      });
-      if (saved?.id) setAposentadoriaId(saved.id);
-      setOutros(preenchidos.length > 0 ? preenchidos.map(mapObjetivoItem) : [objetivoVazio()]);
+      const preenchidos = outros.filter((o) => o.nome.trim() !== "");
+      const salvos = [];
+      for (const objetivo of preenchidos) {
+        const saved = await upsertObjetivo({
+          id: objetivo.id,
+          payload: {
+            nome: objetivo.nome.trim(),
+            categoria: objetivo.categoria,
+            idade_atingimento: objetivo.idade_atingimento || null,
+            frequencia: objetivo.frequencia,
+            valor: objetivo.valor || null,
+            ocorrencias: objetivo.frequencia !== "Unica" ? (objetivo.ocorrencias || null) : null,
+          },
+        });
+        salvos.push({ ...objetivo, id: saved?.id ?? objetivo.id });
+      }
+      setOutros(salvos.length > 0 ? salvos : [objetivoVazio()]);
       ok("outros");
     } catch (error) {
       setErro(error.message);
@@ -252,14 +178,18 @@ export default function ObjetivosFP({ session }) {
   };
 
   const addObjetivo = () => setOutros((prev) => [...prev, objetivoVazio()]);
+
   const removeObjetivo = async (localId) => {
+    const objetivo = outros.find((o) => o.localId === localId);
+    if (objetivo?.id) await deletarObjetivo(objetivo.id);
     setOutros((prev) => {
-      const next = prev.filter((objetivo) => objetivo.localId !== localId);
+      const next = prev.filter((o) => o.localId !== localId);
       return next.length > 0 ? next : [objetivoVazio()];
     });
   };
+
   const updateObjetivo = (localId, campo, valor) =>
-    setOutros((prev) => prev.map((objetivo) => (objetivo.localId === localId ? { ...objetivo, [campo]: valor } : objetivo)));
+    setOutros((prev) => prev.map((o) => (o.localId === localId ? { ...o, [campo]: valor } : o)));
 
   return (
     <div style={{ maxWidth: 700, margin: "0 auto", padding: "24px 16px" }}>
