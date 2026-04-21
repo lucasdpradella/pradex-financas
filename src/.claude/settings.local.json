@@ -6,7 +6,8 @@
       "Bash(npm install *)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(powershell *)"
+      "Bash(powershell *)",
+      "Bash(python3 -c \"import sys,json; lines=sys.stdin.read\\(\\).split\\('\\\\n'\\); [print\\(json.loads\\(l\\).get\\('role',''\\),':', str\\(json.loads\\(l\\).get\\('content',''\\)\\)[:300]\\) for l in lines[-30:] if l.strip\\(\\) and 'role' in json.loads\\(l\\)]\")"
     ]
   }
 }
