@@ -69,6 +69,7 @@ export default function PerfilFP({ session }) {
   const [savingPerfil, setSavingPerfil] = useState(false);
   const [successPerfil, setSuccessPerfil] = useState(false);
   const [loadingPerfil, setLoadingPerfil] = useState(true);
+  const [erroPerfil, setErroPerfil] = useState("");
 
   const [membros, setMembros] = useState([]);
   const [showFormMembro, setShowFormMembro] = useState(false);
@@ -99,7 +100,7 @@ export default function PerfilFP({ session }) {
       if (data) {
         setPerfilId(data.id || null);
         setPerfil({
-          nome: data.nome || data.nome_completo || "",
+          nome: data.nome || "",
           data_nascimento: data.data_nascimento || "",
           profissao: data.profissao || "",
           estado_civil: data.estado_civil || "",
@@ -153,6 +154,7 @@ export default function PerfilFP({ session }) {
   const salvarPerfil = async () => {
     if (!token || !userId) return;
     setSavingPerfil(true);
+    setErroPerfil("");
 
     const payload = {
       user_id: userId,
@@ -172,31 +174,52 @@ export default function PerfilFP({ session }) {
     };
 
     try {
-      const res = await fetch(
-        perfilId
-          ? `${SUPABASE_URL}/rest/v1/fp_perfil?id=eq.${perfilId}`
-          : `${SUPABASE_URL}/rest/v1/fp_perfil`,
-        {
-          method: perfilId ? "PATCH" : "POST",
-          headers: { ...sbApi(token), Prefer: "return=representation" },
-          body: JSON.stringify(payload),
-        }
+      const existingRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/fp_perfil?user_id=eq.${userId}&select=id&limit=1`,
+        { headers: sbApi(token) }
       );
-      const rows = await res.json();
+      const existingRows = await existingRes.json();
+      const existing = Array.isArray(existingRows) ? existingRows[0] : null;
+
+      const endpoint = existing?.id
+        ? `${SUPABASE_URL}/rest/v1/fp_perfil?user_id=eq.${userId}`
+        : `${SUPABASE_URL}/rest/v1/fp_perfil`;
+
+      const res = await fetch(endpoint, {
+        method: existing?.id ? "PATCH" : "POST",
+        headers: {
+          ...sbApi(token),
+          Prefer: existing?.id ? "return=minimal" : "return=representation",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const rows = existing?.id ? null : await res.json();
       const saved = Array.isArray(rows) ? rows[0] : null;
-      console.log("[fp_perfil] salvar:", { data: saved, status: res.status });
+      console.log("[fp_perfil] salvar:", {
+        payload,
+        existingId: existing?.id || null,
+        data: saved || rows,
+        status: res.status,
+      });
 
       if (res.ok) {
         if (saved?.id) setPerfilId(saved.id);
-        await garantirTitular(payload.nome);
+        await garantirTitular(perfil.nome.trim());
         await Promise.all([carregarPerfil(), carregarMembros()]);
         setSuccessPerfil(true);
         setTimeout(() => setSuccessPerfil(false), 2500);
       } else {
         console.error("[fp_perfil] Erro ao salvar:", rows);
+        setErroPerfil(
+          rows?.message ||
+          rows?.error_description ||
+          "Nao foi possivel salvar os dados pessoais com o schema atual."
+        );
       }
     } catch (error) {
       console.error("[fp_perfil] Erro ao salvar:", error);
+      setErroPerfil("Erro ao salvar os dados pessoais.");
     }
 
     setSavingPerfil(false);
@@ -430,6 +453,11 @@ export default function PerfilFP({ session }) {
         >
           {savingPerfil ? "Salvando..." : successPerfil ? "Dados pessoais salvos!" : "Salvar dados pessoais"}
         </button>
+        {erroPerfil && (
+          <p style={{ margin: "0.75rem 0 0", fontSize: "0.82rem", color: "#EF4444" }}>
+            {erroPerfil}
+          </p>
+        )}
       </div>
 
       <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>

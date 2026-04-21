@@ -1,5 +1,11 @@
 ﻿import { useState, useEffect, useRef } from "react";
-import { supabase, syncSupabaseSession } from "./supabaseClient";
+import {
+  supabase,
+  syncSupabaseSession,
+  persistSessionTokens,
+  getStoredSessionTokens,
+  clearSessionTokens,
+} from "./supabaseClient";
 import PerfilFP from "./components/fp/PerfilFP";
 import ObjetivosFP from "./components/fp/ObjetivosFP";
 import RendasDespesasFP from "./components/fp/RendasDespesasFP";
@@ -224,17 +230,69 @@ export default function PradexFinancas() {
 
   const inputStyle = { width: "100%", background: "#0F1117", border: "1px solid #252832", borderRadius: "10px", padding: "0.75rem 1rem", color: "#E8E8E8", fontSize: "0.9rem", marginBottom: "0.75rem", outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
 
-  useEffect(() => { checkSession(); }, []);
+  useEffect(() => {
+    checkSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      if (event === "SIGNED_OUT" || !currentSession) {
+        clearSessionTokens();
+        setSession(null);
+        setUserRole(null);
+        return;
+      }
+
+      const nextAccessToken = currentSession.access_token || "";
+      const nextRefreshToken = currentSession.refresh_token || "";
+      const nextUser = currentSession.user || null;
+
+      if (nextAccessToken && nextUser) {
+        persistSessionTokens(nextAccessToken, nextRefreshToken);
+        setSession({ user: nextUser, token: nextAccessToken, refreshToken: nextRefreshToken });
+        fetchUserRole(nextUser.id, nextAccessToken);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const checkSession = async () => {
     try {
-      const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: api(localStorage.getItem("sb_token")) });
+      const stored = getStoredSessionTokens();
+
+      if (stored.accessToken) {
+        try {
+          await syncSupabaseSession(stored);
+          const { data: authData } = await supabase.auth.getUser();
+          if (authData?.user) {
+            const { data: sessionData } = await supabase.auth.getSession();
+            const activeSession = sessionData.session;
+            const activeAccessToken = activeSession?.access_token || stored.accessToken;
+            const activeRefreshToken = activeSession?.refresh_token || stored.refreshToken;
+
+            persistSessionTokens(activeAccessToken, activeRefreshToken);
+            setSession({
+              user: authData.user,
+              token: activeAccessToken,
+              refreshToken: activeRefreshToken,
+            });
+            fetchUserRole(authData.user.id, activeAccessToken);
+            setLoadingAuth(false);
+            return;
+          }
+        } catch (syncError) {}
+      }
+
+      const legacyToken = localStorage.getItem("sb_token");
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: api(legacyToken) });
       const data = await res.json();
-      if (data.id) {
-        const token = localStorage.getItem("sb_token");
-        setSession({ user: data, token });
-        await syncSupabaseSession(token);
-        fetchUserRole(data.id, token);
+      if (data.id && legacyToken) {
+        persistSessionTokens(legacyToken);
+        setSession({ user: data, token: legacyToken, refreshToken: "" });
+        fetchUserRole(data.id, legacyToken);
+      } else {
+        clearSessionTokens();
       }
     } catch (e) {}
     setLoadingAuth(false);
@@ -258,9 +316,9 @@ export default function PradexFinancas() {
       });
       const data = await res.json();
       if (data.access_token) {
-        localStorage.setItem("sb_token", data.access_token);
-        setSession({ user: data.user, token: data.access_token });
-        await syncSupabaseSession(data.access_token);
+        persistSessionTokens(data.access_token, data.refresh_token || "");
+        setSession({ user: data.user, token: data.access_token, refreshToken: data.refresh_token || "" });
+        await syncSupabaseSession({ accessToken: data.access_token, refreshToken: data.refresh_token || "" });
         fetchUserRole(data.user.id, data.access_token);
       } else { setAuthErro(authMode === "login" ? "Email ou senha incorretos." : "Erro ao criar conta."); }
     } catch (e) { setAuthErro("Erro de conexão."); }
@@ -269,7 +327,7 @@ export default function PradexFinancas() {
 
   const handleLogout = () => {
     supabase.auth.signOut().catch(() => {});
-    localStorage.removeItem("sb_token");
+    clearSessionTokens();
     setSession(null); setUserRole(null);
     setLancamentos([]); setCartoes([]);
   };
