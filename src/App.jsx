@@ -11,6 +11,7 @@ import ObjetivosFP from "./components/fp/ObjetivosFP";
 import RendasDespesasFP from "./components/fp/RendasDespesasFP";
 import InvestimentosFP from "./components/fp/InvestimentosFP";
 import BensFP from "./components/fp/BensFP";
+import DiagnosticoFP from "./components/fp/DiagnosticoFP";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdnVocXFzamJvbmN3cGJvY2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTM1NzEsImV4cCI6MjA5MTI2OTU3MX0.qpOXjpyJ29Hr9kvee3uxNS1LmJNUEZqDtMCCEpaHjsE";
@@ -706,7 +707,7 @@ export default function PradexFinancas() {
     return acc;
   }, {});
 
-  const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashboard" }, { key: "lancamentos", label: "Lançar" }, { key: "historico", label: "Histórico" }, { key: "metas", label: "Metas" }, { key: "fp", label: "FP" }];
+  const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashboard" }, { key: "lancamentos", label: "Lançar" }, { key: "historico", label: "Histórico" }, { key: "fp", label: "FP" }];
 
   if (loadingAuth) return <div style={{ minHeight: "100vh", background: "#0F1117", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "#555", fontFamily: "'DM Sans', sans-serif" }}>Carregando...</p></div>;
 
@@ -1330,7 +1331,7 @@ export default function PradexFinancas() {
       })()}
 
       {/* METAS */}
-      {tela === "metas" && (() => {
+      {false && (() => {
         const meta = parseFloat((simulador.meta || "").replace(/\./g, "").replace(",", ".")) || 0;
         const patrimonioAtual = parseFloat((simulador.patrimonioAtual || "").replace(/\./g, "").replace(",", ".")) || 0;
         const aporteMensal = parseFloat((simulador.aporteMensal || "").replace(/\./g, "").replace(",", ".")) || 0;
@@ -1442,8 +1443,11 @@ export default function PradexFinancas() {
           {/* Aba Bens */}
           {fpAba === "bens" && <BensFP session={session} />}
 
+          {/* Aba Diagnóstico */}
+          {fpAba === "diagnostico" && <DiagnosticoFP session={session} />}
+
           {/* Outras abas — em breve */}
-          {fpAba !== "perfil" && fpAba !== "objetivos" && fpAba !== "rendas" && fpAba !== "investimentos" && fpAba !== "bens" && (
+          {fpAba !== "perfil" && fpAba !== "objetivos" && fpAba !== "rendas" && fpAba !== "investimentos" && fpAba !== "bens" && fpAba !== "diagnostico" && (
             <div style={{ background: "#181B24", borderRadius: "16px", padding: "2rem 1.5rem", border: "1px solid #252832", textAlign: "center" }}>
               <p style={{ margin: "0 0 0.4rem", fontSize: "1.5rem" }}>🚧</p>
               <p style={{ margin: "0 0 0.25rem", fontSize: "0.9rem", color: "#CFCFCF", fontWeight: 600 }}>Em construção</p>
