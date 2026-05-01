@@ -184,6 +184,7 @@ export default function DiagnosticoFP({ session }) {
 
   const [loading, setLoading] = useState(true);
   const [dados, setDados] = useState(null);
+  const [hoverIdx, setHoverIdx] = useState(null);
 
   useEffect(() => {
     if (!userId || !token) return;
@@ -254,7 +255,8 @@ export default function DiagnosticoFP({ session }) {
   const projecoes = calcularProjecoes({ patrimonioAtual, aportesMensais, idadeInicio, idadeAposentadoria, expectativaVida, rendaMensalDesejada });
   const { ages, projecaoAtual, consumoVals, preservacaoVals, aporteConsumo, aportePreservacao, pvConsumo, pvPreservacao, patrimonioAtualNaAposentadoria } = projecoes;
 
-  const yMax = Math.ceil(Math.max(...projecaoAtual, ...preservacaoVals, pvPreservacao) * 1.15 / 500_000) * 500_000 || 3_500_000;
+  const yMaxBase = Math.max(patrimonioAtualNaAposentadoria, pvPreservacao, pvConsumo);
+  const yMax = Math.ceil(yMaxBase * 1.25 / 500_000) * 500_000 || 3_500_000;
   const yTicks = Array.from({ length: 8 }, (_, i) => Math.round((yMax / 7) * i));
 
   const getX = (i) => chart.marginLeft + (i / Math.max(ages.length - 1, 1)) * innerWidth;
@@ -264,6 +266,23 @@ export default function DiagnosticoFP({ session }) {
   const destaqueIdx = aposentadoriaIdx >= 0 ? aposentadoriaIdx : ages.length - 1;
   const destaqueX = getX(destaqueIdx);
   const destaqueY = getY(projecaoAtual[destaqueIdx] ?? 0);
+
+  const tooltipIdx = hoverIdx ?? destaqueIdx;
+  const tooltipLeft = hoverIdx !== null ? `${(getX(hoverIdx) / chart.width) * 100}%` : '50%';
+
+  const handleMouseMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const xPct = (e.clientX - rect.left) / rect.width;
+    const xInChart = (xPct * chart.width - chart.marginLeft) / (chart.width - chart.marginLeft - chart.marginRight);
+    if (xInChart < 0 || xInChart > 1) {
+      setHoverIdx(null);
+      return;
+    }
+    const idx = Math.round(xInChart * (ages.length - 1));
+    setHoverIdx(Math.max(0, Math.min(ages.length - 1, idx)));
+  };
+
+  const handleMouseLeave = () => setHoverIdx(null);
 
   return (
     <div style={styles.shell}>
@@ -322,14 +341,14 @@ export default function DiagnosticoFP({ session }) {
               highlighted
             />
             <ScenarioCard
-              color="#767676"
+              color="#7A7A7A"
               title="Consumo total do patrimônio"
               aporte={`${formatBRL(aporteConsumo)}/mês`}
               patrimonio={formatBRL(pvConsumo)}
               subtitle={`Patrimônio mínimo aos ${idadeAposentadoria} anos`}
             />
             <ScenarioCard
-              color="#111111"
+              color="#1A1A1A"
               title="Preservação do patrimônio"
               aporte={`${formatBRL(aportePreservacao)}/mês`}
               patrimonio={formatBRL(pvPreservacao)}
@@ -344,7 +363,7 @@ export default function DiagnosticoFP({ session }) {
           </div>
 
           <div style={styles.chartWrapper}>
-            <svg viewBox={`0 0 ${chart.width} ${chart.height}`} style={styles.svg}>
+            <svg viewBox={`0 0 ${chart.width} ${chart.height}`} style={styles.svg} onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
               {yTicks.map((tick) => (
                 <g key={tick}>
                   <line x1={chart.marginLeft} y1={getY(tick)} x2={chart.width - chart.marginRight} y2={getY(tick)} stroke="#D9DEE8" strokeWidth="1" />
@@ -352,11 +371,19 @@ export default function DiagnosticoFP({ session }) {
                 </g>
               ))}
 
-              <line x1={destaqueX} y1={chart.marginTop} x2={destaqueX} y2={chart.height - chart.marginBottom} stroke="#D2D7E2" strokeDasharray="4 4" strokeWidth="1.5" />
+              <line x1={destaqueX} y1={chart.marginTop} x2={destaqueX} y2={chart.height - chart.marginBottom} stroke="#9CA3AF" strokeDasharray="4 4" strokeWidth="1.5" />
+
+              {hoverIdx !== null && (
+                <line
+                  x1={getX(hoverIdx)} y1={chart.marginTop}
+                  x2={getX(hoverIdx)} y2={chart.height - chart.marginBottom}
+                  stroke="#1A1A1A" strokeOpacity="0.3" strokeWidth="1" strokeDasharray="2 2"
+                />
+              )}
 
               <path d={buildLinePath(projecaoAtual, ages, yMax)} fill="none" stroke="#19B36B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
               <path d={buildLinePath(consumoVals, ages, yMax)} fill="none" stroke="#7A7A7A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-              <path d={buildLinePath(preservacaoVals, ages, yMax)} fill="none" stroke="#111111" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d={buildLinePath(preservacaoVals, ages, yMax)} fill="none" stroke="#1A1A1A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
 
               {projecaoAtual.filter((_, i) => i % 5 === 0 || i === destaqueIdx).map((v, _, arr) => {
                 const realIdx = projecaoAtual.indexOf(v);
@@ -367,7 +394,12 @@ export default function DiagnosticoFP({ session }) {
               <text x={destaqueX} y={destaqueY + 3} textAnchor="middle" style={styles.focusText}>1</text>
 
               {ages.map((age, index) => {
-                if (index % 5 !== 0 && age !== idadeAposentadoria && age !== expectativaVida) return null;
+                const isMultiploDe5 = index % 5 === 0;
+                const isAposentadoria = age === idadeAposentadoria;
+                const isExpectativa = age === expectativaVida;
+                const proximoDoFinal = isMultiploDe5 && (expectativaVida - age) < 3;
+                if (!isMultiploDe5 && !isAposentadoria && !isExpectativa) return null;
+                if (proximoDoFinal && !isAposentadoria && !isExpectativa) return null;
                 return (
                   <text key={age} x={getX(index)} y={chart.height - chart.marginBottom + 28} textAnchor="middle" style={styles.axisText}>
                     {age}
@@ -376,16 +408,18 @@ export default function DiagnosticoFP({ session }) {
               })}
             </svg>
 
-            <div style={styles.tooltip}>
-              <p style={styles.tooltipTitle}>Projeção na aposentadoria ({idadeAposentadoria} anos)</p>
-              <p style={styles.tooltipValues}>
-                Atual: {formatBRL(projecaoAtual[destaqueIdx] ?? 0)}{"\n"}
-                Preservação: {formatBRL(preservacaoVals[destaqueIdx] ?? 0)}{"\n"}
-                Consumo: {formatBRL(consumoVals[destaqueIdx] ?? 0)}
-              </p>
-              <p style={styles.tooltipAge}>Idade</p>
-              <p style={styles.tooltipAgeValue}>{idadeAposentadoria}</p>
-            </div>
+            {hoverIdx !== null && (
+              <div style={{ ...styles.tooltip, left: tooltipLeft, transform: 'translateX(-50%)' }}>
+                <p style={styles.tooltipTitle}>Projeção aos {ages[tooltipIdx]} anos</p>
+                <p style={styles.tooltipValues}>
+                  Atual: {formatBRL(projecaoAtual[tooltipIdx] ?? 0)}{"\n"}
+                  Preservação: {formatBRL(preservacaoVals[tooltipIdx] ?? 0)}{"\n"}
+                  Consumo: {formatBRL(consumoVals[tooltipIdx] ?? 0)}
+                </p>
+                <p style={styles.tooltipAge}>Idade</p>
+                <p style={styles.tooltipAgeValue}>{ages[tooltipIdx]}</p>
+              </div>
+            )}
           </div>
 
           <div style={styles.miniTrack}>
@@ -394,7 +428,7 @@ export default function DiagnosticoFP({ session }) {
 
           <div style={styles.legend}>
             <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#19B36B" }} />Projeção Atual</div>
-            <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#111111" }} />Preservação do Patrimônio</div>
+            <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#1A1A1A" }} />Preservação do Patrimônio</div>
             <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#7A7A7A" }} />Consumo do Patrimônio</div>
             <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#3A3A3A", boxShadow: "0 0 0 4px rgba(0,0,0,0.12)" }} />Aposentadoria</div>
           </div>
@@ -438,9 +472,9 @@ const styles = {
   rightPanel: { minWidth: 0, display: "grid", gap: "0.55rem" },
   chartActions: { display: "flex", justifyContent: "flex-end", marginBottom: "0.15rem" },
   resetButton: { border: "none", background: "#FFC700", color: "#111111", padding: "0.75rem 1.35rem", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
-  chartWrapper: { position: "relative", overflowX: "auto", background: "#10131A", border: "1px solid #252832", borderRadius: "14px", padding: "0.45rem" },
+  chartWrapper: { position: "relative", overflowX: "auto", background: "#F2F4F8", border: "1px solid #E2E5EB", borderRadius: "14px", padding: "0.45rem" },
   svg: { width: "100%", minWidth: "640px", height: "auto", display: "block" },
-  axisText: { fontSize: "12px", fill: "#8B909B", fontWeight: 500 },
+  axisText: { fontSize: "12px", fill: "#5A6172", fontWeight: 500 },
   focusText: { fontSize: "11px", fill: "#FFFFFF", fontWeight: 700 },
   tooltip: { position: "absolute", left: "50%", top: "49%", transform: "translateX(-50%)", background: "#0B0B0B", color: "#FFFFFF", borderRadius: "12px", padding: "0.95rem 1rem", width: "310px", maxWidth: "calc(100% - 24px)", boxShadow: "0 12px 24px rgba(0,0,0,0.18)", whiteSpace: "pre-line" },
   tooltipTitle: { margin: "0 0 0.45rem", fontSize: "0.88rem", fontWeight: 700 },
@@ -449,8 +483,8 @@ const styles = {
   tooltipAgeValue: { margin: "0.1rem 0 0", fontSize: "1rem", fontWeight: 700 },
   miniTrack: { height: "24px", background: "#1B2230", marginTop: "0.15rem", position: "relative", overflow: "hidden", borderRadius: "8px" },
   miniTrackFill: { position: "absolute", left: "2%", right: "2%", top: "7px", height: "10px", borderRadius: "10px", background: "linear-gradient(90deg, #2E3953 0%, #425071 100%)" },
-  legend: { display: "flex", justifyContent: "center", gap: "1rem", flexWrap: "wrap", marginTop: "1rem" },
-  legendItem: { display: "flex", alignItems: "center", gap: "0.45rem", fontSize: "0.75rem", color: "#B4BCC9", fontWeight: 600 },
+  legend: { display: "flex", justifyContent: "center", gap: "1rem", flexWrap: "wrap", marginTop: "0.5rem", background: "#F2F4F8", padding: "0.65rem 0.85rem", borderRadius: "10px" },
+  legendItem: { display: "flex", alignItems: "center", gap: "0.45rem", fontSize: "0.75rem", color: "#5A6172", fontWeight: 600 },
   legendDot: { width: "11px", height: "11px", borderRadius: "999px", display: "inline-block", flexShrink: 0 },
   legendNote: { display: "flex", justifyContent: "center", alignItems: "center", gap: "0.55rem", marginTop: "1rem", fontSize: "0.75rem", color: "#8B909B", textAlign: "center" },
   legendInfo: { width: "16px", height: "16px", borderRadius: "999px", border: "1px solid #8B909B", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "0.68rem", fontWeight: 700, color: "#C9CFDA", flexShrink: 0 },
