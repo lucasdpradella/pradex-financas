@@ -3,8 +3,18 @@ import { useEffect, useState } from "react";
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdnVocXFzamJvbmN3cGJvY2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTM1NzEsImV4cCI6MjA5MTI2OTU3MX0.qpOXjpyJ29Hr9kvee3uxNS1LmJNUEZqDtMCCEpaHjsE";
 
-const TAXA_ANUAL = 0.1015;
-const TAXA_MENSAL = Math.pow(1 + TAXA_ANUAL, 1 / 12) - 1;
+const IPCA_ANUAL = 0.045;
+const SPREAD_ANUAL = 0.045;
+const TAXA_NOMINAL_ANUAL = (1 + IPCA_ANUAL) * (1 + SPREAD_ANUAL) - 1;
+const MODO_PROJECAO = 'nominal';
+const TAXA_ANUAL = MODO_PROJECAO === 'nominal' ? TAXA_NOMINAL_ANUAL : SPREAD_ANUAL;
+const INFLACAO_ANUAL = MODO_PROJECAO === 'nominal' ? IPCA_ANUAL : 0;
+
+const taxaMensal = (taxaAnual) => Math.pow(1 + taxaAnual, 1 / 12) - 1;
+const i_mes = taxaMensal(TAXA_ANUAL);
+const g_mes = taxaMensal(INFLACAO_ANUAL);
+
+const formatPct = (decimal) => `${(decimal * 100).toFixed(2).replace('.', ',')}%`;
 
 const sbApi = (token) => ({
   "Content-Type": "application/json",
@@ -22,63 +32,93 @@ function idadeAtual(dataNascimento) {
   return idade;
 }
 
+// Convenção: ANUIDADE ANTECIPADA (annuity due) — aporte/saque no início do mês.
+// Todos os fatores PMT levam (1+i) extra vs. anuidade ordinária.
+
+// 1. VF de uma anuidade com aporte crescente geometricamente (acumulação)
+function vfAcumulacaoComGradiente(VP, PMT_inicial, n_meses, i, g) {
+  const vfPrincipal = VP * Math.pow(1 + i, n_meses);
+  if (Math.abs(i - g) < 1e-10) {
+    return vfPrincipal + PMT_inicial * n_meses * Math.pow(1 + i, n_meses);
+  }
+  const fatorPMT = ((Math.pow(1 + i, n_meses) - Math.pow(1 + g, n_meses)) / (i - g)) * (1 + i);
+  return vfPrincipal + PMT_inicial * fatorPMT;
+}
+
+// 2. PV de anuidade decrescente com saques crescendo geometricamente (Consumo Total)
+function pvAnuidadeCrescente(PMT_inicial, n_meses, i, g) {
+  if (Math.abs(i - g) < 1e-10) {
+    return PMT_inicial * n_meses * (1 + i);
+  }
+  const razao = (1 + g) / (1 + i);
+  return PMT_inicial * ((1 - Math.pow(razao, n_meses)) / (i - g)) * (1 + i);
+}
+
+// 3. PV de perpetuidade crescente (Preservação - Gordon antecipado)
+function pvPerpetuidadeCrescente(PMT_inicial, i, g) {
+  if (i <= g) {
+    throw new Error('Taxa precisa ser maior que inflação para perpetuidade crescente');
+  }
+  return (PMT_inicial / (i - g)) * (1 + i);
+}
+
+// 4. Inverso da acumulação com aporte FIXO (XP usa aporte mínimo constante para Consumo/Preservação)
+function pmtParaAtingirVF(VF_alvo, VP, n_meses, i) {
+  const vfPrincipal = VP * Math.pow(1 + i, n_meses);
+  const fatorPMT_plano = ((Math.pow(1 + i, n_meses) - 1) / i) * (1 + i);
+  return (VF_alvo - vfPrincipal) / fatorPMT_plano;
+}
+
 function calcularProjecoes({ patrimonioAtual, aportesMensais, idadeInicio, idadeAposentadoria, expectativaVida, rendaMensalDesejada }) {
-  const r = TAXA_MENSAL;
-  const nAcum = Math.max(0, (idadeAposentadoria - idadeInicio) * 12); // 396 meses
-  const nDist = Math.max(0, (expectativaVida - idadeAposentadoria) * 12); // 336 meses
+  const VP = patrimonioAtual;
+  const nAcum = Math.max(0, (idadeAposentadoria - idadeInicio) * 12);
+  const nDist = Math.max(0, (expectativaVida - idadeAposentadoria) * 12);
+  const anosAteAposentadoria = Math.max(0, idadeAposentadoria - idadeInicio);
 
-  // Valor futuro do patrimônio atual sem aportes até aposentadoria
-  const fvPatrimonio = patrimonioAtual * Math.pow(1 + r, nAcum);
+  // Renda desejada inflacionada até a aposentadoria (em modo real, INFLACAO_ANUAL=0 → noop)
+  const rendaInflacionadaInicio = rendaMensalDesejada * Math.pow(1 + INFLACAO_ANUAL, anosAteAposentadoria);
 
-  // Fator de acumulação de aportes: soma de (1+r)^t para t=0..nAcum-1
-  const fatorAcum = nAcum > 0 ? (Math.pow(1 + r, nAcum) - 1) / r : 0;
+  // Patrimônio projetado na aposentadoria com aportes crescendo a IPCA
+  const patrimonioAtualNaAposentadoria = vfAcumulacaoComGradiente(VP, aportesMensais, nAcum, i_mes, g_mes);
 
-  // Patrimônio necessário na aposentadoria para consumo total (PV de anuidade)
-  // PV = PMT * (1 - (1+r)^-n) / r
-  const pvConsumo = nDist > 0
-    ? rendaMensalDesejada * (1 - Math.pow(1 + r, -nDist)) / r
-    : 0;
+  // Necessidade de capital na aposentadoria
+  const pvConsumo = nDist > 0 ? pvAnuidadeCrescente(rendaInflacionadaInicio, nDist, i_mes, g_mes) : 0;
+  const pvPreservacao = i_mes > g_mes ? pvPerpetuidadeCrescente(rendaInflacionadaInicio, i_mes, g_mes) : 0;
 
-  // Patrimônio necessário para preservação (rendimento cobre a renda, capital flat)
-  // P * r = rendaMensalDesejada → P = rendaMensalDesejada / r
-  const pvPreservacao = r > 0 ? rendaMensalDesejada / r : 0;
+  // Aporte mensal CONSTANTE (não cresce com IPCA) necessário para atingir cada alvo
+  const aporteConsumo = nAcum > 0 ? pmtParaAtingirVF(pvConsumo, VP, nAcum, i_mes) : 0;
+  const aportePreservacao = nAcum > 0 ? pmtParaAtingirVF(pvPreservacao, VP, nAcum, i_mes) : 0;
 
-  // Aporte mínimo para atingir cada alvo na aposentadoria
-  // FV = fvPatrimonio + aporte * fatorAcum → aporte = (FV - fvPatrimonio) / fatorAcum
-  const aporteConsumo = fatorAcum > 0 ? (pvConsumo - fvPatrimonio) / fatorAcum : 0;
-  const aportePreservacao = fatorAcum > 0 ? (pvPreservacao - fvPatrimonio) / fatorAcum : 0;
-
-
-  // Idades ano a ano
   const ages = [];
   for (let a = idadeInicio; a <= expectativaVida; a++) ages.push(a);
 
-  // Simula mês a mês: acumulação com aporteMensal, desacumulação com rendaMensalDesejada
-  function simular(aporteMensal) {
+  // Simulação mês a mês. aporteCresceComIpca=true → projeção real do usuário; false → aporte mínimo XP (fixo).
+  // Saque na fase de retirada SEMPRE cresce com IPCA.
+  function simular(aporteInicial, aporteCresceComIpca) {
     const vals = [];
-    let pat = patrimonioAtual;
+    let pat = VP;
+    let aporteCorrente = aporteInicial;
+    let saqueCorrente = rendaInflacionadaInicio;
     for (const age of ages) {
       vals.push(pat);
       const acumulando = age < idadeAposentadoria;
       for (let m = 0; m < 12; m++) {
         if (acumulando) {
-          pat = pat * (1 + r) + aporteMensal;
+          pat = (pat + aporteCorrente) * (1 + i_mes);
+          if (aporteCresceComIpca) aporteCorrente *= (1 + g_mes);
         } else {
-          pat = pat * (1 + r) - rendaMensalDesejada;
+          pat = (pat - saqueCorrente) * (1 + i_mes);
           if (pat < 0) pat = 0;
+          saqueCorrente *= (1 + g_mes);
         }
       }
     }
     return vals;
   }
 
-  const projecaoAtual = simular(aportesMensais);
-  // Para consumo e preservação: usa o aporte calculado (mínimo 0)
-  const consumoVals = simular(Math.max(0, aporteConsumo));
-  const preservacaoVals = simular(Math.max(0, aportePreservacao));
-
-  const idxAposentadoria = idadeAposentadoria - idadeInicio;
-  const patrimonioAtualNaAposentadoria = projecaoAtual[idxAposentadoria] ?? 0;
+  const projecaoAtual = simular(aportesMensais, true);
+  const consumoVals = simular(Math.max(0, aporteConsumo), false);
+  const preservacaoVals = simular(Math.max(0, aportePreservacao), false);
 
   return {
     ages,
@@ -89,6 +129,7 @@ function calcularProjecoes({ patrimonioAtual, aportesMensais, idadeInicio, idade
     aportePreservacao: Math.max(0, aportePreservacao),
     pvConsumo,
     pvPreservacao,
+    rendaInflacionadaInicio,
     patrimonioAtualNaAposentadoria,
   };
 }
@@ -251,11 +292,15 @@ export default function DiagnosticoFP({ session }) {
             </div>
             <div style={styles.assumptionRow}>
               <span style={styles.assumptionLabel}>Retorno esperado</span>
-              <span style={styles.assumptionValue}>IPCA + 4,50%</span>
+              <span style={styles.assumptionValue}>{MODO_PROJECAO === 'nominal' ? `IPCA + ${formatPct(SPREAD_ANUAL)}` : `${formatPct(SPREAD_ANUAL)} real`}</span>
             </div>
             <div style={styles.assumptionRow}>
               <span style={styles.assumptionLabel}>Rentabilidade total</span>
-              <span style={styles.assumptionValue}>{(TAXA_ANUAL * 100).toFixed(2)}% a.a.</span>
+              <span style={styles.assumptionValue}>{formatPct(TAXA_ANUAL)} a.a.</span>
+            </div>
+            <div style={styles.assumptionRow}>
+              <span style={styles.assumptionLabel}>Inflação considerada</span>
+              <span style={styles.assumptionValue}>{MODO_PROJECAO === 'nominal' ? `${formatPct(IPCA_ANUAL)} a.a.` : '0% (valor presente)'}</span>
             </div>
             <div style={styles.assumptionRow}>
               <span style={styles.assumptionLabel}>Patrimônio atual</span>
