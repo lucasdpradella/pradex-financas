@@ -41,20 +41,21 @@ function vfAcumulacaoComGradiente(VP, PMT_inicial, n_meses, i, g) {
 }
 
 // 2. PV de anuidade decrescente com saques crescendo geometricamente (Consumo Total)
+// Convenção XP: anuidade ordinária na retirada (saque no fim do mês) — sem (1+i) extra.
 function pvAnuidadeCrescente(PMT_inicial, n_meses, i, g) {
   if (Math.abs(i - g) < 1e-10) {
-    return PMT_inicial * n_meses * (1 + i);
+    return PMT_inicial * n_meses;
   }
   const razao = (1 + g) / (1 + i);
-  return PMT_inicial * ((1 - Math.pow(razao, n_meses)) / (i - g)) * (1 + i);
+  return PMT_inicial * ((1 - Math.pow(razao, n_meses)) / (i - g));
 }
 
-// 3. PV de perpetuidade crescente (Preservação - Gordon antecipado)
+// 3. PV de perpetuidade crescente (Preservação - Gordon ordinária)
 function pvPerpetuidadeCrescente(PMT_inicial, i, g) {
   if (i <= g) {
     throw new Error('Taxa precisa ser maior que inflação para perpetuidade crescente');
   }
-  return (PMT_inicial / (i - g)) * (1 + i);
+  return PMT_inicial / (i - g);
 }
 
 // 4. Inverso da acumulação com aporte FIXO (XP usa aporte mínimo constante para Consumo/Preservação)
@@ -112,7 +113,7 @@ function calcularProjecoes({
           pat = (pat + aporteCorrente) * (1 + i_mes);
           if (aporteCresceComIpca) aporteCorrente *= (1 + g_mes);
         } else {
-          pat = (pat - saqueCorrente) * (1 + i_mes);
+          pat = pat * (1 + i_mes) - saqueCorrente;
           if (pat < 0) pat = 0;
           saqueCorrente *= (1 + g_mes);
         }
