@@ -6,13 +6,8 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const IPCA_ANUAL = 0.045;
 const SPREAD_ANUAL = 0.045;
 const TAXA_NOMINAL_ANUAL = (1 + IPCA_ANUAL) * (1 + SPREAD_ANUAL) - 1;
-const MODO_PROJECAO = 'nominal';
-const TAXA_ANUAL = MODO_PROJECAO === 'nominal' ? TAXA_NOMINAL_ANUAL : SPREAD_ANUAL;
-const INFLACAO_ANUAL = MODO_PROJECAO === 'nominal' ? IPCA_ANUAL : 0;
 
 const taxaMensal = (taxaAnual) => Math.pow(1 + taxaAnual, 1 / 12) - 1;
-const i_mes = taxaMensal(TAXA_ANUAL);
-const g_mes = taxaMensal(INFLACAO_ANUAL);
 
 const formatPct = (decimal) => `${(decimal * 100).toFixed(2).replace('.', ',')}%`;
 
@@ -69,7 +64,17 @@ function pmtParaAtingirVF(VF_alvo, VP, n_meses, i) {
   return (VF_alvo - vfPrincipal) / fatorPMT_plano;
 }
 
-function calcularProjecoes({ patrimonioAtual, aportesMensais, idadeInicio, idadeAposentadoria, expectativaVida, rendaMensalDesejada }) {
+function calcularProjecoes({
+  patrimonioAtual,
+  aportesMensais,
+  idadeInicio,
+  idadeAposentadoria,
+  expectativaVida,
+  rendaMensalDesejada,
+  i_mes,
+  g_mes,
+  INFLACAO_ANUAL,
+}) {
   const VP = patrimonioAtual;
   const nAcum = Math.max(0, (idadeAposentadoria - idadeInicio) * 12);
   const nDist = Math.max(0, (expectativaVida - idadeAposentadoria) * 12);
@@ -185,6 +190,12 @@ export default function DiagnosticoFP({ session }) {
   const [loading, setLoading] = useState(true);
   const [dados, setDados] = useState(null);
   const [hoverIdx, setHoverIdx] = useState(null);
+  const [modoProjecao, setModoProjecao] = useState('valor_presente');
+
+  const TAXA_ANUAL = modoProjecao === 'nominal' ? TAXA_NOMINAL_ANUAL : SPREAD_ANUAL;
+  const INFLACAO_ANUAL = modoProjecao === 'nominal' ? IPCA_ANUAL : 0;
+  const i_mes = taxaMensal(TAXA_ANUAL);
+  const g_mes = taxaMensal(INFLACAO_ANUAL);
 
   useEffect(() => {
     if (!userId || !token) return;
@@ -252,7 +263,7 @@ export default function DiagnosticoFP({ session }) {
 
   const { patrimonioAtual, aportesMensais, idadeInicio, idadeAposentadoria, expectativaVida, rendaMensalDesejada, somaRendas, somaDespesas } = dados;
 
-  const projecoes = calcularProjecoes({ patrimonioAtual, aportesMensais, idadeInicio, idadeAposentadoria, expectativaVida, rendaMensalDesejada });
+  const projecoes = calcularProjecoes({ patrimonioAtual, aportesMensais, idadeInicio, idadeAposentadoria, expectativaVida, rendaMensalDesejada, i_mes, g_mes, INFLACAO_ANUAL });
   const { ages, projecaoAtual, consumoVals, preservacaoVals, aporteConsumo, aportePreservacao, pvConsumo, pvPreservacao, patrimonioAtualNaAposentadoria } = projecoes;
 
   const yMaxBase = Math.max(patrimonioAtualNaAposentadoria, pvPreservacao, pvConsumo);
@@ -288,7 +299,31 @@ export default function DiagnosticoFP({ session }) {
     <div style={styles.shell}>
       <div style={styles.topRow}>
         <p style={styles.topTitle}>Diagnostico do planejamento</p>
-        <button style={styles.filterButton}>Visualizar por: Ano</button>
+        <div style={styles.topControls}>
+          <div style={styles.toggleGroup} role="group" aria-label="Modo de projeção">
+            <button
+              type="button"
+              onClick={() => setModoProjecao('valor_presente')}
+              style={{
+                ...styles.toggleButton,
+                ...(modoProjecao === 'valor_presente' ? styles.toggleButtonActive : {}),
+              }}
+            >
+              Valor Presente
+            </button>
+            <button
+              type="button"
+              onClick={() => setModoProjecao('nominal')}
+              style={{
+                ...styles.toggleButton,
+                ...(modoProjecao === 'nominal' ? styles.toggleButtonActive : {}),
+              }}
+            >
+              Nominal
+            </button>
+          </div>
+          <button style={styles.filterButton}>Visualizar por: Ano</button>
+        </div>
       </div>
 
       <div style={styles.board}>
@@ -311,7 +346,7 @@ export default function DiagnosticoFP({ session }) {
             </div>
             <div style={styles.assumptionRow}>
               <span style={styles.assumptionLabel}>Retorno esperado</span>
-              <span style={styles.assumptionValue}>{MODO_PROJECAO === 'nominal' ? `IPCA + ${formatPct(SPREAD_ANUAL)}` : `${formatPct(SPREAD_ANUAL)} real`}</span>
+              <span style={styles.assumptionValue}>{modoProjecao === 'nominal' ? `IPCA + ${formatPct(SPREAD_ANUAL)}` : `${formatPct(SPREAD_ANUAL)} real`}</span>
             </div>
             <div style={styles.assumptionRow}>
               <span style={styles.assumptionLabel}>Rentabilidade total</span>
@@ -319,7 +354,7 @@ export default function DiagnosticoFP({ session }) {
             </div>
             <div style={styles.assumptionRow}>
               <span style={styles.assumptionLabel}>Inflação considerada</span>
-              <span style={styles.assumptionValue}>{MODO_PROJECAO === 'nominal' ? `${formatPct(IPCA_ANUAL)} a.a.` : '0% (valor presente)'}</span>
+              <span style={styles.assumptionValue}>{modoProjecao === 'nominal' ? `${formatPct(IPCA_ANUAL)} a.a.` : '0% (valor presente)'}</span>
             </div>
             <div style={styles.assumptionRow}>
               <span style={styles.assumptionLabel}>Patrimônio atual</span>
@@ -447,6 +482,21 @@ const styles = {
   shell: { display: "grid", gap: "0.8rem" },
   topRow: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap" },
   topTitle: { margin: 0, fontSize: "0.95rem", color: "#D6D9E0", fontWeight: 500 },
+  topControls: { display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" },
+  toggleGroup: { display: "inline-flex", borderRadius: "999px", background: "#111111", padding: "3px" },
+  toggleButton: {
+    border: "none",
+    background: "transparent",
+    color: "#9CA3AF",
+    padding: "0.45rem 0.85rem",
+    fontSize: "0.78rem",
+    fontWeight: 700,
+    cursor: "pointer",
+    fontFamily: "inherit",
+    borderRadius: "999px",
+    transition: "background 0.15s, color 0.15s",
+  },
+  toggleButtonActive: { background: "#FFFFFF", color: "#111111" },
   filterButton: { border: "none", borderRadius: "999px", background: "#111111", color: "#FFFFFF", padding: "0.55rem 0.9rem", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
   board: { background: "#181B24", borderRadius: "18px", border: "1px solid #252832", padding: "1.2rem 1.1rem", display: "grid", gridTemplateColumns: "1fr", gap: "1rem" },
   leftPanel: { display: "grid", alignContent: "start", gap: "1rem" },
