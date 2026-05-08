@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { normalizeTelefone, isValidTelefoneBr, formatTelefoneInput } from "../../utils/phone";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdnVocXFzamJvbmN3cGJvY2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTM1NzEsImV4cCI6MjA5MTI2OTU3MX0.qpOXjpyJ29Hr9kvee3uxNS1LmJNUEZqDtMCCEpaHjsE";
@@ -24,6 +25,7 @@ function ordenarMembros(lista = []) {
 const perfilInicial = {
   nome: "",
   data_nascimento: "",
+  telefone: "",
   profissao: "",
   estado_civil: "",
   regime_uniao: "",
@@ -37,7 +39,7 @@ const perfilInicial = {
   comentarios: "",
 };
 
-export default function PerfilFP({ session }) {
+export default function PerfilFP({ session, onPerfilSaved }) {
   const token = session?.token;
   const userId = session?.user?.id;
 
@@ -102,6 +104,7 @@ export default function PerfilFP({ session }) {
         setPerfil({
           nome: data.nome || "",
           data_nascimento: data.data_nascimento || "",
+          telefone: data.telefone || "",
           profissao: data.profissao || "",
           estado_civil: data.estado_civil || "",
           regime_uniao: data.regime_uniao || "",
@@ -156,10 +159,44 @@ export default function PerfilFP({ session }) {
     setSavingPerfil(true);
     setErroPerfil("");
 
+    if (perfil.data_nascimento) {
+      const dn = new Date(perfil.data_nascimento + "T00:00:00");
+      const hoje = new Date(); hoje.setHours(0,0,0,0);
+      const minDate = new Date("1900-01-01T00:00:00");
+      if (isNaN(dn.getTime()) || dn > hoje || dn < minDate) {
+        setErroPerfil("Data de nascimento inválida.");
+        setSavingPerfil(false);
+        return;
+      }
+    }
+
+    let telefoneNorm = null;
+    if (perfil.telefone && String(perfil.telefone).trim()) {
+      telefoneNorm = normalizeTelefone(perfil.telefone);
+      if (!isValidTelefoneBr(telefoneNorm)) {
+        setErroPerfil("Telefone inválido. Use um celular brasileiro com DDD.");
+        setSavingPerfil(false);
+        return;
+      }
+      try {
+        const dupRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/fp_perfil?telefone=eq.${telefoneNorm}&user_id=neq.${userId}&select=user_id&limit=1`,
+          { headers: sbApi(token) }
+        );
+        const dupRows = await dupRes.json();
+        if (Array.isArray(dupRows) && dupRows.length > 0) {
+          setErroPerfil("Telefone já cadastrado em outra conta.");
+          setSavingPerfil(false);
+          return;
+        }
+      } catch (e) {}
+    }
+
     const payload = {
       user_id: userId,
       nome: perfil.nome.trim(),
       data_nascimento: perfil.data_nascimento || null,
+      telefone: telefoneNorm,
       profissao: perfil.profissao || null,
       estado_civil: perfil.estado_civil || null,
       regime_uniao: perfil.regime_uniao || null,
@@ -194,7 +231,10 @@ export default function PerfilFP({ session }) {
         body: JSON.stringify(payload),
       });
 
-      const rows = existing?.id ? null : await res.json();
+      let rows = null;
+      if (!res.ok || !existing?.id) {
+        try { rows = await res.json(); } catch (e) {}
+      }
       const saved = Array.isArray(rows) ? rows[0] : null;
       console.log("[fp_perfil] salvar:", {
         payload,
@@ -209,13 +249,20 @@ export default function PerfilFP({ session }) {
         await Promise.all([carregarPerfil(), carregarMembros()]);
         setSuccessPerfil(true);
         setTimeout(() => setSuccessPerfil(false), 2500);
+        if (typeof onPerfilSaved === "function") onPerfilSaved();
       } else {
         console.error("[fp_perfil] Erro ao salvar:", rows);
-        setErroPerfil(
-          rows?.message ||
-          rows?.error_description ||
-          "Nao foi possivel salvar os dados pessoais com o schema atual."
-        );
+        if (rows?.code === "23514") {
+          setErroPerfil("Telefone com formato inválido. Verifique e tente novamente.");
+        } else if (rows?.code === "23505") {
+          setErroPerfil("Telefone já cadastrado em outra conta.");
+        } else {
+          setErroPerfil(
+            rows?.message ||
+            rows?.error_description ||
+            "Nao foi possivel salvar os dados pessoais com o schema atual."
+          );
+        }
       }
     } catch (error) {
       console.error("[fp_perfil] Erro ao salvar:", error);
@@ -353,6 +400,8 @@ export default function PerfilFP({ session }) {
             <input
               type="date"
               value={perfil.data_nascimento}
+              min="1900-01-01"
+              max={new Date().toISOString().split("T")[0]}
               onChange={(e) => setPerfil((prev) => ({ ...prev, data_nascimento: e.target.value }))}
               style={{ ...inputStyle, marginBottom: 0 }}
             />
@@ -370,6 +419,16 @@ export default function PerfilFP({ session }) {
             />
           </div>
         </div>
+
+        <label style={labelStyle}>WhatsApp</label>
+        <input
+          type="tel"
+          inputMode="numeric"
+          placeholder="(11) 99999-9999"
+          value={formatTelefoneInput(perfil.telefone)}
+          onChange={(e) => setPerfil((prev) => ({ ...prev, telefone: e.target.value }))}
+          style={inputStyle}
+        />
 
         <label style={labelStyle}>Profissao</label>
         <input

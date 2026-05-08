@@ -12,6 +12,7 @@ import RendasDespesasFP from "./components/fp/RendasDespesasFP";
 import InvestimentosFP from "./components/fp/InvestimentosFP";
 import BensFP from "./components/fp/BensFP";
 import DiagnosticoFP from "./components/fp/DiagnosticoFP";
+import { normalizeTelefone, isValidTelefoneBr, formatTelefoneInput } from "./utils/phone";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdnVocXFzamJvbmN3cGJvY2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTM1NzEsImV4cCI6MjA5MTI2OTU3MX0.qpOXjpyJ29Hr9kvee3uxNS1LmJNUEZqDtMCCEpaHjsE";
@@ -198,6 +199,11 @@ export default function PradexFinancas() {
   const [senha, setSenha] = useState("");
   const [authErro, setAuthErro] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
+  const [cadastroNome, setCadastroNome] = useState("");
+  const [cadastroDataNasc, setCadastroDataNasc] = useState("");
+  const [cadastroTelefone, setCadastroTelefone] = useState("");
+  const [precisaCadastrarTelefone, setPrecisaCadastrarTelefone] = useState(false);
+  const [bannerTelefoneFechado, setBannerTelefoneFechado] = useState(false);
   const [tela, setTela] = useState("ia");
   const [tipo, setTipo] = useState("gasto");
   const [form, setForm] = useState({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "", parcelado: false, parcela_atual: "1", total_parcelas: "", recorrente: false });
@@ -309,6 +315,33 @@ export default function PradexFinancas() {
 
   const handleAuth = async () => {
     setAuthLoading(true); setAuthErro("");
+
+    if (authMode === "cadastro") {
+      const nomeTrim = cadastroNome.trim();
+      if (nomeTrim.length < 3) { setAuthErro("Informe seu nome completo."); setAuthLoading(false); return; }
+      if (!cadastroDataNasc) { setAuthErro("Informe sua data de nascimento."); setAuthLoading(false); return; }
+      const dn = new Date(cadastroDataNasc + "T00:00:00");
+      const hoje = new Date(); hoje.setHours(0,0,0,0);
+      const minDate = new Date("1900-01-01T00:00:00");
+      if (isNaN(dn.getTime()) || dn > hoje || dn < minDate) {
+        setAuthErro("Data de nascimento inválida."); setAuthLoading(false); return;
+      }
+      const telefoneNorm = normalizeTelefone(cadastroTelefone);
+      if (!isValidTelefoneBr(telefoneNorm)) {
+        setAuthErro("Telefone inválido. Use um celular brasileiro com DDD."); setAuthLoading(false); return;
+      }
+      try {
+        const dupRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/fp_perfil?telefone=eq.${telefoneNorm}&select=user_id&limit=1`,
+          { headers: { "Content-Type": "application/json", "apikey": SUPABASE_KEY } }
+        );
+        const dupRows = await dupRes.json();
+        if (Array.isArray(dupRows) && dupRows.length > 0) {
+          setAuthErro("Telefone já cadastrado em outra conta."); setAuthLoading(false); return;
+        }
+      } catch (e) {}
+    }
+
     const endpoint = authMode === "login" ? "token?grant_type=password" : "signup";
     try {
       const res = await fetch(`${SUPABASE_URL}/auth/v1/${endpoint}`, {
@@ -320,6 +353,33 @@ export default function PradexFinancas() {
         persistSessionTokens(data.access_token, data.refresh_token || "");
         setSession({ user: data.user, token: data.access_token, refreshToken: data.refresh_token || "" });
         await syncSupabaseSession({ accessToken: data.access_token, refreshToken: data.refresh_token || "" });
+
+        if (authMode === "cadastro" && data.user?.id) {
+          const telefoneNorm = normalizeTelefone(cadastroTelefone);
+          try {
+            const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/fp_perfil`, {
+              method: "POST",
+              headers: { ...api(data.access_token), "Prefer": "return=minimal" },
+              body: JSON.stringify({
+                user_id: data.user.id,
+                nome: cadastroNome.trim(),
+                data_nascimento: cadastroDataNasc,
+                telefone: telefoneNorm,
+              }),
+            });
+            if (!insertRes.ok) {
+              const errBody = await insertRes.json().catch(() => ({}));
+              if (errBody?.code === "23514") {
+                setAuthErro("Telefone com formato inválido. Verifique e tente novamente.");
+              } else if (errBody?.code === "23505") {
+                setAuthErro("Telefone já cadastrado em outra conta.");
+              } else {
+                console.error("[fp_perfil] Erro ao inserir no signup:", errBody);
+              }
+            }
+          } catch (e) { console.error("[fp_perfil] Erro de conexão no insert:", e); }
+        }
+
         fetchUserRole(data.user.id, data.access_token);
       } else { setAuthErro(authMode === "login" ? "Email ou senha incorretos." : "Erro ao criar conta."); }
     } catch (e) { setAuthErro("Erro de conexão."); }
@@ -331,14 +391,29 @@ export default function PradexFinancas() {
     clearSessionTokens();
     setSession(null); setUserRole(null);
     setLancamentos([]); setCartoes([]);
+    setPrecisaCadastrarTelefone(false); setBannerTelefoneFechado(false);
   };
 
   useEffect(() => {
     if (session) {
       fetchLancamentos(); fetchCartoes(); fetchRascunhos(); fetchCategorias();
       fetchTaxaFocus().then(t => setTaxaFocus(t));
+      verificarTelefonePerfil();
     }
   }, [session]);
+
+  const verificarTelefonePerfil = async () => {
+    if (!session?.user?.id) return;
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/fp_perfil?user_id=eq.${session.user.id}&select=telefone&limit=1`,
+        { headers: api(session.token) }
+      );
+      const rows = await res.json();
+      const row = Array.isArray(rows) ? rows[0] : null;
+      setPrecisaCadastrarTelefone(!row?.telefone);
+    } catch (e) {}
+  };
 
   const fetchCategorias = async () => {
     try {
@@ -726,6 +801,37 @@ export default function PradexFinancas() {
           </div>
           <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} />
           <input type="password" placeholder="Senha" value={senha} onChange={e => setSenha(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAuth()} style={inputStyle} />
+          {authMode === "cadastro" && (
+            <>
+              <input
+                type="text"
+                placeholder="Nome completo"
+                value={cadastroNome}
+                onChange={e => setCadastroNome(e.target.value)}
+                style={inputStyle}
+              />
+              <input
+                type="date"
+                placeholder="Data de nascimento"
+                value={cadastroDataNasc}
+                onChange={e => setCadastroDataNasc(e.target.value)}
+                min="1900-01-01"
+                max={today}
+                style={{ ...inputStyle, color: cadastroDataNasc ? "#E8E8E8" : "#555" }}
+              />
+              <input
+                type="tel"
+                inputMode="numeric"
+                placeholder="WhatsApp: (11) 99999-9999"
+                value={formatTelefoneInput(cadastroTelefone)}
+                onChange={e => setCadastroTelefone(e.target.value)}
+                style={{ ...inputStyle, marginBottom: "0.4rem" }}
+              />
+              <p style={{ margin: "0 0 0.9rem", fontSize: "0.7rem", color: "#666", lineHeight: 1.45 }}>
+                Ao cadastrar seu WhatsApp, você concorda em receber e enviar mensagens com o assistente IA do Pradex pra registrar seus lançamentos. Seus dados financeiros são protegidos conforme nossa Política de Privacidade.
+              </p>
+            </>
+          )}
           {authErro && <p style={{ color: "#EF4444", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{authErro}</p>}
           <button onClick={handleAuth} disabled={authLoading} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", background: "#6366F1", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: authLoading ? "not-allowed" : "pointer", opacity: authLoading ? 0.7 : 1, fontFamily: "inherit" }}>{authLoading ? "Aguarde..." : authMode === "login" ? "Entrar" : "Criar conta"}</button>
         </div>
@@ -811,6 +917,30 @@ export default function PradexFinancas() {
         </div>
         <button onClick={handleLogout} style={{ background: "none", border: "1px solid #252832", borderRadius: "8px", color: "#555", cursor: "pointer", padding: "0.4rem 0.75rem", fontSize: "0.75rem", fontFamily: "inherit" }}>Sair</button>
       </div>
+
+      {precisaCadastrarTelefone && !bannerTelefoneFechado && (
+        <div style={{ background: "#6366F112", border: "1px solid #6366F140", borderRadius: "14px", padding: "1rem 1.1rem", marginBottom: "1.25rem", display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: "0 0 0.25rem", fontSize: "0.85rem", fontWeight: 700, color: "#E8E8E8" }}>Complete seu cadastro</p>
+            <p style={{ margin: "0 0 0.7rem", fontSize: "0.78rem", color: "#A3A3A3", lineHeight: 1.45 }}>
+              Cadastre seu WhatsApp pra usar o agente Pradex e registrar lançamentos por mensagem.
+            </p>
+            <button
+              onClick={() => { setTela("fp"); setFpAba("perfil"); }}
+              style={{ background: "#6366F1", border: "none", borderRadius: "8px", color: "#fff", cursor: "pointer", padding: "0.45rem 0.9rem", fontSize: "0.78rem", fontWeight: 700, fontFamily: "inherit" }}
+            >
+              Ir para o perfil
+            </button>
+          </div>
+          <button
+            onClick={() => setBannerTelefoneFechado(true)}
+            style={{ background: "none", border: "none", color: "#666", cursor: "pointer", fontSize: "1.1rem", lineHeight: 1, padding: "0 0.25rem" }}
+            aria-label="Fechar"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* CARDS */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem", marginBottom: "1.5rem" }}>
@@ -1429,7 +1559,7 @@ export default function PradexFinancas() {
           </div>
 
           {/* Aba Perfil */}
-          {fpAba === "perfil" && <PerfilFP session={session} />}
+          {fpAba === "perfil" && <PerfilFP session={session} onPerfilSaved={verificarTelefonePerfil} />}
 
           {/* Aba Objetivos */}
           {fpAba === "objetivos" && <ObjetivosFP session={session} />}
