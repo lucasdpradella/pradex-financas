@@ -12,6 +12,7 @@ import RendasDespesasFP from "./components/fp/RendasDespesasFP";
 import InvestimentosFP from "./components/fp/InvestimentosFP";
 import BensFP from "./components/fp/BensFP";
 import DiagnosticoFP from "./components/fp/DiagnosticoFP";
+import FabWhatsapp from "./components/FabWhatsapp";
 import { normalizeTelefone, isValidTelefoneBr, formatTelefoneInput } from "./utils/phone";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
@@ -1591,6 +1592,7 @@ export default function PradexFinancas() {
         </div>
       )}
 
+      <FabWhatsapp />
     </div>
   );
 }
