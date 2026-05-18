@@ -672,17 +672,24 @@ export default function PradexFinancas() {
 
   const processarComIA = async () => {
     if (!textoIA.trim()) { setErroIA("Cole algum texto primeiro."); return; }
+    if (!session?.token) { setErroIA("Sessão expirada. Faça login novamente."); return; }
     setProcessando(true); setErroIA(""); setPreview([]);
     try {
-      const cartoesInfo = cartoes.length > 0 ? "\n\nCartões cadastrados:\n" + cartoes.map(c => "- ID " + c.id + ": " + c.nome + (c.bandeira ? " (" + c.bandeira + ")" : "")).join("\n") : "";
+      const cartoesInfo = cartoes.length > 0 ? "Cartões cadastrados:\n" + cartoes.map(c => "- ID " + c.id + ": " + c.nome + (c.bandeira ? " (" + c.bandeira + ")" : "")).join("\n") : "Cartões cadastrados: nenhum";
       const todasCatsGasto = categories.gasto.join(", ");
       const todasCatsReceita = categories.receita.join(", ");
-      const prompt = `Você é um assistente financeiro brasileiro. Analise o texto abaixo e extraia TODOS os lançamentos financeiros mencionados.\n\nREGRAS:\n- Ignore palavras soltas como Cartão ou Dinheiro sem valor\n- Para contas a vencer, use a data de vencimento\n- Cash back é receita\n- Sem duplicatas óbvias\n- Use ano 2026 se não especificado\n- Identifique a forma de pagamento: Débito, Crédito, Dinheiro, PIX ou Outros\n- Se for Crédito e mencionar um cartão, vincule ao cartão cadastrado usando o ID correto\n- Se não conseguir identificar o cartão, deixe cartao_id como null\n\nRetorne APENAS um array JSON válido:\n[{"descricao":"...","valor":0.00,"tipo":"gasto","categoria":"...","data_lancamento":"YYYY-MM-DD","forma_pagamento":"...","cartao_id":null,"poderia_ter_evitado":false}]\n\nCategorias gastos: ${todasCatsGasto}\nCategorias receitas: ${todasCatsReceita}${cartoesInfo}\n\nHoje: ${today}\n\nTexto:\n${textoIA}`;
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/claude-proxy`, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + SUPABASE_KEY }, body: JSON.stringify({ prompt }) });
+      const prompt = `Categorias gasto: ${todasCatsGasto}\nCategorias receita: ${todasCatsReceita}\n${cartoesInfo}\n\nTexto a extrair:\n${textoIA}`;
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/claude-proxy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": `Bearer ${session.token}` },
+        body: JSON.stringify({ prompt, data_referencia: today }),
+      });
+      if (res.status === 401) { setErroIA("Sessão expirada. Faça login novamente."); setProcessando(false); return; }
+      if (res.status === 429) { setErroIA("Limite temporário atingido. Tente em alguns segundos."); setProcessando(false); return; }
       const data = await res.json();
-      const text = data.content?.[0]?.text || "";
-      const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
-      if (Array.isArray(parsed) && parsed.length > 0) setPreview(parsed.map(enrichPreviewItem));
+      if (!res.ok) { setErroIA("Erro ao processar (" + (data?.error || res.status) + ")."); setProcessando(false); return; }
+      const transacoes = Array.isArray(data?.transacoes) ? data.transacoes : [];
+      if (transacoes.length > 0) setPreview(transacoes.map(enrichPreviewItem));
       else setErroIA("Não consegui identificar lançamentos.");
     } catch (e) { setErroIA("Erro ao processar."); }
     setProcessando(false);

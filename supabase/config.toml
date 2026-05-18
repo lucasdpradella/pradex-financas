@@ -1,2 +1,5 @@
 [functions.agente-pradex]
 verify_jwt = false
+
+[functions.claude-proxy]
+verify_jwt = true
