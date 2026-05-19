@@ -21,9 +21,14 @@ const ZAPI_CLIENT_TOKEN = Deno.env.get("ZAPI_CLIENT_TOKEN") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
+// Roteamento SDR (Opção 4): SDR e Pradex compartilham 1 Z-API; Edge consulta CRM Pradella e encaminha prospects pro n8n.
+const CRM_SUPABASE_URL = Deno.env.get("CRM_SUPABASE_URL") ?? "";
+const CRM_SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("CRM_SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const N8N_SDR_WEBHOOK_URL = Deno.env.get("N8N_SDR_WEBHOOK_URL") ?? "";
+
 const CLAUDE_MODEL = "claude-sonnet-4-5-20250929";
 const ANTHROPIC_VERSION = "2023-06-01";
-const TIMEOUTS = { anthropic: 30000, whisper: 30000, zapi: 10000 };
+const TIMEOUTS = { anthropic: 30000, whisper: 30000, zapi: 10000, sdr_forward: 10000 };
 
 // ===== HELPERS =====
 function constantTimeEquals(a: string, b: string): boolean {
@@ -61,6 +66,35 @@ function logInfo(cid: string, evento: string, data?: unknown) {
 
 function logErro(cid: string, evento: string, erro: unknown) {
   console.error(JSON.stringify({ level: "error", correlation_id: cid, evento, erro: String(erro), ts: new Date().toISOString() }));
+}
+
+// ===== ROTEAMENTO SDR (Opção 4) =====
+// Antes de processar como Pradex, checa se o telefone é um prospect ativo no CRM Pradella.
+// Se for, encaminha o payload original pro webhook do n8n IA SDR e devolve true (handler retorna 200 e para).
+// Try/catch envolve TUDO: se CRM cair ou n8n falhar, retorna false → fluxo Pradex segue normal (defesa em profundidade).
+async function checkAndForwardToSdr(telefone: string, payloadOriginal: unknown, cid: string): Promise<boolean> {
+  if (!CRM_SUPABASE_URL || !CRM_SUPABASE_SERVICE_ROLE_KEY || !N8N_SDR_WEBHOOK_URL) {
+    return false;
+  }
+  try {
+    const crm = createClient(CRM_SUPABASE_URL, CRM_SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data, error } = await crm.from("leads").select("id").eq("telefone", telefone).eq("status", "Prospectado").limit(1).maybeSingle();
+    if (error) { logErro(cid, "sdr_lookup_failed", error); return false; }
+    if (!data) return false;
+    logInfo(cid, "sdr_match_found", { lead_id: data.id });
+    const res = await fetchWithTimeout(N8N_SDR_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payloadOriginal),
+    }, TIMEOUTS.sdr_forward);
+    logInfo(cid, "forwarded_to_sdr", { status: res.status, ok: res.ok });
+    return true;
+  } catch (e) {
+    logErro(cid, "sdr_forward_exception", e);
+    return false;
+  }
 }
 
 // ===== Z-API =====
@@ -376,6 +410,12 @@ Deno.serve(async (req: Request) => {
     if (!telefone) { logErro(cid, "no_phone", payload); return new Response("ok", { status: 200 }); }
 
     logInfo(cid, "msg_received", { telefone });
+
+    // Roteamento SDR: se telefone é prospect ativo no CRM Pradella, encaminha pro n8n e para.
+    // Não claimamos a mensagem (agente_msgs_processadas é da idempotência do Pradex, não do SDR).
+    if (await checkAndForwardToSdr(telefone, payload, cid)) {
+      return new Response("ok", { status: 200, headers: { "Content-Type": "text/plain" } });
+    }
 
     const claimed = await tryClaimMessage(supabase, messageId, telefone);
     if (!claimed) { logInfo(cid, "msg_already_processed", {}); return new Response("ok", { status: 200 }); }
