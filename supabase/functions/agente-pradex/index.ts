@@ -80,7 +80,7 @@ async function checkAndForwardToSdr(telefone: string, payloadOriginal: unknown, 
     const crm = createClient(CRM_SUPABASE_URL, CRM_SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const { data, error } = await crm.from("leads").select("id").eq("telefone", telefone).eq("status", "Prospectado").limit(1).maybeSingle();
+    const { data, error } = await crm.from("leads").select("id").eq("telefone", telefone).in("status", ["Prospectado", "Em conversa"]).limit(1).maybeSingle();
     if (error) { logErro(cid, "sdr_lookup_failed", error); return false; }
     if (!data) return false;
     logInfo(cid, "sdr_match_found", { lead_id: data.id });
