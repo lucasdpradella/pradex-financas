@@ -106,7 +106,11 @@ async function sendWhatsappText(phone: string, message: string, cid: string): Pr
       headers: { "Content-Type": "application/json", "Client-Token": ZAPI_CLIENT_TOKEN },
       body: JSON.stringify({ phone, message }),
     }, TIMEOUTS.zapi);
-    if (!res.ok) { logErro(cid, "zapi_send_failed", res.status); return false; }
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      logErro(cid, "zapi_send_failed", `${res.status} ${body.substring(0, 500)}`);
+      return false;
+    }
     logInfo(cid, "zapi_send_ok", { phone, len: message.length });
     return true;
   } catch (e) { logErro(cid, "zapi_send_exception", e); return false; }
