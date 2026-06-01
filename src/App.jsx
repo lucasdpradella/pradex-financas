@@ -151,10 +151,60 @@ async function criarRecorrentesAteDezembro(lancamento, dataInicio, token, grupoI
   return criados;
 }
 
+// Agrupa lançamentos com parcela_grupo_id em "compras". Cada compra vira 1 item sintético
+// com _compraParcelada=true e _parcelas[] guardando as N rows originais (ordenadas por parcela_atual).
+// Lançamentos sem parcela_grupo_id ficam em `avulsos`.
+function agruparPorParcelaGrupo(lancamentos) {
+  const grupos = new Map();
+  const avulsos = [];
+  for (const l of lancamentos) {
+    if (l.parcela_grupo_id) {
+      const arr = grupos.get(l.parcela_grupo_id);
+      if (arr) arr.push(l);
+      else grupos.set(l.parcela_grupo_id, [l]);
+    } else {
+      avulsos.push(l);
+    }
+  }
+  const compras = [];
+  for (const [gid, parcelas] of grupos.entries()) {
+    parcelas.sort((a, b) => (a.parcela_atual || 0) - (b.parcela_atual || 0));
+    const primeira = parcelas[0];
+    const ultima = parcelas[parcelas.length - 1];
+    const valorParcela = Number(primeira.valor) || 0;
+    const nParcelas = primeira.total_parcelas || parcelas.length;
+    const valorTotal = Math.round(valorParcela * nParcelas * 100) / 100;
+    compras.push({
+      id: `compra-${gid}`,
+      _compraParcelada: true,
+      _grupoParcelaId: gid,
+      _parcelas: parcelas,
+      _valorParcela: valorParcela,
+      _nParcelas: nParcelas,
+      _dataInicio: primeira.data_lancamento,
+      _dataFim: ultima.data_lancamento,
+      // Campos "compat" pra filtros + ordenação trabalharem igual antes
+      descricao: limparDescricaoParcela(primeira.descricao || ""),
+      valor: valorTotal,
+      tipo: primeira.tipo || "gasto",
+      categoria: primeira.categoria || "",
+      forma_pagamento: primeira.forma_pagamento || "Crédito",
+      cartao_id: primeira.cartao_id,
+      data_lancamento: primeira.data_lancamento,
+      total_parcelas: nParcelas,
+      parcela_atual: 1,
+      poderia_ter_evitado: false,
+      recorrente: false,
+    });
+  }
+  return { compras, avulsos };
+}
+
 function agruparLancamentos(lancamentos) {
+  const { compras, avulsos } = agruparPorParcelaGrupo(lancamentos);
   const grupos = {};
-  const naoRecorrentes = lancamentos.filter(l => !l.recorrente);
-  const recorrentes = lancamentos.filter(l => l.recorrente);
+  const naoRecorrentes = avulsos.filter(l => !l.recorrente);
+  const recorrentes = avulsos.filter(l => l.recorrente);
   for (const l of recorrentes) {
     const chave = l.recorrente_grupo_id || `${l.descricao}||${l.valor}||${l.categoria}`;
     if (!grupos[chave]) {
@@ -166,8 +216,14 @@ function agruparLancamentos(lancamentos) {
     }
   }
   const recorrentesAgrupados = Object.values(grupos);
-  const todos = [...recorrentesAgrupados, ...naoRecorrentes];
-  todos.sort((a, b) => b.id - a.id);
+  const todos = [...compras, ...recorrentesAgrupados, ...naoRecorrentes];
+  // Ordena: compras (id sintético "compra-uuid") caem no fim do sort numérico — força por data desc.
+  todos.sort((a, b) => {
+    const da = a.data_lancamento || "";
+    const db = b.data_lancamento || "";
+    if (da !== db) return db.localeCompare(da);
+    return (b.id || 0) - (a.id || 0);
+  });
   return todos;
 }
 
@@ -229,6 +285,8 @@ export default function PradexFinancas() {
   const [mostrarFormCartao, setMostrarFormCartao] = useState(false);
   const [editando, setEditando] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [compraDetalhe, setCompraDetalhe] = useState(null);
+  const [deletandoCompra, setDeletandoCompra] = useState(false);
   const [mesHistorico, setMesHistorico] = useState({ ano: new Date().getFullYear(), mes: new Date().getMonth() });
   const [simulador, setSimulador] = useState({ meta: "", patrimonioAtual: "", aporteMensal: "" });
   const [taxaFocus, setTaxaFocus] = useState(10.15);
@@ -556,6 +614,22 @@ export default function PradexFinancas() {
 
   const handleDelete = async (l) => {
     try {
+      const grupoParcelaId = l._grupoParcelaId || l.parcela_grupo_id || null;
+      if (grupoParcelaId) {
+        const n = l._nParcelas || l.total_parcelas || (l._parcelas ? l._parcelas.length : null);
+        const aviso = n ? `Excluir esta compra e suas ${n} parcelas? Esta ação não pode ser desfeita.` : "Excluir esta compra e todas as suas parcelas? Esta ação não pode ser desfeita.";
+        if (!window.confirm(aviso)) return;
+        setDeletandoCompra(true);
+        await fetch(`${SUPABASE_URL}/rest/v1/rpc/deletar_compra_parcelada`, {
+          method: "POST",
+          headers: { ...api(session?.token), "Prefer": "return=representation" },
+          body: JSON.stringify({ p_grupo_id: grupoParcelaId }),
+        });
+        setLancamentos(prev => prev.filter(x => x.parcela_grupo_id !== grupoParcelaId));
+        setCompraDetalhe(null);
+        setDeletandoCompra(false);
+        return;
+      }
       if (l._grupoId) {
         await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?recorrente_grupo_id=eq.${l._grupoId}`, { method: "DELETE", headers: api(session?.token) });
         setLancamentos(prev => prev.filter(x => x.recorrente_grupo_id !== l._grupoId));
@@ -566,10 +640,43 @@ export default function PradexFinancas() {
         }
         setLancamentos(prev => prev.filter(x => !ids.includes(x.id)));
       }
-    } catch (e) {}
+    } catch (e) {
+      setDeletandoCompra(false);
+    }
   };
 
   const handleEdit = (l) => {
+    // Compra parcelada: card-resumo (l._compraParcelada) ou parcela individual (l.parcela_grupo_id).
+    // Em ambos casos, abrir o modal com os dados da COMPRA inteira (primeira parcela do grupo).
+    const grupoParcelaId = l._grupoParcelaId || l.parcela_grupo_id || null;
+    if (grupoParcelaId) {
+      const parcelas = (l._parcelas && l._parcelas.length > 0)
+        ? [...l._parcelas].sort((a, b) => (a.parcela_atual || 0) - (b.parcela_atual || 0))
+        : lancamentos.filter(x => x.parcela_grupo_id === grupoParcelaId).sort((a, b) => (a.parcela_atual || 0) - (b.parcela_atual || 0));
+      const primeira = parcelas[0] || l;
+      const n = primeira.total_parcelas || (l._nParcelas) || parcelas.length;
+      setEditando({
+        id: primeira.id,
+        descricao: limparDescricaoParcela(primeira.descricao || ""),
+        valor: String(primeira.valor),
+        tipo: primeira.tipo || "gasto",
+        categoria: primeira.categoria || "",
+        data_lancamento: primeira.data_lancamento || today,
+        forma_pagamento: primeira.forma_pagamento || "Crédito",
+        cartao_id: primeira.cartao_id ? String(primeira.cartao_id) : "",
+        poderia_ter_evitado: false,
+        recorrente: false,
+        parcelado: true,
+        parcela_atual: "1",
+        total_parcelas: String(n),
+        _recorrenteOriginal: false,
+        _grupoId: null,
+        _parcelaGrupoId: grupoParcelaId,
+        _parcelaAtualOriginal: primeira.parcela_atual || 1,
+        _compraParcelada: true,
+      });
+      return;
+    }
     const totalParcelas = l.total_parcelas ? String(l.total_parcelas) : "";
     const parcelaAtual = l.parcela_atual ? String(l.parcela_atual) : "1";
     setEditando({ id: l.id, descricao: limparDescricaoParcela(l.descricao || ""), valor: String(l.valor), tipo: l.tipo || "gasto", categoria: l.categoria || "", data_lancamento: l.data_lancamento || today, forma_pagamento: l.forma_pagamento || "", cartao_id: l.cartao_id ? String(l.cartao_id) : "", poderia_ter_evitado: l.poderia_ter_evitado || false, recorrente: l.recorrente || false, parcelado: Boolean(l.total_parcelas), parcela_atual: parcelaAtual, total_parcelas: totalParcelas, _recorrenteOriginal: l.recorrente || false, _grupoId: l.recorrente_grupo_id || null, _parcelaGrupoId: l.parcela_grupo_id || null, _parcelaAtualOriginal: l.parcela_atual || null });
@@ -581,6 +688,34 @@ export default function PradexFinancas() {
     if (isNaN(valor) || valor <= 0) return;
     setSavingEdit(true);
     try {
+      // Compra parcelada existente: chama RPC editar_compra_parcelada (atômica no servidor,
+      // re-cria as N parcelas com o MESMO parcela_grupo_id pra rastreabilidade).
+      if (editando._compraParcelada && editando._parcelaGrupoId) {
+        const totalParcelas = parseInt(editando.total_parcelas);
+        if (!(totalParcelas >= 2)) { alert("Número de parcelas precisa ser pelo menos 2."); setSavingEdit(false); return; }
+        const valorParcela = Math.round(valor * 100) / 100;
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/editar_compra_parcelada`, {
+          method: "POST",
+          headers: { ...api(session?.token), "Prefer": "return=representation" },
+          body: JSON.stringify({
+            p_grupo_id: editando._parcelaGrupoId,
+            p_descricao: limparDescricaoParcela(editando.descricao),
+            p_valor_parcela: valorParcela,
+            p_n_parcelas: totalParcelas,
+            p_data_inicio: editando.data_lancamento,
+            p_cartao_id: editando.cartao_id ? parseInt(editando.cartao_id) : null,
+            p_categoria: editando.categoria,
+            p_tipo: editando.tipo,
+            p_forma_pagamento: editando.forma_pagamento || "Crédito",
+          }),
+        });
+        if (!res.ok) { alert("Erro ao editar a compra. Tenta de novo."); setSavingEdit(false); return; }
+        await fetchLancamentos();
+        setEditando(null);
+        setCompraDetalhe(null);
+        setSavingEdit(false);
+        return;
+      }
       if (editando.parcelado && editando.forma_pagamento === "Crédito" && parseInt(editando.total_parcelas) >= 2) {
         const totalParcelas = parseInt(editando.total_parcelas);
         const parcelaAtual = parseInt(editando.parcela_atual) || 1;
@@ -854,7 +989,7 @@ export default function PradexFinancas() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
           <div style={{ background: "#181B24", borderRadius: "16px 16px 0 0", padding: "1.5rem", width: "100%", maxWidth: "480px", border: "1px solid #252832", maxHeight: "90vh", overflowY: "auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
-              <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Editar lançamento</p>
+              <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>{editando._compraParcelada ? "Editar compra" : "Editar lançamento"}</p>
               <button onClick={() => setEditando(null)} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "1.2rem" }}>×</button>
             </div>
             <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1rem" }}>
@@ -880,16 +1015,30 @@ export default function PradexFinancas() {
             )}
             {editando.tipo === "gasto" && editando.forma_pagamento === "Crédito" && (
               <div style={{ marginBottom: "0.75rem" }}>
-                <button onClick={() => setEditando(ed => ({ ...ed, parcelado: !ed.parcelado, parcela_atual: ed.parcelado ? "1" : (ed.parcela_atual || "1"), total_parcelas: ed.parcelado ? "" : ed.total_parcelas, recorrente: false }))} style={{ width: "100%", padding: "0.75rem", border: `1px solid ${editando.parcelado ? "#6366F1" : "#252832"}`, borderRadius: "10px", background: editando.parcelado ? "#6366F118" : "transparent", color: editando.parcelado ? "#6366F1" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s" }}>
-                  {editando.parcelado ? "Compra parcelada" : "+ Marcar como compra parcelada"}
-                </button>
-                {editando.parcelado && (
+                {!editando._compraParcelada && (
+                  <button onClick={() => setEditando(ed => ({ ...ed, parcelado: !ed.parcelado, parcela_atual: ed.parcelado ? "1" : (ed.parcela_atual || "1"), total_parcelas: ed.parcelado ? "" : ed.total_parcelas, recorrente: false }))} style={{ width: "100%", padding: "0.75rem", border: `1px solid ${editando.parcelado ? "#6366F1" : "#252832"}`, borderRadius: "10px", background: editando.parcelado ? "#6366F118" : "transparent", color: editando.parcelado ? "#6366F1" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s" }}>
+                    {editando.parcelado ? "Compra parcelada" : "+ Marcar como compra parcelada"}
+                  </button>
+                )}
+                {editando.parcelado && !editando._compraParcelada && (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginTop: "0.5rem" }}>
                     <input type="number" placeholder="Parcela atual" min="1" max="48" value={editando.parcela_atual || "1"} onChange={e => setEditando(ed => ({ ...ed, parcela_atual: e.target.value }))} style={{ ...inputStyle, marginBottom: 0 }} />
                     <input type="number" placeholder="Total de parcelas" min="2" max="48" value={editando.total_parcelas || ""} onChange={e => setEditando(ed => ({ ...ed, total_parcelas: e.target.value }))} style={{ ...inputStyle, marginBottom: 0 }} />
                   </div>
                 )}
-                {editando.parcelado && editando.total_parcelas >= 2 && editando.valor && <p style={{ margin: "0.4rem 0 0", fontSize: "0.78rem", color: "#888" }}>Atualiza da parcela {editando.parcela_atual || 1} até {editando.total_parcelas}, repetindo {formatBRL(parseFloat(String(editando.valor).replace(",", ".")) || 0)} por mês.</p>}
+                {editando._compraParcelada && (
+                  <div style={{ marginTop: 0 }}>
+                    <p style={{ margin: "0 0 0.4rem", fontSize: "0.72rem", color: "#666", textTransform: "uppercase", letterSpacing: "0.08em" }}>Total de parcelas</p>
+                    <input type="number" placeholder="Total de parcelas" min="2" max="48" value={editando.total_parcelas || ""} onChange={e => setEditando(ed => ({ ...ed, total_parcelas: e.target.value }))} style={{ ...inputStyle, marginBottom: 0 }} />
+                  </div>
+                )}
+                {editando.parcelado && editando.total_parcelas >= 2 && editando.valor && (
+                  <p style={{ margin: "0.4rem 0 0", fontSize: "0.78rem", color: "#888" }}>
+                    {editando._compraParcelada
+                      ? `Re-gera ${editando.total_parcelas} parcelas de ${formatBRL(parseFloat(String(editando.valor).replace(",", ".")) || 0)}, mensais, a partir da data abaixo.`
+                      : `Atualiza da parcela ${editando.parcela_atual || 1} até ${editando.total_parcelas}, repetindo ${formatBRL(parseFloat(String(editando.valor).replace(",", ".")) || 0)} por mês.`}
+                  </p>
+                )}
               </div>
             )}
             <input type="date" value={editando.data_lancamento} onChange={e => setEditando(ed => ({ ...ed, data_lancamento: e.target.value }))} style={inputStyle} />
@@ -898,7 +1047,7 @@ export default function PradexFinancas() {
                 {editando.recorrente ? "Recorrente ativa até Dez/" + new Date().getFullYear() : "Marcar como recorrente"}
               </button>
             )}
-            {editando.tipo === "gasto" && (
+            {editando.tipo === "gasto" && !editando._compraParcelada && (
               <button onClick={() => setEditando(ed => ({ ...ed, poderia_ter_evitado: !ed.poderia_ter_evitado }))} style={{ width: "100%", padding: "0.75rem", border: `1px solid ${editando.poderia_ter_evitado ? "#F59E0B" : "#252832"}`, borderRadius: "10px", background: editando.poderia_ter_evitado ? "#F59E0B18" : "transparent", color: editando.poderia_ter_evitado ? "#F59E0B" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginBottom: "0.75rem", transition: "all 0.2s" }}>
                 {editando.poderia_ter_evitado ? "Marcado como gasto evitável" : "Marcar como gasto evitável"}
               </button>
@@ -912,6 +1061,48 @@ export default function PradexFinancas() {
           </div>
         </div>
       )}
+
+      {compraDetalhe && (() => {
+        const cartaoNome = compraDetalhe.cartao_id ? (cartoes.find(c => Number(c.id) === Number(compraDetalhe.cartao_id))?.nome || "") : "";
+        const hojeStr = today;
+        return (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+            <div style={{ background: "#181B24", borderRadius: "16px 16px 0 0", padding: "1.5rem", width: "100%", maxWidth: "480px", border: "1px solid #252832", maxHeight: "90vh", overflowY: "auto" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Compra parcelada</p>
+                <button onClick={() => setCompraDetalhe(null)} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "1.2rem" }}>×</button>
+              </div>
+              <p style={{ margin: "0 0 0.25rem", fontSize: "1.1rem", fontWeight: 600, color: "#F0F0F0", lineHeight: 1.25 }}>{normalizeText(compraDetalhe.descricao)}</p>
+              <p style={{ margin: "0 0 1rem", fontSize: "0.78rem", color: "#888", lineHeight: 1.4 }}>
+                {compraDetalhe._nParcelas}× {formatBRL(compraDetalhe._valorParcela)} · Total {formatBRL(compraDetalhe.valor)}
+                {cartaoNome ? ` · ${normalizeText(cartaoNome)}` : ""}
+                {compraDetalhe.categoria ? ` · ${normalizeText(compraDetalhe.categoria)}` : ""}
+              </p>
+              <div style={{ background: "#0F1117", borderRadius: "12px", border: "1px solid #252832", padding: "0.5rem 0.75rem", marginBottom: "1rem" }}>
+                {compraDetalhe._parcelas.map((p) => {
+                  const paga = (p.data_lancamento || "") <= hojeStr;
+                  return (
+                    <div key={p.id} style={{ display: "flex", alignItems: "center", padding: "0.55rem 0", borderBottom: "1px solid #1a1d26", gap: "0.5rem" }}>
+                      <span style={{ fontSize: "0.78rem", color: "#888", minWidth: "40px" }}>{p.parcela_atual}/{compraDetalhe._nParcelas}</span>
+                      <span style={{ fontSize: "0.78rem", color: "#CCC", flex: 1 }}>{formatData(p.data_lancamento)}</span>
+                      <span style={{ fontSize: "0.7rem", padding: "1px 8px", borderRadius: "999px", background: paga ? "#22C55E15" : "#3F3F3F", color: paga ? "#22C55E" : "#888", fontWeight: 600 }}>{paga ? "Paga" : "Pendente"}</span>
+                      <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "#E8E8E8", minWidth: "84px", textAlign: "right" }}>{formatBRL(p.valor)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ display: "flex", gap: "0.75rem" }}>
+                <button onClick={() => handleDelete(compraDetalhe)} disabled={deletandoCompra} style={{ flex: 1, padding: "0.75rem", border: "1px solid #EF444440", borderRadius: "10px", background: "transparent", color: "#EF4444", fontSize: "0.9rem", fontWeight: 600, cursor: deletandoCompra ? "not-allowed" : "pointer", opacity: deletandoCompra ? 0.6 : 1, fontFamily: "inherit" }}>
+                  {deletandoCompra ? "Excluindo..." : "Excluir compra"}
+                </button>
+                <button onClick={() => { handleEdit(compraDetalhe); setCompraDetalhe(null); }} style={{ flex: 2, padding: "0.75rem", border: "none", borderRadius: "10px", background: "#6366F1", color: "#fff", fontSize: "0.9rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                  Editar compra
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* HEADER */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
@@ -1359,31 +1550,50 @@ export default function PradexFinancas() {
                 <p style={{ margin: 0, fontSize: "0.78rem", color: "#666" }}>Tente trocar o filtro ou adicionar um novo lançamento.</p>
               </div>
             )}
-            {lancamentosFiltrados.map(l => (
-              <div key={l._idsGrupo ? `grupo-${l._idsGrupo[0]}` : l.id} onClick={() => handleEdit(l)} style={{ display: "flex", alignItems: "center", padding: "0.9rem 1rem", background: l.poderia_ter_evitado ? "#F59E0B08" : "#181B24", borderRadius: "12px", marginBottom: "0.5rem", border: `1px solid ${l.poderia_ter_evitado ? "#F59E0B30" : "#252832"}`, gap: "0.75rem", cursor: "pointer" }}>
-                <div style={{ width: "36px", height: "36px", borderRadius: "10px", flexShrink: 0, background: l.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem" }}>{l.tipo === "receita" ? "+" : "-"}</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", fontWeight: 500, color: "#E8E8E8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.25 }}>
-                    {normalizeText(l.descricao)}
-                    {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#6366F1", background: "#6366F115", padding: "1px 5px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
-                    {l._totalMeses && l._totalMeses > 1 && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#22C55E", background: "#22C55E15", padding: "1px 6px", borderRadius: "999px" }}>{l._totalMeses} meses</span>}
-                  </p>
-                  <p style={{ margin: 0, fontSize: "0.72rem", color: "#555", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}</p>
-                </div>
-                {l.tipo === "gasto" && !l._totalMeses && (
-                  <div style={{ width: "76px", display: "flex", justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleToggleArrependimento(e, l); }}
-                      style={{ background: l.poderia_ter_evitado ? "#F59E0B15" : "transparent", border: `1px solid ${l.poderia_ter_evitado ? "#F59E0B35" : "#252832"}`, cursor: "pointer", fontSize: "0.66rem", padding: "3px 8px", opacity: l.poderia_ter_evitado ? 1 : 0.5, transition: "opacity 0.2s, background 0.2s, border-color 0.2s", color: "#F59E0B", fontWeight: 700, borderRadius: "999px", whiteSpace: "nowrap", fontFamily: "inherit" }}
-                    >
-                      Evitável
-                    </button>
+            {lancamentosFiltrados.map(l => {
+              if (l._compraParcelada) {
+                const cartaoNome = l.cartao_id ? (cartoes.find(c => Number(c.id) === Number(l.cartao_id))?.nome || "") : "";
+                return (
+                  <div key={`compra-${l._grupoParcelaId}`} onClick={() => setCompraDetalhe(l)} style={{ display: "flex", alignItems: "center", padding: "0.9rem 1rem", background: "#181B24", borderRadius: "12px", marginBottom: "0.5rem", border: "1px solid #6366F140", gap: "0.75rem", cursor: "pointer" }}>
+                    <div style={{ width: "36px", height: "36px", borderRadius: "10px", flexShrink: 0, background: "#6366F118", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem", color: "#6366F1" }}>{l._nParcelas}x</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", fontWeight: 500, color: "#E8E8E8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.25 }}>
+                        {normalizeText(l.descricao)}
+                        <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#6366F1", background: "#6366F115", padding: "1px 6px", borderRadius: "999px" }}>compra parcelada</span>
+                      </p>
+                      <p style={{ margin: 0, fontSize: "0.72rem", color: "#555", lineHeight: 1.25 }}>{l._nParcelas}× {formatBRL(l._valorParcela)} · {cartaoNome ? normalizeText(cartaoNome) + " · " : ""}{normalizeText(l.categoria)} · {formatData(l._dataInicio)} → {formatData(l._dataFim)}</p>
+                    </div>
+                    <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#EF4444", flexShrink: 0 }}>-{formatBRL(l.valor)}</p>
+                    <button onClick={(e) => { e.stopPropagation(); handleDelete(l); }} style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem", flexShrink: 0 }}>×</button>
                   </div>
-                )}
-                <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444", flexShrink: 0 }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
-                <button onClick={(e) => { e.stopPropagation(); handleDelete(l); }} style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem", flexShrink: 0 }}>×</button>
-              </div>
-            ))}
+                );
+              }
+              return (
+                <div key={l._idsGrupo ? `grupo-${l._idsGrupo[0]}` : l.id} onClick={() => handleEdit(l)} style={{ display: "flex", alignItems: "center", padding: "0.9rem 1rem", background: l.poderia_ter_evitado ? "#F59E0B08" : "#181B24", borderRadius: "12px", marginBottom: "0.5rem", border: `1px solid ${l.poderia_ter_evitado ? "#F59E0B30" : "#252832"}`, gap: "0.75rem", cursor: "pointer" }}>
+                  <div style={{ width: "36px", height: "36px", borderRadius: "10px", flexShrink: 0, background: l.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem" }}>{l.tipo === "receita" ? "+" : "-"}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", fontWeight: 500, color: "#E8E8E8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.25 }}>
+                      {normalizeText(l.descricao)}
+                      {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#6366F1", background: "#6366F115", padding: "1px 5px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
+                      {l._totalMeses && l._totalMeses > 1 && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#22C55E", background: "#22C55E15", padding: "1px 6px", borderRadius: "999px" }}>{l._totalMeses} meses</span>}
+                    </p>
+                    <p style={{ margin: 0, fontSize: "0.72rem", color: "#555", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}</p>
+                  </div>
+                  {l.tipo === "gasto" && !l._totalMeses && (
+                    <div style={{ width: "76px", display: "flex", justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleToggleArrependimento(e, l); }}
+                        style={{ background: l.poderia_ter_evitado ? "#F59E0B15" : "transparent", border: `1px solid ${l.poderia_ter_evitado ? "#F59E0B35" : "#252832"}`, cursor: "pointer", fontSize: "0.66rem", padding: "3px 8px", opacity: l.poderia_ter_evitado ? 1 : 0.5, transition: "opacity 0.2s, background 0.2s, border-color 0.2s", color: "#F59E0B", fontWeight: 700, borderRadius: "999px", whiteSpace: "nowrap", fontFamily: "inherit" }}
+                      >
+                        Evitável
+                      </button>
+                    </div>
+                  )}
+                  <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444", flexShrink: 0 }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
+                  <button onClick={(e) => { e.stopPropagation(); handleDelete(l); }} style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem", flexShrink: 0 }}>×</button>
+                </div>
+              );
+            })}
           </div>
         </>
       )}
