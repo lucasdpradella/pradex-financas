@@ -618,31 +618,40 @@ export default function PradexFinancas() {
       if (grupoParcelaId) {
         const n = l._nParcelas || l.total_parcelas || (l._parcelas ? l._parcelas.length : null);
         const aviso = n ? `Excluir esta compra e suas ${n} parcelas? Esta ação não pode ser desfeita.` : "Excluir esta compra e todas as suas parcelas? Esta ação não pode ser desfeita.";
-        if (!window.confirm(aviso)) return;
+        if (!window.confirm(aviso)) return false;
         setDeletandoCompra(true);
         const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/deletar_compra_parcelada`, {
           method: "POST",
           headers: { ...api(session?.token), "Prefer": "return=representation" },
           body: JSON.stringify({ p_grupo_id: grupoParcelaId }),
         });
-        if (!res.ok) { alert("Erro ao excluir a compra. Tenta de novo."); setDeletandoCompra(false); return; }
+        if (!res.ok) { alert("Erro ao excluir a compra. Tenta de novo."); setDeletandoCompra(false); return false; }
         setLancamentos(prev => prev.filter(x => x.parcela_grupo_id !== grupoParcelaId));
         setCompraDetalhe(null);
         setDeletandoCompra(false);
-        return;
+        return true;
       }
       if (l._grupoId) {
-        await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?recorrente_grupo_id=eq.${l._grupoId}`, { method: "DELETE", headers: api(session?.token) });
+        const nOcorrencias = lancamentos.filter(x => x.recorrente_grupo_id === l._grupoId).length;
+        const avisoRec = `Excluir este lançamento recorrente apaga todas as ocorrências até Dez/${new Date().getFullYear()}${nOcorrencias > 0 ? ` (${nOcorrencias} lançamentos)` : ""}. Esta ação não pode ser desfeita. Continuar?`;
+        if (!window.confirm(avisoRec)) return false;
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?recorrente_grupo_id=eq.${l._grupoId}`, { method: "DELETE", headers: api(session?.token) });
+        if (!res.ok) { alert("Erro ao excluir. Tenta de novo."); return false; }
         setLancamentos(prev => prev.filter(x => x.recorrente_grupo_id !== l._grupoId));
       } else {
         const ids = l._idsGrupo || [l.id];
+        const avisoAvulso = ids.length > 1 ? `Excluir estes ${ids.length} lançamentos? Esta ação não pode ser desfeita.` : "Excluir este lançamento? Esta ação não pode ser desfeita.";
+        if (!window.confirm(avisoAvulso)) return false;
         for (const id of ids) {
-          await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?id=eq.${id}`, { method: "DELETE", headers: api(session?.token) });
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?id=eq.${id}`, { method: "DELETE", headers: api(session?.token) });
+          if (!res.ok) { alert("Erro ao excluir. Tenta de novo."); return false; }
         }
         setLancamentos(prev => prev.filter(x => !ids.includes(x.id)));
       }
+      return true;
     } catch (e) {
       setDeletandoCompra(false);
+      return false;
     }
   };
 
@@ -1053,6 +1062,16 @@ export default function PradexFinancas() {
                 {editando.poderia_ter_evitado ? "Marcado como gasto evitável" : "Marcar como gasto evitável"}
               </button>
             )}
+            <button
+              onClick={async () => {
+                const ok = await handleDelete({ ...editando, parcela_grupo_id: editando._parcelaGrupoId || null });
+                if (ok) setEditando(null);
+              }}
+              disabled={savingEdit || deletandoCompra}
+              style={{ width: "100%", padding: "0.75rem", border: "1px solid #EF444440", borderRadius: "10px", background: "transparent", color: "#EF4444", fontSize: "0.9rem", fontWeight: 600, cursor: (savingEdit || deletandoCompra) ? "not-allowed" : "pointer", opacity: (savingEdit || deletandoCompra) ? 0.6 : 1, fontFamily: "inherit", marginBottom: "0.75rem" }}
+            >
+              {deletandoCompra ? "Excluindo..." : (editando._compraParcelada ? "Excluir compra" : "Excluir lançamento")}
+            </button>
             <div style={{ display: "flex", gap: "0.75rem" }}>
               <button onClick={() => setEditando(null)} style={{ flex: 1, padding: "0.75rem", border: "1px solid #252832", borderRadius: "10px", background: "transparent", color: "#888", fontSize: "0.9rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
               <button onClick={handleSaveEdit} disabled={savingEdit} style={{ flex: 2, padding: "0.75rem", border: "none", borderRadius: "10px", background: "#6366F1", color: "#fff", fontSize: "0.9rem", fontWeight: 700, cursor: savingEdit ? "not-allowed" : "pointer", opacity: savingEdit ? 0.7 : 1, fontFamily: "inherit" }}>
@@ -1558,14 +1577,15 @@ export default function PradexFinancas() {
                   <div key={`compra-${l._grupoParcelaId}`} onClick={() => setCompraDetalhe(l)} style={{ display: "flex", alignItems: "center", padding: "0.9rem 1rem", background: "#181B24", borderRadius: "12px", marginBottom: "0.5rem", border: "1px solid #6366F140", gap: "0.75rem", cursor: "pointer" }}>
                     <div style={{ width: "36px", height: "36px", borderRadius: "10px", flexShrink: 0, background: "#6366F118", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem", color: "#6366F1" }}>{l._nParcelas}x</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", fontWeight: 500, color: "#E8E8E8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.25 }}>
+                      <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", fontWeight: 500, color: "#E8E8E8", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.25 }}>
                         {normalizeText(l.descricao)}
-                        <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#6366F1", background: "#6366F115", padding: "1px 6px", borderRadius: "999px" }}>compra parcelada</span>
                       </p>
-                      <p style={{ margin: 0, fontSize: "0.72rem", color: "#555", lineHeight: 1.25 }}>{l._nParcelas}× {formatBRL(l._valorParcela)} · {cartaoNome ? normalizeText(cartaoNome) + " · " : ""}{normalizeText(l.categoria)} · {formatData(l._dataInicio)} → {formatData(l._dataFim)}</p>
+                      <p style={{ margin: 0, fontSize: "0.72rem", color: "#555", lineHeight: 1.25 }}>
+                        <span style={{ marginRight: "6px", fontSize: "0.68rem", color: "#6366F1", background: "#6366F115", padding: "1px 6px", borderRadius: "999px" }}>compra parcelada</span>
+                        {l._nParcelas}× {formatBRL(l._valorParcela)} · {cartaoNome ? normalizeText(cartaoNome) + " · " : ""}{normalizeText(l.categoria)} · {formatData(l._dataInicio)} → {formatData(l._dataFim)}
+                      </p>
                     </div>
                     <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#EF4444", flexShrink: 0 }}>-{formatBRL(l.valor)}</p>
-                    <button onClick={(e) => { e.stopPropagation(); handleDelete(l); }} style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem", flexShrink: 0 }}>×</button>
                   </div>
                 );
               }
@@ -1573,7 +1593,7 @@ export default function PradexFinancas() {
                 <div key={l._idsGrupo ? `grupo-${l._idsGrupo[0]}` : l.id} onClick={() => handleEdit(l)} style={{ display: "flex", alignItems: "center", padding: "0.9rem 1rem", background: l.poderia_ter_evitado ? "#F59E0B08" : "#181B24", borderRadius: "12px", marginBottom: "0.5rem", border: `1px solid ${l.poderia_ter_evitado ? "#F59E0B30" : "#252832"}`, gap: "0.75rem", cursor: "pointer" }}>
                   <div style={{ width: "36px", height: "36px", borderRadius: "10px", flexShrink: 0, background: l.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem" }}>{l.tipo === "receita" ? "+" : "-"}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", fontWeight: 500, color: "#E8E8E8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.25 }}>
+                    <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", fontWeight: 500, color: "#E8E8E8", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.25 }}>
                       {normalizeText(l.descricao)}
                       {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#6366F1", background: "#6366F115", padding: "1px 5px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
                       {l._totalMeses && l._totalMeses > 1 && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#22C55E", background: "#22C55E15", padding: "1px 6px", borderRadius: "999px" }}>{l._totalMeses} meses</span>}
@@ -1591,7 +1611,6 @@ export default function PradexFinancas() {
                     </div>
                   )}
                   <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444", flexShrink: 0 }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
-                  <button onClick={(e) => { e.stopPropagation(); handleDelete(l); }} style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem", flexShrink: 0 }}>×</button>
                 </div>
               );
             })}
@@ -1661,7 +1680,7 @@ export default function PradexFinancas() {
                     <div key={l.id} onClick={() => handleEdit(l)} style={{ display: "flex", alignItems: "center", padding: "0.7rem 0", borderBottom: "1px solid #1a1d26", cursor: "pointer", gap: "0.75rem" }}>
                       <div style={{ width: "32px", height: "32px", borderRadius: "8px", flexShrink: 0, background: l.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem" }}>{l.tipo === "receita" ? "+" : "-"}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ margin: "0 0 0.12rem", fontSize: "0.85rem", color: "#E8E8E8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.25 }}>
+                        <p style={{ margin: "0 0 0.12rem", fontSize: "0.85rem", color: "#E8E8E8", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.25 }}>
                           {l.poderia_ter_evitado && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#F59E0B", background: "#F59E0B15" }}>Evitável</span>}
                           {l.recorrente && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#22C55E", background: "#22C55E15" }}>Recorrente</span>}
                           {normalizeText(l.descricao)}
