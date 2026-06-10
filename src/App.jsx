@@ -224,7 +224,7 @@ export default function PradexFinancas() {
   const [cadastroTelefone, setCadastroTelefone] = useState("");
   const [precisaCadastrarTelefone, setPrecisaCadastrarTelefone] = useState(false);
   const [bannerTelefoneFechado, setBannerTelefoneFechado] = useState(false);
-  const [tela, setTela] = useState("ia");
+  const [tela, setTela] = useState("dashboard");
   const [tipo, setTipo] = useState("gasto");
   const [form, setForm] = useState({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "", parcelado: false, parcela_atual: "1", total_parcelas: "", recorrente: false });
   const [lancamentos, setLancamentos] = useState([]);
