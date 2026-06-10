@@ -90,43 +90,6 @@ const getMonthLabel = (key) => {
   return `${monthNames[parseInt(mes, 10) - 1]} ${ano}`;
 };
 const getFormaPagamentoLabel = (value) => normalizeText(value) || "Não informado";
-const isValidDateString = (value = "") => /^\d{4}-\d{2}-\d{2}$/.test(String(value));
-const getPreviewScore = (item) => {
-  let score = 0;
-  if ((item.descricao || "").trim().length >= 3) score += 2;
-  if (Number(item.valor) > 0) score += 2;
-  if (["gasto", "receita"].includes(item.tipo)) score += 2;
-  if ((item.categoria || "").trim()) score += 2;
-  if (isValidDateString(item.data_lancamento)) score += 1;
-  if (formasPagamento.includes(item.forma_pagamento)) score += 1;
-  if (item.forma_pagamento === "Crédito" && item.cartao_id) score += 1;
-  return score;
-};
-const getPreviewConfidence = (item) => {
-  const score = getPreviewScore(item);
-  if (score >= 8) return { label: "Alta confiança", color: "#22C55E", background: "#22C55E15", border: "#22C55E30" };
-  if (score >= 6) return { label: "Média confiança", color: "#F59E0B", background: "#F59E0B15", border: "#F59E0B30" };
-  return { label: "Baixa confiança", color: "#EF4444", background: "#EF444415", border: "#EF444430" };
-};
-const getPreviewGroupLabel = (item) => {
-  if (item.tipo === "receita") return "Receitas identificadas";
-  if (isValidDateString(item.data_lancamento) && item.data_lancamento > today) return "Contas e lançamentos futuros";
-  if (item.forma_pagamento === "Crédito") return "Compras no crédito";
-  if (["Débito", "PIX", "Dinheiro"].includes(item.forma_pagamento)) return "Saídas do dia a dia";
-  return "Lançamentos para revisar";
-};
-const enrichPreviewItem = (item) => ({
-  ...item,
-  id_preview: generateUUID(),
-  descricao: normalizeText(item.descricao || ""),
-  categoria: normalizeText(item.categoria || ""),
-  forma_pagamento: item.forma_pagamento || "",
-  data_lancamento: item.data_lancamento || today,
-  poderia_ter_evitado: Boolean(item.poderia_ter_evitado),
-  cartao_id: item.cartao_id ?? "",
-  _editando: false,
-});
-
 async function fetchTaxaFocus() {
   return 5.65 + 4.5;
 }
@@ -273,11 +236,6 @@ export default function PradexFinancas() {
   const [saving, setSaving] = useState(false);
   const [erro, setErro] = useState("");
   const [success, setSuccess] = useState(false);
-  const [textoIA, setTextoIA] = useState("");
-  const [processando, setProcessando] = useState(false);
-  const [preview, setPreview] = useState([]);
-  const [erroIA, setErroIA] = useState("");
-  const [importado, setImportado] = useState(false);
   const [formCartao, setFormCartao] = useState({ nome: "", bandeira: "", dia_fechamento: "", dia_vencimento: "" });
   const [savingCartao, setSavingCartao] = useState(false);
   const [erroCartao, setErroCartao] = useState("");
@@ -815,58 +773,6 @@ export default function PradexFinancas() {
     } catch (e) {}
   };
 
-  const processarComIA = async () => {
-    if (!textoIA.trim()) { setErroIA("Cole algum texto primeiro."); return; }
-    if (!session?.token) { setErroIA("Sessão expirada. Faça login novamente."); return; }
-    setProcessando(true); setErroIA(""); setPreview([]);
-    try {
-      const cartoesInfo = cartoes.length > 0 ? "Cartões cadastrados:\n" + cartoes.map(c => "- ID " + c.id + ": " + c.nome + (c.bandeira ? " (" + c.bandeira + ")" : "")).join("\n") : "Cartões cadastrados: nenhum";
-      const todasCatsGasto = categories.gasto.join(", ");
-      const todasCatsReceita = categories.receita.join(", ");
-      const prompt = `Categorias gasto: ${todasCatsGasto}\nCategorias receita: ${todasCatsReceita}\n${cartoesInfo}\n\nTexto a extrair:\n${textoIA}`;
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/claude-proxy`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": `Bearer ${session.token}` },
-        body: JSON.stringify({ prompt, data_referencia: today }),
-      });
-      if (res.status === 401) { setErroIA("Sessão expirada. Faça login novamente."); setProcessando(false); return; }
-      if (res.status === 429) { setErroIA("Limite temporário atingido. Tente em alguns segundos."); setProcessando(false); return; }
-      const data = await res.json();
-      if (!res.ok) { setErroIA("Erro ao processar (" + (data?.error || res.status) + ")."); setProcessando(false); return; }
-      const transacoes = Array.isArray(data?.transacoes) ? data.transacoes : [];
-      if (transacoes.length > 0) setPreview(transacoes.map(enrichPreviewItem));
-      else setErroIA("Não consegui identificar lançamentos.");
-    } catch (e) { setErroIA("Erro ao processar."); }
-    setProcessando(false);
-  };
-
-  const atualizarPreviewItem = (id, updates) => {
-    setPreview(prev => prev.map(item => item.id_preview === id ? { ...item, ...updates } : item));
-  };
-
-  const togglePreviewEdit = (id) => {
-    setPreview(prev => prev.map(item => item.id_preview === id ? { ...item, _editando: !item._editando } : item));
-  };
-
-  const removerPreviewItem = (id) => {
-    setPreview(prev => prev.filter(item => item.id_preview !== id));
-  };
-
-  const confirmarImportacao = async () => {
-    setSaving(true);
-    try {
-      for (const l of preview) {
-        const { id_preview, _editando, ...payload } = l;
-        await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, { method: "POST", headers: { ...api(session?.token), "Prefer": "return=representation" }, body: JSON.stringify({ ...payload, user_id: session.user.id, poderia_ter_evitado: false, cartao_id: payload.cartao_id ? Number(payload.cartao_id) : null }) });
-      }
-      await fetchLancamentos();
-      setTextoIA(""); setPreview([]);
-      setImportado(true);
-      setTimeout(() => { setImportado(false); setTela("dashboard"); }, 2000);
-    } catch (e) { setErroIA("Erro ao salvar."); }
-    setSaving(false);
-  };
-
   const mesAtual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
   const gastos = lancamentos.filter(l => l.tipo === "gasto" && l.data_lancamento?.startsWith(mesAtual));
   const receitas = lancamentos.filter(l => l.tipo === "receita" && l.data_lancamento?.startsWith(mesAtual));
@@ -928,14 +834,7 @@ export default function PradexFinancas() {
   const totalCartaoSelecionado = cartaoSelecionado
     ? lancamentosAgrupados.filter(lancamento => lancamento.tipo === "gasto" && lancamento.forma_pagamento === "Crédito" && Number(lancamento.cartao_id) === Number(cartaoSelecionado.id)).reduce((s, lancamento) => s + Number(lancamento.valor || 0), 0)
     : 0;
-  const previewAgrupado = preview.reduce((acc, item) => {
-    const grupo = getPreviewGroupLabel(item);
-    if (!acc[grupo]) acc[grupo] = [];
-    acc[grupo].push(item);
-    return acc;
-  }, {});
-
-  const menuItems = [{ key: "ia", label: "IA" }, { key: "dashboard", label: "Dashboard" }, { key: "lancamentos", label: "Lançar" }, { key: "historico", label: "Histórico" }, { key: "fp", label: "FP" }];
+  const menuItems = [{ key: "dashboard", label: "Dashboard" }, { key: "lancamentos", label: "Lançar" }, { key: "historico", label: "Histórico" }, { key: "fp", label: "FP" }];
 
   if (loadingAuth) return <div style={{ minHeight: "100vh", background: "#0F1117", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "#555", fontFamily: "'DM Sans', sans-serif" }}>Carregando...</p></div>;
 
@@ -1185,103 +1084,16 @@ export default function PradexFinancas() {
       {/* MENU */}
       <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", border: "1px solid #252832", gap: "2px" }}>
         {menuItems.map(t => (
-          <button key={t.key} onClick={() => { setTela(t.key); setErro(""); setErroIA(""); }} style={{ flex: 1, padding: "0.5rem 0.25rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: t.key === "ia" ? "0.78rem" : "0.7rem", fontWeight: t.key === "ia" ? 700 : 600, whiteSpace: "nowrap", background: tela === t.key ? (t.key === "ia" ? "#6366F1" : "#252832") : "transparent", color: tela === t.key ? "#F0F0F0" : t.key === "ia" ? "#6366F1" : "#555", transition: "all 0.2s", fontFamily: "inherit" }}>{t.label}</button>
+          <button key={t.key} onClick={() => { setTela(t.key); setErro(""); }} style={{ flex: 1, padding: "0.5rem 0.25rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.7rem", fontWeight: 600, whiteSpace: "nowrap", background: tela === t.key ? "#252832" : "transparent", color: tela === t.key ? "#F0F0F0" : "#555", transition: "all 0.2s", fontFamily: "inherit" }}>{t.label}</button>
         ))}
       </div>
 
-      {/* IA */}
-      {tela === "ia" && (
+
+      {/* DASHBOARD */}
+      {tela === "dashboard" && (
         <div>
-          <div style={{ background: "#6366F110", borderRadius: "20px", padding: "1.75rem 1.5rem", marginBottom: "1.25rem", border: "1px solid #6366F140", textAlign: "center" }}>
-            <p style={{ margin: "0 0 0.5rem", fontSize: "2rem" }}>IA</p>
-            <h2 style={{ margin: "0 0 0.5rem", fontSize: "1.2rem", fontWeight: 700, color: "#F0F0F0" }}>Importar com Inteligência Artificial</h2>
-            <p style={{ margin: 0, fontSize: "0.85rem", color: "#888", lineHeight: 1.6 }}>Cole seus gastos em texto livre, extrato, WhatsApp ou bloco de notas e a IA organiza tudo automaticamente.</p>
-          </div>
-          <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832", marginBottom: "1.25rem" }}>
-            <textarea placeholder="Cole aqui o texto com seus gastos..." value={textoIA} onChange={e => setTextoIA(e.target.value)} rows={6} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }} />
-            {erroIA && <p style={{ color: "#EF4444", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{erroIA}</p>}
-            {preview.length === 0 && (
-              <button onClick={processarComIA} disabled={processando} style={{ width: "100%", padding: "0.95rem", border: "none", borderRadius: "12px", background: processando ? "#4a4c9a" : "#6366F1", color: "#fff", fontSize: "1rem", fontWeight: 700, cursor: processando ? "not-allowed" : "pointer", transition: "all 0.2s", fontFamily: "inherit" }}>
-                {processando ? "Processando..." : "Processar com IA"}
-              </button>
-            )}
-            {preview.length > 0 && (
-              <>
-                <div style={{ background: "#121521", borderRadius: "14px", border: "1px solid #252832", padding: "0.9rem 1rem", margin: "1rem 0 0.9rem" }}>
-                  <p style={{ margin: "0 0 0.25rem", fontSize: "0.76rem", color: "#A3A3A3", textTransform: "uppercase", letterSpacing: "0.1em" }}>{preview.length} lançamento{preview.length > 1 ? "s" : ""} identificado{preview.length > 1 ? "s" : ""}</p>
-                  <p style={{ margin: 0, fontSize: "0.8rem", color: "#666", lineHeight: 1.5 }}>A prévia agora agrupa os itens por contexto, mostra o nível de confiança da IA e permite edição rápida antes de confirmar.</p>
-                </div>
-                {Object.entries(previewAgrupado).map(([grupo, itens]) => (
-                  <div key={grupo} style={{ marginBottom: "0.9rem" }}>
-                    <p style={{ margin: "0 0 0.55rem", fontSize: "0.72rem", color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>{grupo}</p>
-                    {itens.map((l) => {
-                      const confianca = getPreviewConfidence(l);
-                      return (
-                        <div key={l.id_preview} style={{ background: "#0F1117", borderRadius: "12px", marginBottom: "0.55rem", border: `1px solid ${confianca.border}`, padding: "0.9rem 1rem" }}>
-                          <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
-                            <div style={{ width: "34px", height: "34px", borderRadius: "10px", flexShrink: 0, background: l.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.95rem" }}>{l.tipo === "receita" ? "+" : "-"}</div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", flexWrap: "wrap", marginBottom: "0.2rem" }}>
-                                <p style={{ margin: 0, fontSize: "0.88rem", fontWeight: 600, color: "#E8E8E8", lineHeight: 1.25 }}>{normalizeText(l.descricao)}</p>
-                                <span style={{ ...badgeBaseStyle, color: confianca.color, background: confianca.background }}>{confianca.label}</span>
-                              </div>
-                              <p style={{ margin: 0, fontSize: "0.72rem", color: "#666", lineHeight: 1.3 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}</p>
-                            </div>
-                            <p style={{ margin: 0, fontSize: "0.92rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444", flexShrink: 0 }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
-                          </div>
-                          <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
-                            <button onClick={() => togglePreviewEdit(l.id_preview)} style={{ padding: "0.45rem 0.75rem", borderRadius: "8px", border: "1px solid #252832", background: l._editando ? "#6366F118" : "transparent", color: l._editando ? "#6366F1" : "#888", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{l._editando ? "Fechar edição" : "Editar"}</button>
-                            <button onClick={() => removerPreviewItem(l.id_preview)} style={{ padding: "0.45rem 0.75rem", borderRadius: "8px", border: "1px solid #252832", background: "transparent", color: "#888", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Remover</button>
-                          </div>
-                          {l._editando && (
-                            <div style={{ marginTop: "0.75rem", paddingTop: "0.75rem", borderTop: "1px solid #1B1F2A" }}>
-                              <input type="text" value={l.descricao} onChange={e => atualizarPreviewItem(l.id_preview, { descricao: e.target.value })} placeholder="Descrição" style={{ ...inputStyle, marginBottom: "0.6rem", fontSize: "0.84rem", padding: "0.65rem 0.85rem" }} />
-                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.55rem" }}>
-                                <input type="text" value={String(l.valor ?? "")} onChange={e => atualizarPreviewItem(l.id_preview, { valor: e.target.value })} placeholder="Valor" style={{ ...inputStyle, marginBottom: "0.6rem", fontSize: "0.84rem", padding: "0.65rem 0.85rem" }} />
-                                <input type="date" value={l.data_lancamento || today} onChange={e => atualizarPreviewItem(l.id_preview, { data_lancamento: e.target.value })} style={{ ...inputStyle, marginBottom: "0.6rem", fontSize: "0.84rem", padding: "0.65rem 0.85rem" }} />
-                              </div>
-                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.55rem" }}>
-                                <select value={l.tipo || "gasto"} onChange={e => atualizarPreviewItem(l.id_preview, { tipo: e.target.value, categoria: "" })} style={{ ...inputStyle, marginBottom: "0.6rem", fontSize: "0.84rem", padding: "0.65rem 0.85rem", color: "#E8E8E8", appearance: "none" }}>
-                                  <option value="gasto">Gasto</option>
-                                  <option value="receita">Receita</option>
-                                </select>
-                                <select value={l.categoria || ""} onChange={e => atualizarPreviewItem(l.id_preview, { categoria: e.target.value })} style={{ ...inputStyle, marginBottom: "0.6rem", fontSize: "0.84rem", padding: "0.65rem 0.85rem", color: l.categoria ? "#E8E8E8" : "#555", appearance: "none" }}>
-                                  <option value="">Categoria</option>
-                                  {categories[l.tipo || "gasto"].map(c => <option key={`${l.id_preview}-${c}`} value={c}>{normalizeText(c)}</option>)}
-                                </select>
-                              </div>
-                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.55rem" }}>
-                                <select value={l.forma_pagamento || ""} onChange={e => atualizarPreviewItem(l.id_preview, { forma_pagamento: e.target.value, cartao_id: e.target.value === "Crédito" ? l.cartao_id : "" })} style={{ ...inputStyle, marginBottom: "0.6rem", fontSize: "0.84rem", padding: "0.65rem 0.85rem", color: l.forma_pagamento ? "#E8E8E8" : "#555", appearance: "none" }}>
-                                  <option value="">Forma de pagamento</option>
-                                  {formasPagamento.map(f => <option key={`${l.id_preview}-${f}`} value={f}>{f}</option>)}
-                                </select>
-                                {l.forma_pagamento === "Crédito" && cartoes.length > 0 ? (
-                                  <select value={l.cartao_id || ""} onChange={e => atualizarPreviewItem(l.id_preview, { cartao_id: e.target.value })} style={{ ...inputStyle, marginBottom: "0.6rem", fontSize: "0.84rem", padding: "0.65rem 0.85rem", color: l.cartao_id ? "#E8E8E8" : "#555", appearance: "none" }}>
-                                    <option value="">Selecione o cartão</option>
-                                    {cartoes.map(c => <option key={`${l.id_preview}-cartao-${c.id}`} value={c.id}>{normalizeText(c.nome)}</option>)}
-                                  </select>
-                                ) : (
-                                  <div style={{ ...inputStyle, marginBottom: "0.6rem", fontSize: "0.78rem", padding: "0.65rem 0.85rem", color: "#666", display: "flex", alignItems: "center" }}>Cartão não aplicável</div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-                <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
-                  <button onClick={() => { setPreview([]); setTextoIA(""); }} style={{ flex: 1, padding: "0.75rem", border: "1px solid #252832", borderRadius: "10px", background: "transparent", color: "#888", fontSize: "0.9rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
-                  <button onClick={confirmarImportacao} disabled={saving} style={{ flex: 2, padding: "0.75rem", border: "none", borderRadius: "10px", background: importado ? "#16A34A" : "#22C55E", color: "#fff", fontSize: "0.9rem", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, fontFamily: "inherit" }}>
-                    {saving ? "Salvando..." : importado ? "Importado!" : `Confirmar ${preview.length} lançamento${preview.length > 1 ? "s" : ""}`}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
           {rascunhos.length > 0 && (
-            <div>
+            <div style={{ marginBottom: "1.25rem" }}>
               <p style={{ margin: "0 0 0.75rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Pendentes do WhatsApp ({rascunhos.length})</p>
               {rascunhos.map(r => (
                 <div key={r.id} style={{ background: "#181B24", borderRadius: "16px", padding: "1.25rem", marginBottom: "0.75rem", border: "1px solid #252832" }}>
@@ -1302,12 +1114,6 @@ export default function PradexFinancas() {
               ))}
             </div>
           )}
-        </div>
-      )}
-
-      {/* DASHBOARD */}
-      {tela === "dashboard" && (
-        <div>
           {lancamentos.length === 0 ? (
             <div style={{ textAlign: "center", padding: "3rem 0", color: "#444" }}>
               <p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>•</p>
