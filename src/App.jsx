@@ -620,11 +620,12 @@ export default function PradexFinancas() {
         const aviso = n ? `Excluir esta compra e suas ${n} parcelas? Esta ação não pode ser desfeita.` : "Excluir esta compra e todas as suas parcelas? Esta ação não pode ser desfeita.";
         if (!window.confirm(aviso)) return;
         setDeletandoCompra(true);
-        await fetch(`${SUPABASE_URL}/rest/v1/rpc/deletar_compra_parcelada`, {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/deletar_compra_parcelada`, {
           method: "POST",
           headers: { ...api(session?.token), "Prefer": "return=representation" },
           body: JSON.stringify({ p_grupo_id: grupoParcelaId }),
         });
+        if (!res.ok) { alert("Erro ao excluir a compra. Tenta de novo."); setDeletandoCompra(false); return; }
         setLancamentos(prev => prev.filter(x => x.parcela_grupo_id !== grupoParcelaId));
         setCompraDetalhe(null);
         setDeletandoCompra(false);
