@@ -29,7 +29,7 @@ export default defineConfig({
         // Precache só do shell (build assets). Nada do Supabase passa pelo cache:
         // dado financeiro é sempre network (cross-origin fica fora do SW por padrão).
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/rest\//, /^\/functions\//],
+        navigateFallbackDenylist: [/^\/rest\//, /^\/functions\//, /^\/privacidade/],
       },
     }),
   ],
