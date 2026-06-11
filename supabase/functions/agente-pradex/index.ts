@@ -365,6 +365,27 @@ async function processarOnboarding(supabase: SupabaseClient, telefone: string, t
   return { mensagem: "Vamos começar de novo. Me manda o email da sua conta no Pradex 👊", concluido: false };
 }
 
+// ===== VALIDAÇÃO DE CATEGORIA =====
+// O modelo recebe a lista de categorias no prompt, mas o schema da tool aceita texto
+// livre — sem isso aqui ele eventualmente inventa categoria nova ("Manutenção Carro/moto").
+// Regra de produto (cenário G): categoria fora da lista do usuário cai em "Outros".
+function normalizarNome(s: string): string {
+  return (s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
+}
+
+function validarCategorias(acoes: any[], categorias: Array<{ nome: string; tipo: string }>, cid: string): any[] {
+  return acoes.map((acao: any) => {
+    const dados = acao?.dados;
+    if (!dados || dados.categoria === undefined || dados.categoria === null) return acao;
+    const tipoLanc = dados.tipo === "receita" ? "receita" : "gasto";
+    const alvo = normalizarNome(String(dados.categoria));
+    const match = categorias.find((c) => c.tipo === tipoLanc && normalizarNome(c.nome) === alvo);
+    if (match) return { ...acao, dados: { ...dados, categoria: match.nome } };
+    logInfo(cid, "categoria_fora_da_lista", { original: dados.categoria, tipo: tipoLanc, fallback: "Outros" });
+    return { ...acao, dados: { ...dados, categoria: "Outros" } };
+  });
+}
+
 // ===== PROCESSAR LANÇAMENTO =====
 async function processarLancamento(supabase: SupabaseClient, userId: string, nomeCliente: string, telefone: string, texto: string, cid: string) {
   const dataHoje = new Date().toISOString().split("T")[0];
@@ -372,7 +393,8 @@ async function processarLancamento(supabase: SupabaseClient, userId: string, nom
   const resp = await callAnthropic(texto, { nomeCliente, telefone, dataHoje, ...ctx }, cid);
   if (!resp) return { mensagem: "Tive um problema do meu lado processando sua mensagem. Tenta de novo em alguns segundos 🙏", acoesAplicadas: null };
   if (resp.precisa_confirmar || !resp.acoes || resp.acoes.length === 0) return { mensagem: resp.mensagem_resposta, acoesAplicadas: null };
-  const { data: ids, error } = await supabase.rpc("agente_aplicar_acoes", { p_user_id: userId, p_acoes: resp.acoes });
+  const acoesValidadas = validarCategorias(resp.acoes, ctx.categorias, cid);
+  const { data: ids, error } = await supabase.rpc("agente_aplicar_acoes", { p_user_id: userId, p_acoes: acoesValidadas });
   if (error) { logErro(cid, "rpc_aplicar_acoes_failed", error); return { mensagem: "Entendi mas tive problema gravando os lançamentos. Tenta de novo, e se persistir, lança pelo app 🙏", acoesAplicadas: null }; }
   return { mensagem: resp.mensagem_resposta, acoesAplicadas: ids ?? [] };
 }
