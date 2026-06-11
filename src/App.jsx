@@ -146,6 +146,7 @@ function agruparPorParcelaGrupo(lancamentos) {
       _nParcelas: nParcelas,
       _dataInicio: primeira.data_lancamento,
       _dataFim: ultima.data_lancamento,
+      _idMax: parcelas.reduce((m, p) => Math.max(m, Number(p.id) || 0), 0),
       // Campos "compat" pra filtros + ordenação trabalharem igual antes
       descricao: limparDescricaoParcela(primeira.descricao || ""),
       valor: valorTotal,
@@ -180,13 +181,10 @@ function agruparLancamentos(lancamentos) {
   }
   const recorrentesAgrupados = Object.values(grupos);
   const todos = [...compras, ...recorrentesAgrupados, ...naoRecorrentes];
-  // Ordena: compras (id sintético "compra-uuid") caem no fim do sort numérico — força por data desc.
-  todos.sort((a, b) => {
-    const da = a.data_lancamento || "";
-    const db = b.data_lancamento || "";
-    if (da !== db) return db.localeCompare(da);
-    return (b.id || 0) - (a.id || 0);
-  });
+  // Ordem de CRIAÇÃO (recém-lançado no topo), como era antes do agrupamento.
+  // Compra usa o maior id entre as parcelas; id sintético "compra-uuid" nunca entra na conta.
+  const chaveOrdem = (l) => l._idMax || (typeof l.id === "number" ? l.id : 0);
+  todos.sort((a, b) => chaveOrdem(b) - chaveOrdem(a));
   return todos;
 }
 
