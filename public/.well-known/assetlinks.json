@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.pradex.financas",
+      "sha256_cert_fingerprints": [
+        "B4:39:98:CD:A1:AD:F5:81:9D:37:8D:79:FF:04:08:43:30:1B:05:7D:41:76:CB:F3:55:08:FF:AD:83:31:00:0F"
+      ]
+    }
+  }
+]
