@@ -1063,18 +1063,18 @@ export default function PradexFinancas() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "0.75rem", marginBottom: "1.5rem", width: "100%" }}>
         <div style={{ background: "linear-gradient(180deg, #191D27 0%, #181B24 100%)", borderRadius: "14px", padding: "1rem 0.85rem", border: "1px solid #252832", minWidth: 0, boxSizing: "border-box" }}>
           <p style={{ margin: "0 0 0.35rem", fontSize: "0.64rem", color: "#666", textTransform: "uppercase", letterSpacing: "0.12em" }}>Ganhos</p>
-          <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 700, color: "#22C55E", whiteSpace: "normal", overflowWrap: "anywhere" }}>{formatBRL(totalReceitas)}</p>
+          <p style={{ margin: 0, fontSize: "clamp(0.62rem, 2.6vw, 0.82rem)", fontWeight: 700, color: "#22C55E", whiteSpace: "normal", wordBreak: "keep-all", overflowWrap: "normal", fontVariantNumeric: "tabular-nums" }}>{formatBRL(totalReceitas).replace(new RegExp(String.fromCharCode(160), "g"), " ")}</p>
         </div>
         <div style={{ background: "linear-gradient(180deg, #191D27 0%, #181B24 100%)", borderRadius: "14px", padding: "1rem 0.85rem", border: "1px solid #252832", minWidth: 0, boxSizing: "border-box" }}>
           <p style={{ margin: "0 0 0.35rem", fontSize: "0.64rem", color: "#666", textTransform: "uppercase", letterSpacing: "0.12em" }}>Débito</p>
-          <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 700, color: "#EF4444", whiteSpace: "normal", overflowWrap: "anywhere" }}>{formatBRL(gastosDebito)}</p>
+          <p style={{ margin: 0, fontSize: "clamp(0.62rem, 2.6vw, 0.82rem)", fontWeight: 700, color: "#EF4444", whiteSpace: "normal", wordBreak: "keep-all", overflowWrap: "normal", fontVariantNumeric: "tabular-nums" }}>{formatBRL(gastosDebito).replace(new RegExp(String.fromCharCode(160), "g"), " ")}</p>
         </div>
         <div style={{ background: "linear-gradient(180deg, #191D27 0%, #181B24 100%)", borderRadius: "14px", padding: "1rem 0.85rem", border: "1px solid #252832", minWidth: 0, boxSizing: "border-box" }}>
           <p style={{ margin: "0 0 0.35rem", fontSize: "0.64rem", color: "#666", textTransform: "uppercase", letterSpacing: "0.12em" }}>Cartões</p>
           {gastosPorCartao.length > 0 ? gastosPorCartao.map((item, i) => (
             <div key={item.cartao.id} style={{ marginBottom: i < gastosPorCartao.length - 1 ? "0.35rem" : 0 }}>
               <p style={{ margin: 0, fontSize: "0.64rem", color: "#777" }}>{normalizeText(item.cartao.nome)}</p>
-              <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 700, color: "#EF4444", whiteSpace: "normal", overflowWrap: "anywhere" }}>{formatBRL(item.total)}</p>
+              <p style={{ margin: 0, fontSize: "clamp(0.62rem, 2.6vw, 0.82rem)", fontWeight: 700, color: "#EF4444", whiteSpace: "normal", wordBreak: "keep-all", overflowWrap: "normal", fontVariantNumeric: "tabular-nums" }}>{formatBRL(item.total).replace(new RegExp(String.fromCharCode(160), "g"), " ")}</p>
             </div>
           )) : <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: "#333" }}>—</p>}
         </div>
