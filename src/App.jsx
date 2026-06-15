@@ -890,7 +890,7 @@ export default function PradexFinancas() {
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0F1117", color: "#E8E8E8", fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", padding: "2rem 1.5rem", maxWidth: "480px", margin: "0 auto" }}>
+    <div style={{ minHeight: "100vh", background: "#0F1117", color: "#E8E8E8", fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", maxWidth: "480px", margin: "0 auto", boxSizing: "border-box", paddingTop: "max(2rem, env(safe-area-inset-top, 0px))", paddingRight: "max(1.5rem, env(safe-area-inset-right, 0px))", paddingLeft: "max(1.5rem, env(safe-area-inset-left, 0px))", paddingBottom: "calc(56px + 1.5rem + 16px + env(safe-area-inset-bottom, 0px))" }}>
 
       {editando && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
@@ -1059,16 +1059,16 @@ export default function PradexFinancas() {
       )}
 
       {/* CARDS */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem", marginBottom: "1.5rem" }}>
-        <div style={{ background: "linear-gradient(180deg, #191D27 0%, #181B24 100%)", borderRadius: "14px", padding: "1rem 0.85rem", border: "1px solid #252832" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "0.75rem", marginBottom: "1.5rem", width: "100%" }}>
+        <div style={{ background: "linear-gradient(180deg, #191D27 0%, #181B24 100%)", borderRadius: "14px", padding: "1rem 0.85rem", border: "1px solid #252832", minWidth: 0, boxSizing: "border-box", overflow: "hidden" }}>
           <p style={{ margin: "0 0 0.35rem", fontSize: "0.64rem", color: "#666", textTransform: "uppercase", letterSpacing: "0.12em" }}>Ganhos</p>
           <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#22C55E" }}>{formatBRL(totalReceitas)}</p>
         </div>
-        <div style={{ background: "linear-gradient(180deg, #191D27 0%, #181B24 100%)", borderRadius: "14px", padding: "1rem 0.85rem", border: "1px solid #252832" }}>
+        <div style={{ background: "linear-gradient(180deg, #191D27 0%, #181B24 100%)", borderRadius: "14px", padding: "1rem 0.85rem", border: "1px solid #252832", minWidth: 0, boxSizing: "border-box", overflow: "hidden" }}>
           <p style={{ margin: "0 0 0.35rem", fontSize: "0.64rem", color: "#666", textTransform: "uppercase", letterSpacing: "0.12em" }}>Débito</p>
           <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#EF4444" }}>{formatBRL(gastosDebito)}</p>
         </div>
-        <div style={{ background: "linear-gradient(180deg, #191D27 0%, #181B24 100%)", borderRadius: "14px", padding: "1rem 0.85rem", border: "1px solid #252832" }}>
+        <div style={{ background: "linear-gradient(180deg, #191D27 0%, #181B24 100%)", borderRadius: "14px", padding: "1rem 0.85rem", border: "1px solid #252832", minWidth: 0, boxSizing: "border-box", overflow: "hidden" }}>
           <p style={{ margin: "0 0 0.35rem", fontSize: "0.64rem", color: "#666", textTransform: "uppercase", letterSpacing: "0.12em" }}>Cartões</p>
           {gastosPorCartao.length > 0 ? gastosPorCartao.map((item, i) => (
             <div key={item.cartao.id} style={{ marginBottom: i < gastosPorCartao.length - 1 ? "0.35rem" : 0 }}>
