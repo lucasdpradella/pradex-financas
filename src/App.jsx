@@ -890,7 +890,8 @@ export default function PradexFinancas() {
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0F1117", color: "#E8E8E8", fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", maxWidth: "480px", margin: "0 auto", boxSizing: "border-box", paddingTop: "max(2rem, env(safe-area-inset-top, 0px))", paddingRight: "max(1.5rem, env(safe-area-inset-right, 0px))", paddingLeft: "max(1.5rem, env(safe-area-inset-left, 0px))", paddingBottom: "calc(56px + 1.5rem + 16px + env(safe-area-inset-bottom, 0px))" }}>
+    <div className="pradex-shell" style={{ background: "#0F1117", color: "#E8E8E8", fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", maxWidth: "480px", margin: "0 auto", boxSizing: "border-box", paddingTop: "max(2rem, env(safe-area-inset-top, 0px))", paddingRight: "max(1.5rem, env(safe-area-inset-right, 0px))", paddingLeft: "max(1.5rem, env(safe-area-inset-left, 0px))", paddingBottom: "calc(56px + 1.5rem + 16px + env(safe-area-inset-bottom, 0px))" }}>
+      <style>{`.pradex-shell { min-height: 100vh; min-height: 100dvh; }`}</style>
 
       {editando && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
@@ -1082,7 +1083,7 @@ export default function PradexFinancas() {
       {/* MENU */}
       <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", border: "1px solid #252832", gap: "2px" }}>
         {menuItems.map(t => (
-          <button key={t.key} onClick={() => { setTela(t.key); setErro(""); }} style={{ flex: 1, padding: "0.5rem 0.25rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.7rem", fontWeight: 600, whiteSpace: "nowrap", background: tela === t.key ? "#252832" : "transparent", color: tela === t.key ? "#F0F0F0" : "#555", transition: "all 0.2s", fontFamily: "inherit" }}>{t.label}</button>
+          <button key={t.key} onClick={() => { setTela(t.key); setErro(""); }} style={{ flex: 1, minWidth: 0, padding: "0.5rem 0.2rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.65rem", fontWeight: 600, letterSpacing: "-0.01em", whiteSpace: "nowrap", background: tela === t.key ? "#252832" : "transparent", color: tela === t.key ? "#F0F0F0" : "#555", transition: "all 0.2s", fontFamily: "inherit" }}>{t.label}</button>
         ))}
       </div>
 
