@@ -5,7 +5,8 @@
       "namespace": "android_app",
       "package_name": "com.pradex.financas",
       "sha256_cert_fingerprints": [
-        "B4:39:98:CD:A1:AD:F5:81:9D:37:8D:79:FF:04:08:43:30:1B:05:7D:41:76:CB:F3:55:08:FF:AD:83:31:00:0F"
+        "B4:39:98:CD:A1:AD:F5:81:9D:37:8D:79:FF:04:08:43:30:1B:05:7D:41:76:CB:F3:55:08:FF:AD:83:31:00:0F",
+        "23:86:46:7C:B8:D1:4D:5A:B1:47:9B:61:62:42:F7:5B:BF:D5:37:7F:6D:D3:55:BE:A5:AC:6A:43:C0:F0:68:6A"
       ]
     }
   }
