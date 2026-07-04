@@ -17,6 +17,7 @@ import { useIsDesktop } from "./components/desktop/useIsDesktop";
 import { desktopTheme, SIDEBAR_WIDTH } from "./components/desktop/theme";
 import SidebarDesktop from "./components/desktop/SidebarDesktop";
 import TopBar from "./components/desktop/TopBar";
+import TabelaLancamentos from "./components/desktop/TabelaLancamentos";
 import { normalizeTelefone, isValidTelefoneBr, formatTelefoneInput } from "./utils/phone";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
@@ -614,6 +615,73 @@ export default function PradexFinancas() {
       setDeletandoCompra(false);
       return false;
     }
+  };
+
+  // --- Ações da tabela desktop (Fase 1) ---------------------------------------
+  // Sem window.confirm: a confirmação é o modal próprio da tabela (regra dura
+  // pós-incidente 2026-06-01). Toda escrita checa res.ok antes de refletir (PR #4).
+  const expandirSelecao = (rows) => {
+    const idsAvulsos = new Set();
+    const gruposParcela = new Set();
+    for (const r of rows) {
+      if (r.parcela_grupo_id) gruposParcela.add(r.parcela_grupo_id);
+      else idsAvulsos.add(r.id);
+    }
+    return { idsAvulsos: [...idsAvulsos], gruposParcela: [...gruposParcela] };
+  };
+
+  const handleBulkDelete = async (rows) => {
+    try {
+      const { idsAvulsos, gruposParcela } = expandirSelecao(rows);
+      for (const gid of gruposParcela) {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/deletar_compra_parcelada`, {
+          method: "POST", headers: { ...api(session?.token), "Prefer": "return=representation" },
+          body: JSON.stringify({ p_grupo_id: gid }),
+        });
+        if (!res.ok) { await fetchLancamentos(); return { ok: false }; }
+      }
+      for (const id of idsAvulsos) {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?id=eq.${id}`, { method: "DELETE", headers: api(session?.token) });
+        if (!res.ok) { await fetchLancamentos(); return { ok: false }; }
+      }
+      await fetchLancamentos();
+      return { ok: true };
+    } catch (e) { return { ok: false }; }
+  };
+
+  const handleBulkRecategorize = async (rows, categoria) => {
+    if (!categoria) return { ok: false };
+    try {
+      const { idsAvulsos, gruposParcela } = expandirSelecao(rows);
+      for (const gid of gruposParcela) {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?parcela_grupo_id=eq.${gid}`, {
+          method: "PATCH", headers: { ...api(session?.token), "Prefer": "return=minimal" },
+          body: JSON.stringify({ categoria }),
+        });
+        if (!res.ok) { await fetchLancamentos(); return { ok: false }; }
+      }
+      if (idsAvulsos.length) {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?id=in.(${idsAvulsos.join(",")})`, {
+          method: "PATCH", headers: { ...api(session?.token), "Prefer": "return=minimal" },
+          body: JSON.stringify({ categoria }),
+        });
+        if (!res.ok) { await fetchLancamentos(); return { ok: false }; }
+      }
+      await fetchLancamentos();
+      return { ok: true };
+    } catch (e) { return { ok: false }; }
+  };
+
+  const handleInlineSave = async (id, patch) => {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?id=eq.${id}`, {
+        method: "PATCH", headers: { ...api(session?.token), "Prefer": "return=minimal" },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) return false; // não reflete na UI se o banco recusou
+      await fetchLancamentos();
+      return true;
+    } catch (e) { return false; }
   };
 
   const handleEdit = (l) => {
@@ -1475,6 +1543,20 @@ export default function PradexFinancas() {
         const gastosCat = categories.gasto.map(cat => ({ cat, total: lancMes.filter(l => l.tipo === "gasto" && l.categoria === cat).reduce((s, l) => s + Number(l.valor), 0) })).filter(x => x.total > 0).sort((a, b) => b.total - a.total);
         const maxCat = Math.max(...gastosCat.map(x => x.total), 1);
         const ehMesAtual = mes === new Date().getMonth() && ano === new Date().getFullYear();
+        if (isDesktop) return (
+          <TabelaLancamentos
+            lancamentos={lancamentos}
+            cartoes={cartoes}
+            categories={categories}
+            onEdit={handleEdit}
+            onInlineSave={handleInlineSave}
+            onBulkDelete={handleBulkDelete}
+            onBulkRecategorize={handleBulkRecategorize}
+            formatBRL={formatBRL}
+            normalizeText={normalizeText}
+            limparDescricaoParcela={limparDescricaoParcela}
+          />
+        );
         return (
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem" }}>
