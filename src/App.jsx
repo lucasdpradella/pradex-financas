@@ -13,6 +13,10 @@ import InvestimentosFP from "./components/fp/InvestimentosFP";
 import BensFP from "./components/fp/BensFP";
 import DiagnosticoFP from "./components/fp/DiagnosticoFP";
 import FabWhatsapp from "./components/FabWhatsapp";
+import { useIsDesktop } from "./components/desktop/useIsDesktop";
+import { desktopTheme, SIDEBAR_WIDTH } from "./components/desktop/theme";
+import SidebarDesktop from "./components/desktop/SidebarDesktop";
+import TopBar from "./components/desktop/TopBar";
 import { normalizeTelefone, isValidTelefoneBr, formatTelefoneInput } from "./utils/phone";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
@@ -209,6 +213,7 @@ function GraficoSimulador({ labels, dadosComAporte, dadosSemAporte, meta }) {
 }
 
 export default function PradexFinancas() {
+  const isDesktop = useIsDesktop();
   const [session, setSession] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
@@ -890,8 +895,21 @@ export default function PradexFinancas() {
   );
 
   return (
-    <div className="pradex-shell" style={{ background: "#0F1117", color: "#E8E8E8", fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", maxWidth: "480px", margin: "0 auto", boxSizing: "border-box", paddingTop: "max(2rem, env(safe-area-inset-top, 0px))", paddingRight: "max(1.5rem, env(safe-area-inset-right, 0px))", paddingLeft: "max(1.5rem, env(safe-area-inset-left, 0px))", paddingBottom: "calc(56px + 1.5rem + 16px + env(safe-area-inset-bottom, 0px))" }}>
-      <style>{`.pradex-shell { min-height: 100vh; min-height: 100dvh; }`}</style>
+    <div className="pradex-shell" style={isDesktop
+      ? { background: desktopTheme.mainBg, color: desktopTheme.textPrimary, fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", margin: 0, maxWidth: "none", boxSizing: "border-box", paddingLeft: `${SIDEBAR_WIDTH}px` }
+      : { background: "#0F1117", color: "#E8E8E8", fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", maxWidth: "480px", margin: "0 auto", boxSizing: "border-box", paddingTop: "max(2rem, env(safe-area-inset-top, 0px))", paddingRight: "max(1.5rem, env(safe-area-inset-right, 0px))", paddingLeft: "max(1.5rem, env(safe-area-inset-left, 0px))", paddingBottom: "calc(56px + 1.5rem + 16px + env(safe-area-inset-bottom, 0px))" }}>
+      <style>{`.pradex-shell { min-height: 100vh; min-height: 100dvh; } .pdx-content { display: contents; } @media (min-width: 1024px) { .pdx-hide-desktop { display: none !important; } .pdx-content { display: block; max-width: 1120px; margin: 0 auto; padding: 1.5rem 2rem 2.5rem; box-sizing: border-box; } }`}</style>
+
+      {isDesktop && (
+        <SidebarDesktop tela={tela} setTela={setTela} userEmail={session?.user?.email} userRole={userRole} onLogout={handleLogout} />
+      )}
+      {isDesktop && (
+        <TopBar
+          title={({ dashboard: "Dashboard", historico: "Lançamentos", lancamentos: "Lançamentos", fp: "Diagnóstico FP" })[tela] || "Pradex"}
+          periodoLabel={`${monthNames[new Date().getMonth()]} ${new Date().getFullYear()}`}
+          onNovoLancamento={() => setTela("lancamentos")}
+        />
+      )}
 
       {editando && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
@@ -1023,7 +1041,7 @@ export default function PradexFinancas() {
       })()}
 
       {/* HEADER */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
+      <div className="pdx-hide-desktop" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
         <div>
           <p style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "#555", textTransform: "uppercase", margin: "0 0 0.25rem" }}>
             Pradex Finanças {userRole === "super_admin" ? "· Admin" : userRole === "assessor" ? "· Assessor" : ""}
@@ -1060,7 +1078,7 @@ export default function PradexFinancas() {
       )}
 
       {/* CARDS */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "0.75rem", marginBottom: "1.5rem", width: "100%" }}>
+      <div className="pdx-hide-desktop" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "0.75rem", marginBottom: "1.5rem", width: "100%" }}>
         <div style={{ background: "linear-gradient(180deg, #191D27 0%, #181B24 100%)", borderRadius: "14px", padding: "1rem 0.85rem", border: "1px solid #252832", minWidth: 0, boxSizing: "border-box" }}>
           <p style={{ margin: "0 0 0.35rem", fontSize: "0.64rem", color: "#666", textTransform: "uppercase", letterSpacing: "0.12em" }}>Ganhos</p>
           <p style={{ margin: 0, fontSize: "clamp(0.62rem, 2.6vw, 0.82rem)", fontWeight: 700, color: "#22C55E", whiteSpace: "normal", wordBreak: "keep-all", overflowWrap: "normal", fontVariantNumeric: "tabular-nums" }}>{formatBRL(totalReceitas).replace(new RegExp(String.fromCharCode(160), "g"), " ")}</p>
@@ -1081,12 +1099,14 @@ export default function PradexFinancas() {
       </div>
 
       {/* MENU */}
-      <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", border: "1px solid #252832", gap: "2px" }}>
+      <div className="pdx-hide-desktop" style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", border: "1px solid #252832", gap: "2px" }}>
         {menuItems.map(t => (
           <button key={t.key} onClick={() => { setTela(t.key); setErro(""); }} style={{ flex: 1, minWidth: 0, padding: "0.5rem 0.2rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.65rem", fontWeight: 600, letterSpacing: "-0.01em", whiteSpace: "nowrap", background: tela === t.key ? "#252832" : "transparent", color: tela === t.key ? "#F0F0F0" : "#555", transition: "all 0.2s", fontFamily: "inherit" }}>{t.label}</button>
         ))}
       </div>
 
+
+      <div className="pdx-content">
 
       {/* DASHBOARD */}
       {tela === "dashboard" && (
@@ -1650,6 +1670,8 @@ export default function PradexFinancas() {
           )}
         </div>
       )}
+
+      </div>
 
       <FabWhatsapp />
     </div>
