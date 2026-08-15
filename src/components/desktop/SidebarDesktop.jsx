@@ -23,7 +23,7 @@ const ITEMS = [
   { key: "lancamentos", label: "Lançamentos", icon: "lancamentos", tela: "historico", activeFor: ["historico", "lancamentos"] },
   { key: "cartoes", label: "Cartões", icon: "cartoes", disabled: true },
   { key: "categorias", label: "Categorias", icon: "categorias", disabled: true },
-  { key: "fp", label: "Diagnóstico FP", icon: "fp", tela: "fp", activeFor: ["fp"] },
+  { key: "fp", label: "Diagnóstico FP", icon: "fp", tela: "fp", activeFor: ["fp"], gatePago: true },
   { key: "relatorios", label: "Relatórios", icon: "relatorios", disabled: true },
 ];
 
@@ -54,14 +54,16 @@ function iniciais(email) {
   return ((partes[0]?.[0] || "") + (partes[1]?.[0] || "")).toUpperCase() || "P";
 }
 
-export default function SidebarDesktop({ tela, setTela, userEmail, userRole, onLogout }) {
+export default function SidebarDesktop({ tela, setTela, userEmail, userRole, onLogout, acessoPago = false }) {
   const roleLabel = userRole === "super_admin" ? "Admin" : userRole === "assessor" ? "Assessor" : "Usuário";
+  // Itens marcados com gatePago só existem no menu pra quem tem acesso pago.
+  const itens = ITEMS.filter((item) => !item.gatePago || acessoPago);
   return (
     <aside className="pdx-sb">
       <style>{CSS}</style>
       <div className="pdx-sb__logo"><span>P</span>Pradex</div>
       <nav className="pdx-sb__nav">
-        {ITEMS.map((item) => {
+        {itens.map((item) => {
           const active = item.activeFor?.includes(tela);
           return (
             <button

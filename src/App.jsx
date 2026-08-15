@@ -228,6 +228,9 @@ export default function PradexFinancas() {
   const [cadastroTelefone, setCadastroTelefone] = useState("");
   const [precisaCadastrarTelefone, setPrecisaCadastrarTelefone] = useState(false);
   const [bannerTelefoneFechado, setBannerTelefoneFechado] = useState(false);
+  // Gate de acesso pago (Pradex 1:1 / 360): libera agente WhatsApp + Diagnóstico FP.
+  // Default fechado — sem a flag em fp_perfil, os dois recursos nem aparecem.
+  const [acessoPago, setAcessoPago] = useState(false);
   const [tela, setTela] = useState("dashboard");
   const [tipo, setTipo] = useState("gasto");
   const [form, setForm] = useState({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "", parcelado: false, parcela_atual: "1", total_parcelas: "", recorrente: false });
@@ -413,6 +416,7 @@ export default function PradexFinancas() {
     setSession(null); setUserRole(null);
     setLancamentos([]); setCartoes([]);
     setPrecisaCadastrarTelefone(false); setBannerTelefoneFechado(false);
+    setAcessoPago(false);
   };
 
   useEffect(() => {
@@ -423,16 +427,23 @@ export default function PradexFinancas() {
     }
   }, [session]);
 
+  // Se o acesso pago cair (revogação, logout/login em outra conta), sai da tela FP
+  // em vez de deixar a área de conteúdo em branco.
+  useEffect(() => {
+    if (!acessoPago && tela === "fp") setTela("dashboard");
+  }, [acessoPago, tela]);
+
   const verificarTelefonePerfil = async () => {
     if (!session?.user?.id) return;
     try {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/fp_perfil?user_id=eq.${session.user.id}&select=telefone&limit=1`,
+        `${SUPABASE_URL}/rest/v1/fp_perfil?user_id=eq.${session.user.id}&select=telefone,acesso_pago&limit=1`,
         { headers: api(session.token) }
       );
       const rows = await res.json();
       const row = Array.isArray(rows) ? rows[0] : null;
       setPrecisaCadastrarTelefone(!row?.telefone);
+      setAcessoPago(row?.acesso_pago === true);
     } catch (e) {}
   };
 
@@ -905,7 +916,12 @@ export default function PradexFinancas() {
   const totalCartaoSelecionado = cartaoSelecionado
     ? lancamentosAgrupados.filter(lancamento => lancamento.tipo === "gasto" && lancamento.forma_pagamento === "Crédito" && Number(lancamento.cartao_id) === Number(cartaoSelecionado.id)).reduce((s, lancamento) => s + Number(lancamento.valor || 0), 0)
     : 0;
-  const menuItems = [{ key: "dashboard", label: "Dashboard" }, { key: "lancamentos", label: "Lançar" }, { key: "historico", label: "Histórico" }, { key: "fp", label: "FP" }];
+  const menuItems = [
+    { key: "dashboard", label: "Dashboard" },
+    { key: "lancamentos", label: "Lançar" },
+    { key: "historico", label: "Histórico" },
+    ...(acessoPago ? [{ key: "fp", label: "FP" }] : []),
+  ];
 
   if (loadingAuth) return <div style={{ minHeight: "100vh", background: "#0F1117", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "#555", fontFamily: "'DM Sans', sans-serif" }}>Carregando...</p></div>;
 
@@ -969,7 +985,7 @@ export default function PradexFinancas() {
       <style>{`.pradex-shell { min-height: 100vh; min-height: 100dvh; } .pdx-content { display: contents; } @media (min-width: 1024px) { .pdx-hide-desktop { display: none !important; } .pdx-content { display: block; max-width: 1120px; margin: 0 auto; padding: 1.5rem 2rem 2.5rem; box-sizing: border-box; } }`}</style>
 
       {isDesktop && (
-        <SidebarDesktop tela={tela} setTela={setTela} userEmail={session?.user?.email} userRole={userRole} onLogout={handleLogout} />
+        <SidebarDesktop tela={tela} setTela={setTela} userEmail={session?.user?.email} userRole={userRole} onLogout={handleLogout} acessoPago={acessoPago} />
       )}
       {isDesktop && (
         <TopBar
@@ -1121,7 +1137,7 @@ export default function PradexFinancas() {
         <button onClick={handleLogout} style={{ background: "none", border: "1px solid #252832", borderRadius: "8px", color: "#555", cursor: "pointer", padding: "0.4rem 0.75rem", fontSize: "0.75rem", fontFamily: "inherit" }}>Sair</button>
       </div>
 
-      {precisaCadastrarTelefone && !bannerTelefoneFechado && (
+      {acessoPago && precisaCadastrarTelefone && !bannerTelefoneFechado && (
         <div style={{ background: "#6366F112", border: "1px solid #6366F140", borderRadius: "14px", padding: "1rem 1.1rem", marginBottom: "1.25rem", display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
           <div style={{ flex: 1 }}>
             <p style={{ margin: "0 0 0.25rem", fontSize: "0.85rem", fontWeight: 700, color: "#E8E8E8" }}>Complete seu cadastro</p>
@@ -1201,7 +1217,7 @@ export default function PradexFinancas() {
               ))}
             </div>
           )}
-          <a
+          {acessoPago && <a
             href="https://wa.me/5511924568633?text=Oi%21%20Quero%20come%C3%A7ar%20a%20usar%20o%20Pradex%20pelo%20WhatsApp."
             target="_blank"
             rel="noopener noreferrer"
@@ -1217,7 +1233,7 @@ export default function PradexFinancas() {
               <p style={{ margin: 0, fontSize: "0.76rem", color: "#888", lineHeight: 1.4 }}>Manda texto ou áudio — "gastei 50 no mercado" — e o Pradex registra sozinho.</p>
             </div>
             <span style={{ fontSize: "1.1rem", color: "#25D366", flexShrink: 0 }}>›</span>
-          </a>
+          </a>}
           {lancamentos.length === 0 ? (
             <div style={{ textAlign: "center", padding: "3rem 0", color: "#444" }}>
               <p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>•</p>
@@ -1690,7 +1706,7 @@ export default function PradexFinancas() {
       })()}
 
       {/* FP */}
-      {tela === "fp" && (
+      {tela === "fp" && acessoPago && (
         <div>
           <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Planejamento Financeiro</p>
 
@@ -1755,7 +1771,7 @@ export default function PradexFinancas() {
 
       </div>
 
-      <FabWhatsapp />
+      {acessoPago && <FabWhatsapp />}
     </div>
   );
 }
