@@ -18,6 +18,7 @@ import { desktopTheme, SIDEBAR_WIDTH } from "./components/desktop/theme";
 import SidebarDesktop from "./components/desktop/SidebarDesktop";
 import TopBar from "./components/desktop/TopBar";
 import TabelaLancamentos from "./components/desktop/TabelaLancamentos";
+import DashboardDesktop from "./components/desktop/DashboardDesktop";
 import { normalizeTelefone, isValidTelefoneBr, formatTelefoneInput } from "./utils/phone";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
@@ -250,6 +251,13 @@ export default function PradexFinancas() {
   const [compraDetalhe, setCompraDetalhe] = useState(null);
   const [deletandoCompra, setDeletandoCompra] = useState(false);
   const [mesHistorico, setMesHistorico] = useState({ ano: new Date().getFullYear(), mes: new Date().getMonth() });
+  // Mês do Dashboard desktop, dirigido pelo seletor da top-bar (independente do
+  // mesHistorico, que é do Histórico mobile).
+  const [mesDashboard, setMesDashboard] = useState({ ano: new Date().getFullYear(), mes: new Date().getMonth() });
+  const navegarMesDashboard = (dir) => setMesDashboard(prev => {
+    const total = prev.ano * 12 + prev.mes + dir;
+    return { ano: Math.floor(total / 12), mes: ((total % 12) + 12) % 12 };
+  });
   const [simulador, setSimulador] = useState({ meta: "", patrimonioAtual: "", aporteMensal: "" });
   const [taxaFocus, setTaxaFocus] = useState(10.15);
   const [rascunhos, setRascunhos] = useState([]);
@@ -974,7 +982,10 @@ export default function PradexFinancas() {
       {isDesktop && (
         <TopBar
           title={({ dashboard: "Dashboard", historico: "Lançamentos", lancamentos: "Lançamentos", fp: "Diagnóstico FP" })[tela] || "Pradex"}
-          periodoLabel={`${monthNames[new Date().getMonth()]} ${new Date().getFullYear()}`}
+          periodoLabel={tela === "dashboard"
+            ? `${monthNames[mesDashboard.mes]} ${mesDashboard.ano}`
+            : `${monthNames[new Date().getMonth()]} ${new Date().getFullYear()}`}
+          onPeriodoStep={tela === "dashboard" ? navegarMesDashboard : undefined}
           onNovoLancamento={() => setTela("lancamentos")}
         />
       )}
@@ -1176,8 +1187,22 @@ export default function PradexFinancas() {
 
       <div className="pdx-content">
 
-      {/* DASHBOARD */}
-      {tela === "dashboard" && (
+      {/* DASHBOARD — desktop (Fase 2) */}
+      {tela === "dashboard" && isDesktop && (
+        <DashboardDesktop
+          lancamentos={lancamentos}
+          ano={mesDashboard.ano}
+          mes={mesDashboard.mes}
+          formatBRL={formatBRL}
+          normalizeText={normalizeText}
+          rascunhos={rascunhos}
+          onConfirmarRascunho={confirmarRascunho}
+          onRejeitarRascunho={rejeitarRascunho}
+        />
+      )}
+
+      {/* DASHBOARD — mobile */}
+      {tela === "dashboard" && !isDesktop && (
         <div>
           {rascunhos.length > 0 && (
             <div style={{ marginBottom: "1.25rem" }}>
