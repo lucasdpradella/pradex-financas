@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef, useMemo } from "react";
 import {
   supabase,
   syncSupabaseSession,
@@ -20,6 +20,7 @@ import TopBar from "./components/desktop/TopBar";
 import TabelaLancamentos from "./components/desktop/TabelaLancamentos";
 import DashboardDesktop from "./components/desktop/DashboardDesktop";
 import CartoesDesktop from "./components/desktop/CartoesDesktop";
+import CategoriasDesktop from "./components/desktop/CategoriasDesktop";
 import { normalizeTelefone, isValidTelefoneBr, formatTelefoneInput } from "./utils/phone";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
@@ -32,11 +33,23 @@ const api = (token) => ({
 });
 
 // Telas que existem só no shell desktop (>=1024px), acessadas pela sidebar.
-const TELAS_DESKTOP = ["cartoes"];
+const TELAS_DESKTOP = ["cartoes", "categorias"];
 
 const defaultCategories = {
   receita: ["Salário", "Freelance", "Investimentos", "Aluguel recebido", "Outros"],
   gasto: ["Moradia", "Alimentação", "Transporte", "Saúde", "Lazer", "Educação", "Assinaturas", "Outros"],
+};
+
+// As categorias visíveis são sempre as default menos as que o usuário ocultou
+// (linha com removida=true), mais as custom dele. Derivar disso em vez de guardar
+// uma lista à parte evita cadastro e seletor divergirem depois de uma escrita.
+const montarCategories = (rows) => {
+  const removidas = rows.filter(c => c.removida).map(c => c.nome + c.tipo);
+  const custom = (tipo) => rows.filter(c => c.tipo === tipo && !c.removida).map(c => c.nome);
+  return {
+    gasto: [...new Set([...defaultCategories.gasto.filter(n => !removidas.includes(n + "gasto")), ...custom("gasto")])],
+    receita: [...new Set([...defaultCategories.receita.filter(n => !removidas.includes(n + "receita")), ...custom("receita")])],
+  };
 };
 
 const COLORS = ["#6366F1","#22C55E","#F59E0B","#EF4444","#8B5CF6","#EC4899","#14B8A6","#F97316"];
@@ -241,7 +254,10 @@ export default function PradexFinancas() {
   const [form, setForm] = useState({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "", parcelado: false, parcela_atual: "1", total_parcelas: "", recorrente: false });
   const [lancamentos, setLancamentos] = useState([]);
   const [cartoes, setCartoes] = useState([]);
-  const [categories, setCategories] = useState(defaultCategories);
+  // Linhas cruas da tabela `categorias` (id/nome/tipo/removida) — a tela desktop
+  // precisa saber o que é custom, o que é default oculta e qual o id de cada uma.
+  const [categoriasRows, setCategoriasRows] = useState([]);
+  const categories = useMemo(() => montarCategories(categoriasRows), [categoriasRows]);
   const [novaCategoria, setNovaCategoria] = useState({ nome: "", tipo: "gasto" });
   const [mostrarCategorias, setMostrarCategorias] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -469,44 +485,127 @@ export default function PradexFinancas() {
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/categorias?order=nome.asc`, { headers: api(session?.token) });
       const data = await res.json();
-      if (Array.isArray(data)) {
-        const removidas = data.filter(c => c.removida).map(c => c.nome + c.tipo);
-        const gastoCustom = data.filter(c => c.tipo === "gasto" && !c.removida).map(c => c.nome);
-        const receitaCustom = data.filter(c => c.tipo === "receita" && !c.removida).map(c => c.nome);
-        setCategories({
-          gasto: [...new Set([...defaultCategories.gasto.filter(n => !removidas.includes(n + "gasto")), ...gastoCustom])],
-          receita: [...new Set([...defaultCategories.receita.filter(n => !removidas.includes(n + "receita")), ...receitaCustom])],
-        });
-      }
+      if (Array.isArray(data)) setCategoriasRows(data);
     } catch (e) {}
   };
 
-  const handleAddCategoria = async () => {
-    if (!novaCategoria.nome.trim()) return;
+  // CRUD de categorias — fonte única pro mobile e pra tela desktop (Fase B).
+  // Toda escrita checa res.ok antes de refletir na UI (regra pós-incidente 2026-06-01).
+  const criarCategoria = async (nome, tipo) => {
+    const limpo = (nome || "").trim();
+    if (!limpo) return { ok: false, erro: "Nome é obrigatório." };
+    if (categories[tipo].some(c => c.toLowerCase() === limpo.toLowerCase())) {
+      return { ok: false, erro: "Já existe uma categoria com esse nome." };
+    }
+    // Criar uma custom com o nome de uma default oculta deixaria duas linhas brigando
+    // pelo mesmo nome (a de soft-delete e a nova); restaurar é o caminho certo.
+    if (defaultCategories[tipo].some(c => c.toLowerCase() === limpo.toLowerCase())) {
+      return { ok: false, erro: "Essa é uma categoria padrão que está oculta. Use Restaurar na lista." };
+    }
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/categorias`, {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/categorias`, {
         method: "POST",
         headers: { ...api(session?.token), "Prefer": "return=representation" },
-        body: JSON.stringify({ nome: novaCategoria.nome.trim(), tipo: novaCategoria.tipo, user_id: session.user.id, removida: false }),
+        body: JSON.stringify({ nome: limpo, tipo, user_id: session.user.id, removida: false }),
       });
-      setCategories(prev => ({ ...prev, [novaCategoria.tipo]: [...new Set([...prev[novaCategoria.tipo], novaCategoria.nome.trim()])] }));
-      setNovaCategoria(prev => ({ ...prev, nome: "" }));
-    } catch (e) {}
+      if (!res.ok) return { ok: false, erro: "Não foi possível criar a categoria." };
+      const data = await res.json();
+      if (!Array.isArray(data) || !data[0]) return { ok: false, erro: "Não foi possível criar a categoria." };
+      setCategoriasRows(prev => [...prev, data[0]]);
+      return { ok: true };
+    } catch (e) { return { ok: false, erro: "Erro de conexão." }; }
   };
 
-  const handleRemoveCategoria = async (nome, tipo) => {
+  // Renomear é a única escrita que toca `Lancamentos`: a categoria é gravada lá como
+  // texto, não como FK, então sem migrar o histórico o nome antigo viraria uma
+  // categoria órfã — visível nos gráficos, ausente do seletor.
+  const renomearCategoria = async (row, novoNome) => {
+    const limpo = (novoNome || "").trim();
+    if (!limpo) return { ok: false, erro: "Nome é obrigatório." };
+    if (limpo === row.nome) return { ok: true };
+    if (categories[row.tipo].some(c => c.toLowerCase() === limpo.toLowerCase())) {
+      return { ok: false, erro: "Já existe uma categoria com esse nome." };
+    }
+    if (defaultCategories[row.tipo].some(c => c.toLowerCase() === limpo.toLowerCase())) {
+      return { ok: false, erro: "Essa é uma categoria padrão que está oculta. Use Restaurar na lista." };
+    }
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/categorias?id=eq.${row.id}`, {
+        method: "PATCH",
+        headers: { ...api(session?.token), "Prefer": "return=representation" },
+        body: JSON.stringify({ nome: limpo }),
+      });
+      if (!res.ok) return { ok: false, erro: "Não foi possível renomear a categoria." };
+      const data = await res.json();
+      if (!Array.isArray(data) || !data[0]) return { ok: false, erro: "Não foi possível renomear a categoria." };
+
+      // Um PATCH escopado por nome + tipo (a RLS limita ao user_id da sessão).
+      const migr = await fetch(
+        `${SUPABASE_URL}/rest/v1/Lancamentos?categoria=eq.${encodeURIComponent(row.nome)}&tipo=eq.${row.tipo}`,
+        { method: "PATCH", headers: api(session?.token), body: JSON.stringify({ categoria: limpo }) },
+      );
+      if (!migr.ok) {
+        // Volta o cadastro ao nome antigo pra não deixar cadastro e histórico divergentes.
+        await fetch(`${SUPABASE_URL}/rest/v1/categorias?id=eq.${row.id}`, {
+          method: "PATCH", headers: api(session?.token), body: JSON.stringify({ nome: row.nome }),
+        }).catch(() => {});
+        return { ok: false, erro: "Não foi possível atualizar os lançamentos. Nada foi alterado." };
+      }
+
+      setCategoriasRows(prev => prev.map(c => (c.id === data[0].id ? data[0] : c)));
+      setLancamentos(prev => prev.map(l => (
+        l.categoria === row.nome && l.tipo === row.tipo ? { ...l, categoria: limpo } : l
+      )));
+      return { ok: true };
+    } catch (e) { return { ok: false, erro: "Erro de conexão." }; }
+  };
+
+  // Default some via soft-delete (linha removida=true); custom é apagada de fato.
+  const removerCategoria = async (nome, tipo) => {
     try {
       if (defaultCategories[tipo].includes(nome)) {
-        await fetch(`${SUPABASE_URL}/rest/v1/categorias`, {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/categorias`, {
           method: "POST",
           headers: { ...api(session?.token), "Prefer": "return=representation" },
           body: JSON.stringify({ nome, tipo, user_id: session.user.id, removida: true }),
         });
+        if (!res.ok) return { ok: false, erro: "Não foi possível ocultar a categoria." };
+        const data = await res.json();
+        if (!Array.isArray(data) || !data[0]) return { ok: false, erro: "Não foi possível ocultar a categoria." };
+        setCategoriasRows(prev => [...prev, data[0]]);
       } else {
-        await fetch(`${SUPABASE_URL}/rest/v1/categorias?nome=eq.${encodeURIComponent(nome)}&tipo=eq.${tipo}&user_id=eq.${session.user.id}`, { method: "DELETE", headers: api(session?.token) });
+        const res = await fetch(
+          `${SUPABASE_URL}/rest/v1/categorias?nome=eq.${encodeURIComponent(nome)}&tipo=eq.${tipo}&user_id=eq.${session.user.id}`,
+          { method: "DELETE", headers: api(session?.token) },
+        );
+        if (!res.ok) return { ok: false, erro: "Não foi possível excluir a categoria." };
+        setCategoriasRows(prev => prev.filter(c => !(c.nome === nome && c.tipo === tipo && !c.removida)));
       }
-      setCategories(prev => ({ ...prev, [tipo]: prev[tipo].filter(c => c !== nome) }));
-    } catch (e) {}
+      return { ok: true };
+    } catch (e) { return { ok: false, erro: "Erro de conexão." }; }
+  };
+
+  // Traz de volta uma default oculta: apaga a linha de soft-delete.
+  const restaurarCategoria = async (nome, tipo) => {
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/categorias?nome=eq.${encodeURIComponent(nome)}&tipo=eq.${tipo}&removida=is.true&user_id=eq.${session.user.id}`,
+        { method: "DELETE", headers: api(session?.token) },
+      );
+      if (!res.ok) return { ok: false, erro: "Não foi possível restaurar a categoria." };
+      setCategoriasRows(prev => prev.filter(c => !(c.nome === nome && c.tipo === tipo && c.removida)));
+      return { ok: true };
+    } catch (e) { return { ok: false, erro: "Erro de conexão." }; }
+  };
+
+  const handleAddCategoria = async () => {
+    if (!novaCategoria.nome.trim()) return;
+    const res = await criarCategoria(novaCategoria.nome, novaCategoria.tipo);
+    if (res.ok) setNovaCategoria(prev => ({ ...prev, nome: "" }));
+  };
+
+  const handleRemoveCategoria = async (nome, tipo) => {
+    await removerCategoria(nome, tipo);
   };
 
   const fetchLancamentos = async () => {
@@ -1046,7 +1145,7 @@ export default function PradexFinancas() {
       )}
       {isDesktop && (
         <TopBar
-          title={({ dashboard: "Dashboard", historico: "Lançamentos", lancamentos: "Lançamentos", cartoes: "Cartões", fp: "Diagnóstico FP" })[tela] || "Pradex"}
+          title={({ dashboard: "Dashboard", historico: "Lançamentos", lancamentos: "Lançamentos", cartoes: "Cartões", categorias: "Categorias", fp: "Diagnóstico FP" })[tela] || "Pradex"}
           periodoLabel={tela === "dashboard"
             ? `${monthNames[mesDashboard.mes]} ${mesDashboard.ano}`
             : `${monthNames[new Date().getMonth()]} ${new Date().getFullYear()}`}
@@ -1276,6 +1375,21 @@ export default function PradexFinancas() {
           onCriar={criarCartao}
           onAtualizar={atualizarCartao}
           onExcluir={excluirCartao}
+        />
+      )}
+
+      {/* CATEGORIAS — desktop (Fase B) */}
+      {tela === "categorias" && isDesktop && (
+        <CategoriasDesktop
+          categories={categories}
+          categoriasRows={categoriasRows}
+          defaultCategories={defaultCategories}
+          lancamentos={lancamentos}
+          normalizeText={normalizeText}
+          onCriar={criarCategoria}
+          onRenomear={renomearCategoria}
+          onRemover={removerCategoria}
+          onRestaurar={restaurarCategoria}
         />
       )}
 

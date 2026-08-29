@@ -22,7 +22,7 @@ const ITEMS = [
   { key: "dashboard", label: "Dashboard", icon: "dashboard", tela: "dashboard", activeFor: ["dashboard"] },
   { key: "lancamentos", label: "Lançamentos", icon: "lancamentos", tela: "historico", activeFor: ["historico", "lancamentos"] },
   { key: "cartoes", label: "Cartões", icon: "cartoes", tela: "cartoes", activeFor: ["cartoes"] },
-  { key: "categorias", label: "Categorias", icon: "categorias", disabled: true },
+  { key: "categorias", label: "Categorias", icon: "categorias", tela: "categorias", activeFor: ["categorias"] },
   { key: "fp", label: "Diagnóstico FP", icon: "fp", tela: "fp", activeFor: ["fp"], gatePago: true },
   { key: "relatorios", label: "Relatórios", icon: "relatorios", disabled: true },
 ];
