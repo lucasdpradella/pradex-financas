@@ -19,6 +19,7 @@ import SidebarDesktop from "./components/desktop/SidebarDesktop";
 import TopBar from "./components/desktop/TopBar";
 import TabelaLancamentos from "./components/desktop/TabelaLancamentos";
 import DashboardDesktop from "./components/desktop/DashboardDesktop";
+import CartoesDesktop from "./components/desktop/CartoesDesktop";
 import { normalizeTelefone, isValidTelefoneBr, formatTelefoneInput } from "./utils/phone";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
@@ -29,6 +30,9 @@ const api = (token) => ({
   "apikey": SUPABASE_KEY,
   "Authorization": `Bearer ${token || SUPABASE_KEY}`,
 });
+
+// Telas que existem só no shell desktop (>=1024px), acessadas pela sidebar.
+const TELAS_DESKTOP = ["cartoes"];
 
 const defaultCategories = {
   receita: ["Salário", "Freelance", "Investimentos", "Aluguel recebido", "Outros"],
@@ -441,6 +445,12 @@ export default function PradexFinancas() {
     if (!acessoPago && tela === "fp") setTela("dashboard");
   }, [acessoPago, tela]);
 
+  // Telas que só existem no shell desktop (sidebar). Se a janela encolher pra <1024px,
+  // volta pro dashboard em vez de deixar a área de conteúdo em branco no mobile.
+  useEffect(() => {
+    if (!isDesktop && TELAS_DESKTOP.includes(tela)) setTela("dashboard");
+  }, [isDesktop, tela]);
+
   const verificarTelefonePerfil = async () => {
     if (!session?.user?.id) return;
     try {
@@ -837,30 +847,69 @@ export default function PradexFinancas() {
     } catch (e) {}
   };
 
-  const handleSaveCartao = async () => {
-    if (!formCartao.nome) { setErroCartao("Nome é obrigatório."); return; }
-    setSavingCartao(true); setErroCartao("");
+  // CRUD de cartões — fonte única pro mobile e pra tela desktop (Fase A).
+  // Toda escrita checa res.ok antes de refletir na UI (regra pós-incidente 2026-06-01).
+  const payloadCartao = (f) => ({
+    nome: (f.nome || "").trim(),
+    bandeira: (f.bandeira || "").trim() || null,
+    dia_fechamento: f.dia_fechamento ? parseInt(f.dia_fechamento, 10) : null,
+    dia_vencimento: f.dia_vencimento ? parseInt(f.dia_vencimento, 10) : null,
+  });
+
+  const criarCartao = async (dados) => {
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/cartoes`, {
         method: "POST", headers: { ...api(session?.token), "Prefer": "return=representation" },
-        body: JSON.stringify({ ...formCartao, user_id: session.user.id, dia_fechamento: formCartao.dia_fechamento ? parseInt(formCartao.dia_fechamento) : null, dia_vencimento: formCartao.dia_vencimento ? parseInt(formCartao.dia_vencimento) : null }),
+        body: JSON.stringify({ ...payloadCartao(dados), user_id: session.user.id }),
       });
+      if (!res.ok) return { ok: false, erro: "Não foi possível salvar o cartão." };
       const data = await res.json();
-      if (Array.isArray(data) && data[0]) {
-        setCartoes(prev => [...prev, data[0]]);
-        setFormCartao({ nome: "", bandeira: "", dia_fechamento: "", dia_vencimento: "" });
-        setSuccessCartao(true); setMostrarFormCartao(false);
-        setTimeout(() => setSuccessCartao(false), 2000);
-      } else { setErroCartao("Erro ao salvar."); }
-    } catch (e) { setErroCartao("Erro de conexão."); }
+      if (!Array.isArray(data) || !data[0]) return { ok: false, erro: "Não foi possível salvar o cartão." };
+      setCartoes(prev => [...prev, data[0]]);
+      return { ok: true, cartao: data[0] };
+    } catch (e) { return { ok: false, erro: "Erro de conexão." }; }
+  };
+
+  const atualizarCartao = async (id, dados) => {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/cartoes?id=eq.${id}`, {
+        method: "PATCH", headers: { ...api(session?.token), "Prefer": "return=representation" },
+        body: JSON.stringify(payloadCartao(dados)),
+      });
+      if (!res.ok) return { ok: false, erro: "Não foi possível salvar as alterações." };
+      const data = await res.json();
+      if (!Array.isArray(data) || !data[0]) return { ok: false, erro: "Não foi possível salvar as alterações." };
+      setCartoes(prev => prev.map(c => (c.id === data[0].id ? data[0] : c)));
+      return { ok: true, cartao: data[0] };
+    } catch (e) { return { ok: false, erro: "Erro de conexão." }; }
+  };
+
+  const excluirCartao = async (id) => {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/cartoes?id=eq.${id}`, { method: "DELETE", headers: api(session?.token) });
+      // 409: há lançamentos apontando pro cartão (FK) — não some da lista sem ter sumido do banco.
+      if (!res.ok) return { ok: false, erro: "Não foi possível excluir. Há lançamentos vinculados a este cartão." };
+      setCartoes(prev => prev.filter(c => c.id !== id));
+      return { ok: true };
+    } catch (e) { return { ok: false, erro: "Erro de conexão." }; }
+  };
+
+  const handleSaveCartao = async () => {
+    if (!formCartao.nome) { setErroCartao("Nome é obrigatório."); return; }
+    setSavingCartao(true); setErroCartao("");
+    const res = await criarCartao(formCartao);
+    if (res.ok) {
+      setFormCartao({ nome: "", bandeira: "", dia_fechamento: "", dia_vencimento: "" });
+      setSuccessCartao(true); setMostrarFormCartao(false);
+      setTimeout(() => setSuccessCartao(false), 2000);
+    } else { setErroCartao(res.erro); }
     setSavingCartao(false);
   };
 
   const handleDeleteCartao = async (id) => {
-    try {
-      await fetch(`${SUPABASE_URL}/rest/v1/cartoes?id=eq.${id}`, { method: "DELETE", headers: api(session?.token) });
-      setCartoes(prev => prev.filter(c => c.id !== id));
-    } catch (e) {}
+    setErroCartao("");
+    const res = await excluirCartao(id);
+    if (!res.ok) setErroCartao(res.erro);
   };
 
   const mesAtual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
@@ -997,7 +1046,7 @@ export default function PradexFinancas() {
       )}
       {isDesktop && (
         <TopBar
-          title={({ dashboard: "Dashboard", historico: "Lançamentos", lancamentos: "Lançamentos", fp: "Diagnóstico FP" })[tela] || "Pradex"}
+          title={({ dashboard: "Dashboard", historico: "Lançamentos", lancamentos: "Lançamentos", cartoes: "Cartões", fp: "Diagnóstico FP" })[tela] || "Pradex"}
           periodoLabel={tela === "dashboard"
             ? `${monthNames[mesDashboard.mes]} ${mesDashboard.ano}`
             : `${monthNames[new Date().getMonth()]} ${new Date().getFullYear()}`}
@@ -1214,6 +1263,19 @@ export default function PradexFinancas() {
           rascunhos={rascunhos}
           onConfirmarRascunho={confirmarRascunho}
           onRejeitarRascunho={rejeitarRascunho}
+        />
+      )}
+
+      {/* CARTÕES — desktop (Fase A) */}
+      {tela === "cartoes" && isDesktop && (
+        <CartoesDesktop
+          cartoes={cartoes}
+          lancamentos={lancamentos}
+          formatBRL={formatBRL}
+          normalizeText={normalizeText}
+          onCriar={criarCartao}
+          onAtualizar={atualizarCartao}
+          onExcluir={excluirCartao}
         />
       )}
 
