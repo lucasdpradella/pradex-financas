@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
 import { desktopTheme as t } from "./theme";
 
-// Tela "Bancos" do desktop (Fase C, fatia 1). Banco é a entidade raiz: o usuário
+// Tela "Bancos" do desktop (Fase C, fatias 1 e 2). Banco é a entidade raiz: o usuário
 // cadastra as instituições onde tem conta e pendura o que é de cada uma.
 //
-// Esta fatia mostra só os cartões de cada banco — dívidas e investimentos entram nas
-// próximas, e é quando o resumo patrimonial passa a fazer sentido (sem passivo não há
-// patrimônio líquido). O gasto do mês vem dos lançamentos já em memória.
+// Cartões são leitura (cadastrados na tela de Cartões); dívidas têm CRUD aqui, porque
+// é o único lugar do app onde elas existem. Investimentos entram na fatia 3 — só então
+// há ativo pra subtrair do passivo e o patrimônio líquido passa a significar algo.
+// O gasto do mês vem dos lançamentos já em memória.
 
 // Lista semi-fechada (decisão do Lucas, 29/08): os mais buscados com código COMPE,
 // mais "Outro" digitável. Os 8 primeiros são os do print da jornada Nobel; XP e BTG
@@ -62,6 +63,23 @@ const CSS = `
 .pdx-bnc__itemmeta { font-size: 0.74rem; color: ${t.textSecondary}; }
 .pdx-bnc__itemval { font-size: 0.88rem; font-weight: 600; color: ${t.textPrimary}; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pdx-bnc__vazio { margin: 0; font-size: 0.85rem; color: ${t.textSecondary}; padding: 0.4rem 0; }
+.pdx-bnc__secaotopo { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.pdx-bnc__divida { border-bottom: 1px solid ${t.surfaceBorder}; padding: 0.55rem 0; }
+.pdx-bnc__divida:last-child { border-bottom: none; }
+.pdx-bnc__dividatopo { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.pdx-bnc__dividaval { font-size: 0.9rem; font-weight: 700; color: ${t.gasto}; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pdx-bnc__dividaacoes { display: flex; gap: 0.4rem; margin-top: 0.45rem; }
+.pdx-bnc__campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 0.7rem; }
+.pdx-bnc__campo { display: flex; flex-direction: column; gap: 0.28rem; min-width: 0; }
+.pdx-bnc__campo label { font-size: 0.72rem; font-weight: 600; color: ${t.textSecondary}; }
+.pdx-bnc__campo input, .pdx-bnc__campo select { width: 100%; box-sizing: border-box; padding: 0.5rem 0.65rem; border: 1px solid ${t.surfaceBorder}; border-radius: 8px; background: ${t.surface}; color: ${t.textPrimary}; font-family: inherit; font-size: 0.87rem; }
+.pdx-bnc__campo input:focus, .pdx-bnc__campo select:focus { outline: none; border-color: ${t.accent}; box-shadow: 0 0 0 3px ${t.chipBg}; }
+.pdx-bnc__formdiv { background: ${t.surface}; border: 1px solid ${t.surfaceBorder}; border-radius: 10px; padding: 0.95rem 1.05rem; margin-top: 0.6rem; }
+.pdx-bnc__resumo { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.6rem 2rem; background: ${t.surface}; border: 1px solid ${t.surfaceBorder}; border-radius: 12px; padding: 1rem 1.25rem; }
+.pdx-bnc__resumoitem { display: flex; flex-direction: column; gap: 0.1rem; }
+.pdx-bnc__resumoitem span { font-size: 0.68rem; color: ${t.textSecondary}; text-transform: uppercase; letter-spacing: 0.07em; }
+.pdx-bnc__resumoitem b { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.pdx-bnc__resumonota { margin-left: auto; font-size: 0.78rem; color: ${t.textSecondary}; max-width: 34ch; }
 .pdx-bnc__empty { background: ${t.surface}; border: 1px dashed ${t.surfaceBorder}; border-radius: 12px; padding: 2.5rem 1.5rem; text-align: center; color: ${t.textSecondary}; font-size: 0.9rem; }
 .pdx-bnc__semvinculo { background: ${t.surface}; border: 1px solid ${t.surfaceBorder}; border-radius: 12px; padding: 1rem 1.25rem; font-size: 0.85rem; color: ${t.textSecondary}; }
 .pdx-bnc__semvinculo b { color: ${t.textPrimary}; font-weight: 600; }
@@ -79,10 +97,70 @@ const mesCorrente = () => {
   return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
 };
 
+const DIVIDA_VAZIA = { descricao: "", saldo_devedor: "", valor_parcela: "", parcelas_restantes: "", taxa_juros_mensal: "", banco_id: "" };
+
+// Formulário de dívida — usado dentro do card do banco e no bloco "sem instituição".
+// O seletor de banco fica sempre visível pra dar como mover uma dívida de lugar.
+function FormDivida({ valor, bancos, salvando, erro, onCampo, onSalvar, onCancelar, ehEdicao }) {
+  return (
+    <div className="pdx-bnc__formdiv">
+      <div className="pdx-bnc__campos">
+        <div className="pdx-bnc__campo" style={{ gridColumn: "1 / -1" }}>
+          <label>Descrição</label>
+          <input type="text" placeholder="Ex.: Financiamento do carro" value={valor.descricao}
+            onChange={(e) => onCampo("descricao", e.target.value)} autoFocus />
+        </div>
+        <div className="pdx-bnc__campo">
+          <label>Saldo devedor</label>
+          <input type="text" inputMode="decimal" placeholder="0,00" value={valor.saldo_devedor}
+            onChange={(e) => onCampo("saldo_devedor", e.target.value)} />
+        </div>
+        <div className="pdx-bnc__campo">
+          <label>Parcela mensal</label>
+          <input type="text" inputMode="decimal" placeholder="opcional" value={valor.valor_parcela}
+            onChange={(e) => onCampo("valor_parcela", e.target.value)} />
+        </div>
+        <div className="pdx-bnc__campo">
+          <label>Parcelas restantes</label>
+          <input type="number" min="0" placeholder="opcional" value={valor.parcelas_restantes}
+            onChange={(e) => onCampo("parcelas_restantes", e.target.value)} />
+        </div>
+        <div className="pdx-bnc__campo">
+          <label>Juros ao mês (%)</label>
+          <input type="text" inputMode="decimal" placeholder="opcional" value={valor.taxa_juros_mensal}
+            onChange={(e) => onCampo("taxa_juros_mensal", e.target.value)} />
+        </div>
+        <div className="pdx-bnc__campo">
+          <label>Banco</label>
+          <select value={valor.banco_id} onChange={(e) => onCampo("banco_id", e.target.value)}>
+            <option value="">Sem banco</option>
+            {bancos.map((b) => <option key={b.id} value={String(b.id)}>{b.nome}</option>)}
+          </select>
+        </div>
+      </div>
+      {erro && <p className="pdx-bnc__erro">{erro}</p>}
+      <div className="pdx-bnc__acoesform">
+        <button className="pdx-btn pdx-btn--primary" onClick={onSalvar} disabled={salvando}>
+          {salvando ? "Salvando..." : ehEdicao ? "Salvar alterações" : "Adicionar dívida"}
+        </button>
+        <button className="pdx-btn" onClick={onCancelar} disabled={salvando}>Cancelar</button>
+      </div>
+    </div>
+  );
+}
+
 export default function BancosDesktop({
-  bancos, cartoes, lancamentos, formatBRL, normalizeText,
+  bancos, cartoes, dividas = [], lancamentos, formatBRL, normalizeText,
   onCriar, onRenomear, onExcluir,
+  onCriarDivida, onAtualizarDivida, onExcluirDivida,
 }) {
+  // Uma dívida em edição/criação por vez: a chave é o id da dívida, ou
+  // `nova-<bancoId>` quando é cadastro dentro daquele card.
+  const [dividaAberta, setDividaAberta] = useState(null);
+  const [formDivida, setFormDivida] = useState(DIVIDA_VAZIA);
+  const [salvandoDivida, setSalvandoDivida] = useState(false);
+  const [erroDivida, setErroDivida] = useState("");
+  const [confirmarDivida, setConfirmarDivida] = useState(null);
   const [aberto, setAberto] = useState(false);
   const [escolha, setEscolha] = useState(null); // código COMPE ou "outro"
   const [nomeLivre, setNomeLivre] = useState("");
@@ -112,7 +190,94 @@ export default function BancosDesktop({
   }, [lancamentos]);
 
   const cartoesDoBanco = (bancoId) => cartoes.filter(c => Number(c.banco_id) === Number(bancoId));
+  const dividasDoBanco = (bancoId) => dividas.filter(d => Number(d.banco_id) === Number(bancoId));
   const semBanco = cartoes.filter(c => !c.banco_id);
+  const dividasSemBanco = dividas.filter(d => !d.banco_id);
+  const totalPassivos = dividas.reduce((s, d) => s + Number(d.saldo_devedor || 0), 0);
+
+  const abrirNovaDivida = (bancoId) => {
+    setDividaAberta(`nova-${bancoId ?? "sem"}`);
+    setFormDivida({ ...DIVIDA_VAZIA, banco_id: bancoId != null ? String(bancoId) : "" });
+    setErroDivida(""); setConfirmarDivida(null);
+  };
+
+  const abrirEdicaoDivida = (d) => {
+    setDividaAberta(d.id);
+    setFormDivida({
+      descricao: d.descricao || "",
+      saldo_devedor: d.saldo_devedor != null ? String(d.saldo_devedor) : "",
+      valor_parcela: d.valor_parcela != null ? String(d.valor_parcela) : "",
+      parcelas_restantes: d.parcelas_restantes != null ? String(d.parcelas_restantes) : "",
+      taxa_juros_mensal: d.taxa_juros_mensal != null ? String(d.taxa_juros_mensal) : "",
+      banco_id: d.banco_id != null ? String(d.banco_id) : "",
+    });
+    setErroDivida(""); setConfirmarDivida(null);
+  };
+
+  const fecharDivida = () => { setDividaAberta(null); setFormDivida(DIVIDA_VAZIA); setErroDivida(""); };
+
+  const salvarDivida = async () => {
+    setSalvandoDivida(true); setErroDivida("");
+    const ehEdicao = typeof dividaAberta === "number";
+    const res = ehEdicao ? await onAtualizarDivida(dividaAberta, formDivida) : await onCriarDivida(formDivida);
+    setSalvandoDivida(false);
+    if (!res?.ok) { setErroDivida(res?.erro || "Não foi possível salvar."); return; }
+    fecharDivida();
+  };
+
+  const removerDivida = async (id) => {
+    setSalvandoDivida(true); setErroDivida("");
+    const res = await onExcluirDivida(id);
+    setSalvandoDivida(false);
+    // Mantém a confirmação aberta quando falha: é onde a mensagem de erro aparece.
+    if (!res?.ok) { setErroDivida(res?.erro || "Não foi possível excluir."); return; }
+    setConfirmarDivida(null);
+  };
+
+  // Uma dívida sempre mostra saldo; parcela, prazo e juros são opcionais.
+  const metaDivida = (d) => [
+    d.valor_parcela ? `${formatBRL(d.valor_parcela)}/mês` : null,
+    d.parcelas_restantes ? `${d.parcelas_restantes}x restantes` : null,
+    d.taxa_juros_mensal ? `${String(d.taxa_juros_mensal).replace(".", ",")}% a.m.` : null,
+  ].filter(Boolean).join(" · ");
+
+  const listaDividas = (lista) => lista.map((d) => (
+    <div className="pdx-bnc__divida" key={d.id}>
+      {dividaAberta === d.id ? (
+        <FormDivida
+          valor={formDivida} bancos={bancos} salvando={salvandoDivida} erro={erroDivida} ehEdicao
+          onCampo={(k, v) => { setFormDivida(f => ({ ...f, [k]: v })); setErroDivida(""); }}
+          onSalvar={salvarDivida} onCancelar={fecharDivida}
+        />
+      ) : (
+        <>
+          <div className="pdx-bnc__dividatopo">
+            <div style={{ minWidth: 0 }}>
+              <p className="pdx-bnc__itemnome" style={{ margin: 0 }}>{normalizeText(d.descricao)}</p>
+              <p className="pdx-bnc__itemmeta" style={{ margin: 0 }}>{metaDivida(d) || "só saldo informado"}</p>
+            </div>
+            <span className="pdx-bnc__dividaval">{formatBRL(d.saldo_devedor)}</span>
+          </div>
+          <div className="pdx-bnc__dividaacoes">
+            {confirmarDivida === d.id ? (
+              <>
+                <button className="pdx-btn pdx-btn--danger" onClick={() => removerDivida(d.id)} disabled={salvandoDivida}>
+                  {salvandoDivida ? "..." : "Confirmar exclusão"}
+                </button>
+                <button className="pdx-btn" onClick={() => setConfirmarDivida(null)} disabled={salvandoDivida}>Cancelar</button>
+              </>
+            ) : (
+              <>
+                <button className="pdx-btn" onClick={() => abrirEdicaoDivida(d)}>Editar</button>
+                <button className="pdx-btn pdx-btn--danger" onClick={() => { setErroDivida(""); setDividaAberta(null); setConfirmarDivida(d.id); }}>Excluir</button>
+              </>
+            )}
+          </div>
+          {confirmarDivida === d.id && erroDivida && <p className="pdx-bnc__erro">{erroDivida}</p>}
+        </>
+      )}
+    </div>
+  ));
 
   const jaCadastrado = (nome) => bancos.some(b => b.nome.toLowerCase() === nome.trim().toLowerCase());
 
@@ -157,7 +322,10 @@ export default function BancosDesktop({
             ? "Cadastre as instituições onde você tem conta."
             : `${bancos.length} ${bancos.length === 1 ? "instituição cadastrada" : "instituições cadastradas"} · gasto do mês corrente`}
         </p>
-        {!aberto && <button className="pdx-btn pdx-btn--primary" onClick={abrirNovo}>Novo banco</button>}
+        <div className="pdx-bnc__acoes">
+          {!dividaAberta && <button className="pdx-btn" onClick={() => abrirNovaDivida(null)}>Nova dívida</button>}
+          {!aberto && <button className="pdx-btn pdx-btn--primary" onClick={abrirNovo}>Novo banco</button>}
+        </div>
       </div>
 
       {aberto && (
@@ -213,12 +381,14 @@ export default function BancosDesktop({
 
       {bancos.length === 0 && !aberto ? (
         <div className="pdx-bnc__empty">
-          Cadastre um banco para agrupar os cartões — e, nas próximas versões, as dívidas e os investimentos de cada instituição.
+          Cadastre um banco para agrupar os cartões e as dívidas de cada instituição.
         </div>
       ) : (
         <div className="pdx-bnc__lista">
           {bancos.map((banco) => {
             const doBanco = cartoesDoBanco(banco.id);
+            const dividasBanco = dividasDoBanco(banco.id);
+            const devido = dividasBanco.reduce((s, d) => s + Number(d.saldo_devedor || 0), 0);
             const total = doBanco.reduce((s, c) => s + (gastoPorCartao[c.id] || 0), 0);
             const aberta = !!expandido[banco.id];
             const emEdicao = editandoId === banco.id;
@@ -255,12 +425,22 @@ export default function BancosDesktop({
                           <p className="pdx-bnc__meta">
                             {banco.codigo_compe ? `[${banco.codigo_compe}] · ` : ""}
                             {doBanco.length === 0 ? "nenhum cartão" : `${doBanco.length} ${doBanco.length === 1 ? "cartão" : "cartões"}`}
+                            {dividasBanco.length > 0 && ` · ${dividasBanco.length} ${dividasBanco.length === 1 ? "dívida" : "dívidas"}`}
                           </p>
                         </span>
                       </button>
                       <div className="pdx-bnc__total">
-                        <b>{formatBRL(total)}</b>
-                        <span>no mês</span>
+                        {devido > 0 ? (
+                          <>
+                            <b style={{ color: t.gasto }}>{formatBRL(devido)}</b>
+                            <span>devido</span>
+                          </>
+                        ) : (
+                          <>
+                            <b>{formatBRL(total)}</b>
+                            <span>no mês</span>
+                          </>
+                        )}
                       </div>
                       <div className="pdx-bnc__acoes">
                         {confirmarId === banco.id ? (
@@ -321,11 +501,66 @@ export default function BancosDesktop({
                         <span className="pdx-bnc__itemval">{formatBRL(gastoPorCartao[c.id] || 0)}</span>
                       </div>
                     ))}
+
+                    <div className="pdx-bnc__secaotopo" style={{ marginTop: "1.1rem" }}>
+                      <p className="pdx-bnc__secao" style={{ margin: 0 }}>
+                        Dívidas{devido > 0 ? ` · ${formatBRL(devido)}` : ""}
+                      </p>
+                      {dividaAberta !== `nova-${banco.id}` && (
+                        <button className="pdx-btn" onClick={() => abrirNovaDivida(banco.id)}>Nova dívida</button>
+                      )}
+                    </div>
+                    {dividasBanco.length === 0 && dividaAberta !== `nova-${banco.id}` ? (
+                      <p className="pdx-bnc__vazio">Nenhuma dívida nesta instituição.</p>
+                    ) : listaDividas(dividasBanco)}
+                    {dividaAberta === `nova-${banco.id}` && (
+                      <FormDivida
+                        valor={formDivida} bancos={bancos} salvando={salvandoDivida} erro={erroDivida}
+                        onCampo={(k, v) => { setFormDivida(f => ({ ...f, [k]: v })); setErroDivida(""); }}
+                        onSalvar={salvarDivida} onCancelar={fecharDivida}
+                      />
+                    )}
                   </div>
                 )}
               </div>
             );
           })}
+        </div>
+      )}
+
+      {(dividasSemBanco.length > 0 || dividaAberta === "nova-sem") && (
+        <div className="pdx-bnc__semvinculo">
+          <div className="pdx-bnc__secaotopo">
+            <p className="pdx-bnc__secao" style={{ margin: 0 }}>Dívidas sem instituição</p>
+            {dividaAberta !== "nova-sem" && (
+              <button className="pdx-btn" onClick={() => abrirNovaDivida(null)}>Nova dívida</button>
+            )}
+          </div>
+          {listaDividas(dividasSemBanco)}
+          {dividaAberta === "nova-sem" && (
+            <FormDivida
+              valor={formDivida} bancos={bancos} salvando={salvandoDivida} erro={erroDivida}
+              onCampo={(k, v) => { setFormDivida(f => ({ ...f, [k]: v })); setErroDivida(""); }}
+              onSalvar={salvarDivida} onCancelar={fecharDivida}
+            />
+          )}
+        </div>
+      )}
+
+      {totalPassivos > 0 && (
+        <div className="pdx-bnc__resumo">
+          <div className="pdx-bnc__resumoitem">
+            <span>Total devido</span>
+            <b style={{ color: t.gasto }}>{formatBRL(totalPassivos)}</b>
+          </div>
+          <div className="pdx-bnc__resumoitem">
+            <span>Dívidas ativas</span>
+            <b style={{ color: t.textPrimary }}>{dividas.length}</b>
+          </div>
+          <p className="pdx-bnc__resumonota">
+            Só o lado dos passivos. O patrimônio líquido aparece quando os investimentos
+            passarem a ser somados por instituição.
+          </p>
         </div>
       )}
 

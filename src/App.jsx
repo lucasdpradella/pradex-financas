@@ -256,6 +256,7 @@ export default function PradexFinancas() {
   const [lancamentos, setLancamentos] = useState([]);
   const [cartoes, setCartoes] = useState([]);
   const [bancos, setBancos] = useState([]);
+  const [dividas, setDividas] = useState([]);
   // Linhas cruas da tabela `categorias` (id/nome/tipo/removida) — a tela desktop
   // precisa saber o que é custom, o que é default oculta e qual o id de cada uma.
   const [categoriasRows, setCategoriasRows] = useState([]);
@@ -444,14 +445,14 @@ export default function PradexFinancas() {
     supabase.auth.signOut().catch(() => {});
     clearSessionTokens();
     setSession(null); setUserRole(null);
-    setLancamentos([]); setCartoes([]); setBancos([]);
+    setLancamentos([]); setCartoes([]); setBancos([]); setDividas([]);
     setPrecisaCadastrarTelefone(false); setBannerTelefoneFechado(false);
     setAcessoPago(false);
   };
 
   useEffect(() => {
     if (session) {
-      fetchLancamentos(); fetchCartoes(); fetchBancos(); fetchRascunhos(); fetchCategorias();
+      fetchLancamentos(); fetchCartoes(); fetchBancos(); fetchDividas(); fetchRascunhos(); fetchCategorias();
       fetchTaxaFocus().then(t => setTaxaFocus(t));
       verificarTelefonePerfil();
     }
@@ -636,6 +637,72 @@ export default function PradexFinancas() {
     } catch (e) {}
   };
 
+  const fetchDividas = async () => {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/dividas?removida=is.false&order=saldo_devedor.desc`, { headers: api(session?.token) });
+      const data = await res.json();
+      setDividas(Array.isArray(data) ? data : []);
+    } catch (e) {}
+  };
+
+  // CRUD de dívidas (Fase C, fatia 2). Saldo devedor, não parcela: a parcela
+  // continua sendo despesa em fp_despesas. São dados diferentes do mesmo compromisso.
+  const payloadDivida = (f) => ({
+    descricao: (f.descricao || "").trim(),
+    saldo_devedor: Number(String(f.saldo_devedor).replace(",", ".")) || 0,
+    valor_parcela: f.valor_parcela ? Number(String(f.valor_parcela).replace(",", ".")) : null,
+    parcelas_restantes: f.parcelas_restantes ? parseInt(f.parcelas_restantes, 10) : null,
+    taxa_juros_mensal: f.taxa_juros_mensal ? Number(String(f.taxa_juros_mensal).replace(",", ".")) : null,
+    banco_id: f.banco_id ? parseInt(f.banco_id, 10) : null,
+  });
+
+  const criarDivida = async (dados) => {
+    const p = payloadDivida(dados);
+    if (!p.descricao) return { ok: false, erro: "Informe a descrição da dívida." };
+    if (!(p.saldo_devedor > 0)) return { ok: false, erro: "Informe um saldo devedor maior que zero." };
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/dividas`, {
+        method: "POST", headers: { ...api(session?.token), "Prefer": "return=representation" },
+        body: JSON.stringify({ ...p, user_id: session.user.id, removida: false }),
+      });
+      if (!res.ok) return { ok: false, erro: "Não foi possível salvar a dívida." };
+      const data = await res.json();
+      if (!Array.isArray(data) || !data[0]) return { ok: false, erro: "Não foi possível salvar a dívida." };
+      setDividas(prev => [...prev, data[0]].sort((a, b) => Number(b.saldo_devedor) - Number(a.saldo_devedor)));
+      return { ok: true };
+    } catch (e) { return { ok: false, erro: "Erro de conexão." }; }
+  };
+
+  const atualizarDivida = async (id, dados) => {
+    const p = payloadDivida(dados);
+    if (!p.descricao) return { ok: false, erro: "Informe a descrição da dívida." };
+    if (!(p.saldo_devedor > 0)) return { ok: false, erro: "Informe um saldo devedor maior que zero." };
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/dividas?id=eq.${id}`, {
+        method: "PATCH", headers: { ...api(session?.token), "Prefer": "return=representation" },
+        body: JSON.stringify(p),
+      });
+      if (!res.ok) return { ok: false, erro: "Não foi possível salvar as alterações." };
+      const data = await res.json();
+      if (!Array.isArray(data) || !data[0]) return { ok: false, erro: "Não foi possível salvar as alterações." };
+      setDividas(prev => prev.map(d => (d.id === data[0].id ? data[0] : d))
+        .sort((a, b) => Number(b.saldo_devedor) - Number(a.saldo_devedor)));
+      return { ok: true };
+    } catch (e) { return { ok: false, erro: "Erro de conexão." }; }
+  };
+
+  // Soft-delete, igual a bancos: dívida quitada some da tela sem sumir do histórico.
+  const excluirDivida = async (id) => {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/dividas?id=eq.${id}`, {
+        method: "PATCH", headers: api(session?.token), body: JSON.stringify({ removida: true }),
+      });
+      if (!res.ok) return { ok: false, erro: "Não foi possível excluir a dívida." };
+      setDividas(prev => prev.filter(d => d.id !== id));
+      return { ok: true };
+    } catch (e) { return { ok: false, erro: "Erro de conexão." }; }
+  };
+
   // CRUD de bancos (Fase C). Banco é entidade raiz: cartões — e, nas próximas fatias,
   // dívidas e investimentos — penduram nele por FK nullable.
   const criarBanco = async (nome, codigoCompe) => {
@@ -683,19 +750,26 @@ export default function PradexFinancas() {
   // NULL, mas apagar de vez tiraria o vínculo sem deixar rastro de qual era o banco.
   const excluirBanco = async (id) => {
     try {
-      // Desvincula os cartões primeiro: se isto falhar, o banco continua lá e nada
-      // ficou pela metade. Os cartões seguem existindo, só perdem a instituição.
-      const desvincula = await fetch(`${SUPABASE_URL}/rest/v1/cartoes?banco_id=eq.${id}`, {
+      // Desvincula o que aponta pro banco primeiro: se isto falhar, o banco continua
+      // lá e nada ficou pela metade. Cartões e dívidas seguem existindo, só perdem
+      // a instituição.
+      const desvinculaCartoes = await fetch(`${SUPABASE_URL}/rest/v1/cartoes?banco_id=eq.${id}`, {
         method: "PATCH", headers: api(session?.token), body: JSON.stringify({ banco_id: null }),
       });
-      if (!desvincula.ok) return { ok: false, erro: "Não foi possível desvincular os cartões. Nada foi alterado." };
+      if (!desvinculaCartoes.ok) return { ok: false, erro: "Não foi possível desvincular os cartões. Nada foi alterado." };
+
+      const desvinculaDividas = await fetch(`${SUPABASE_URL}/rest/v1/dividas?banco_id=eq.${id}`, {
+        method: "PATCH", headers: api(session?.token), body: JSON.stringify({ banco_id: null }),
+      });
+      if (!desvinculaDividas.ok) return { ok: false, erro: "Não foi possível desvincular as dívidas. O banco não foi excluído." };
 
       const res = await fetch(`${SUPABASE_URL}/rest/v1/bancos?id=eq.${id}`, {
         method: "PATCH", headers: api(session?.token), body: JSON.stringify({ removido: true }),
       });
-      if (!res.ok) return { ok: false, erro: "Os cartões foram desvinculados, mas o banco não pôde ser excluído." };
+      if (!res.ok) return { ok: false, erro: "Cartões e dívidas foram desvinculados, mas o banco não pôde ser excluído." };
 
       setCartoes(prev => prev.map(c => (Number(c.banco_id) === Number(id) ? { ...c, banco_id: null } : c)));
+      setDividas(prev => prev.map(d => (Number(d.banco_id) === Number(id) ? { ...d, banco_id: null } : d)));
       setBancos(prev => prev.filter(b => b.id !== id));
       return { ok: true };
     } catch (e) { return { ok: false, erro: "Erro de conexão." }; }
@@ -1475,12 +1549,16 @@ export default function PradexFinancas() {
         <BancosDesktop
           bancos={bancos}
           cartoes={cartoes}
+          dividas={dividas}
           lancamentos={lancamentos}
           formatBRL={formatBRL}
           normalizeText={normalizeText}
           onCriar={criarBanco}
           onRenomear={renomearBanco}
           onExcluir={excluirBanco}
+          onCriarDivida={criarDivida}
+          onAtualizarDivida={atualizarDivida}
+          onExcluirDivida={excluirDivida}
         />
       )}
 
