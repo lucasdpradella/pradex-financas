@@ -21,6 +21,7 @@ import TabelaLancamentos from "./components/desktop/TabelaLancamentos";
 import DashboardDesktop from "./components/desktop/DashboardDesktop";
 import CartoesDesktop from "./components/desktop/CartoesDesktop";
 import CategoriasDesktop from "./components/desktop/CategoriasDesktop";
+import BancosDesktop from "./components/desktop/BancosDesktop";
 import { normalizeTelefone, isValidTelefoneBr, formatTelefoneInput } from "./utils/phone";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
@@ -33,7 +34,7 @@ const api = (token) => ({
 });
 
 // Telas que existem só no shell desktop (>=1024px), acessadas pela sidebar.
-const TELAS_DESKTOP = ["cartoes", "categorias"];
+const TELAS_DESKTOP = ["cartoes", "categorias", "bancos"];
 
 const defaultCategories = {
   receita: ["Salário", "Freelance", "Investimentos", "Aluguel recebido", "Outros"],
@@ -254,6 +255,7 @@ export default function PradexFinancas() {
   const [form, setForm] = useState({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "", parcelado: false, parcela_atual: "1", total_parcelas: "", recorrente: false });
   const [lancamentos, setLancamentos] = useState([]);
   const [cartoes, setCartoes] = useState([]);
+  const [bancos, setBancos] = useState([]);
   // Linhas cruas da tabela `categorias` (id/nome/tipo/removida) — a tela desktop
   // precisa saber o que é custom, o que é default oculta e qual o id de cada uma.
   const [categoriasRows, setCategoriasRows] = useState([]);
@@ -442,14 +444,14 @@ export default function PradexFinancas() {
     supabase.auth.signOut().catch(() => {});
     clearSessionTokens();
     setSession(null); setUserRole(null);
-    setLancamentos([]); setCartoes([]);
+    setLancamentos([]); setCartoes([]); setBancos([]);
     setPrecisaCadastrarTelefone(false); setBannerTelefoneFechado(false);
     setAcessoPago(false);
   };
 
   useEffect(() => {
     if (session) {
-      fetchLancamentos(); fetchCartoes(); fetchRascunhos(); fetchCategorias();
+      fetchLancamentos(); fetchCartoes(); fetchBancos(); fetchRascunhos(); fetchCategorias();
       fetchTaxaFocus().then(t => setTaxaFocus(t));
       verificarTelefonePerfil();
     }
@@ -624,6 +626,79 @@ export default function PradexFinancas() {
       const data = await res.json();
       setCartoes(Array.isArray(data) ? data : []);
     } catch (e) {}
+  };
+
+  const fetchBancos = async () => {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/bancos?removido=is.false&order=nome.asc`, { headers: api(session?.token) });
+      const data = await res.json();
+      setBancos(Array.isArray(data) ? data : []);
+    } catch (e) {}
+  };
+
+  // CRUD de bancos (Fase C). Banco é entidade raiz: cartões — e, nas próximas fatias,
+  // dívidas e investimentos — penduram nele por FK nullable.
+  const criarBanco = async (nome, codigoCompe) => {
+    const limpo = (nome || "").trim();
+    if (!limpo) return { ok: false, erro: "Informe o nome da instituição." };
+    if (bancos.some(b => b.nome.toLowerCase() === limpo.toLowerCase())) {
+      return { ok: false, erro: "Esse banco já está cadastrado." };
+    }
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/bancos`, {
+        method: "POST", headers: { ...api(session?.token), "Prefer": "return=representation" },
+        body: JSON.stringify({ nome: limpo, codigo_compe: codigoCompe || null, user_id: session.user.id, removido: false }),
+      });
+      if (!res.ok) return { ok: false, erro: "Não foi possível cadastrar o banco." };
+      const data = await res.json();
+      if (!Array.isArray(data) || !data[0]) return { ok: false, erro: "Não foi possível cadastrar o banco." };
+      setBancos(prev => [...prev, data[0]].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")));
+      return { ok: true };
+    } catch (e) { return { ok: false, erro: "Erro de conexão." }; }
+  };
+
+  // Renomear banco é seguro: os cartões apontam por `banco_id`, não pelo nome —
+  // ao contrário de categoria, aqui não há histórico pra migrar.
+  const renomearBanco = async (banco, novoNome) => {
+    const limpo = (novoNome || "").trim();
+    if (!limpo) return { ok: false, erro: "Informe o nome da instituição." };
+    if (limpo === banco.nome) return { ok: true };
+    if (bancos.some(b => b.id !== banco.id && b.nome.toLowerCase() === limpo.toLowerCase())) {
+      return { ok: false, erro: "Já existe um banco com esse nome." };
+    }
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/bancos?id=eq.${banco.id}`, {
+        method: "PATCH", headers: { ...api(session?.token), "Prefer": "return=representation" },
+        body: JSON.stringify({ nome: limpo }),
+      });
+      if (!res.ok) return { ok: false, erro: "Não foi possível renomear o banco." };
+      const data = await res.json();
+      if (!Array.isArray(data) || !data[0]) return { ok: false, erro: "Não foi possível renomear o banco." };
+      setBancos(prev => prev.map(b => (b.id === data[0].id ? data[0] : b)).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")));
+      return { ok: true };
+    } catch (e) { return { ok: false, erro: "Erro de conexão." }; }
+  };
+
+  // Soft-delete, como `categorias`: a linha fica. O FK em `cartoes` é ON DELETE SET
+  // NULL, mas apagar de vez tiraria o vínculo sem deixar rastro de qual era o banco.
+  const excluirBanco = async (id) => {
+    try {
+      // Desvincula os cartões primeiro: se isto falhar, o banco continua lá e nada
+      // ficou pela metade. Os cartões seguem existindo, só perdem a instituição.
+      const desvincula = await fetch(`${SUPABASE_URL}/rest/v1/cartoes?banco_id=eq.${id}`, {
+        method: "PATCH", headers: api(session?.token), body: JSON.stringify({ banco_id: null }),
+      });
+      if (!desvincula.ok) return { ok: false, erro: "Não foi possível desvincular os cartões. Nada foi alterado." };
+
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/bancos?id=eq.${id}`, {
+        method: "PATCH", headers: api(session?.token), body: JSON.stringify({ removido: true }),
+      });
+      if (!res.ok) return { ok: false, erro: "Os cartões foram desvinculados, mas o banco não pôde ser excluído." };
+
+      setCartoes(prev => prev.map(c => (Number(c.banco_id) === Number(id) ? { ...c, banco_id: null } : c)));
+      setBancos(prev => prev.filter(b => b.id !== id));
+      return { ok: true };
+    } catch (e) { return { ok: false, erro: "Erro de conexão." }; }
   };
 
   const fetchRascunhos = async () => {
@@ -953,6 +1028,7 @@ export default function PradexFinancas() {
     bandeira: (f.bandeira || "").trim() || null,
     dia_fechamento: f.dia_fechamento ? parseInt(f.dia_fechamento, 10) : null,
     dia_vencimento: f.dia_vencimento ? parseInt(f.dia_vencimento, 10) : null,
+    banco_id: f.banco_id ? parseInt(f.banco_id, 10) : null,
   });
 
   const criarCartao = async (dados) => {
@@ -1145,7 +1221,7 @@ export default function PradexFinancas() {
       )}
       {isDesktop && (
         <TopBar
-          title={({ dashboard: "Dashboard", historico: "Lançamentos", lancamentos: "Lançamentos", cartoes: "Cartões", categorias: "Categorias", fp: "Diagnóstico FP" })[tela] || "Pradex"}
+          title={({ dashboard: "Dashboard", historico: "Lançamentos", lancamentos: "Lançamentos", cartoes: "Cartões", categorias: "Categorias", bancos: "Bancos", fp: "Diagnóstico FP" })[tela] || "Pradex"}
           periodoLabel={tela === "dashboard"
             ? `${monthNames[mesDashboard.mes]} ${mesDashboard.ano}`
             : `${monthNames[new Date().getMonth()]} ${new Date().getFullYear()}`}
@@ -1369,6 +1445,7 @@ export default function PradexFinancas() {
       {tela === "cartoes" && isDesktop && (
         <CartoesDesktop
           cartoes={cartoes}
+          bancos={bancos}
           lancamentos={lancamentos}
           formatBRL={formatBRL}
           normalizeText={normalizeText}
@@ -1390,6 +1467,20 @@ export default function PradexFinancas() {
           onRenomear={renomearCategoria}
           onRemover={removerCategoria}
           onRestaurar={restaurarCategoria}
+        />
+      )}
+
+      {/* BANCOS — desktop (Fase C, fatia 1) */}
+      {tela === "bancos" && isDesktop && (
+        <BancosDesktop
+          bancos={bancos}
+          cartoes={cartoes}
+          lancamentos={lancamentos}
+          formatBRL={formatBRL}
+          normalizeText={normalizeText}
+          onCriar={criarBanco}
+          onRenomear={renomearBanco}
+          onExcluir={excluirBanco}
         />
       )}
 

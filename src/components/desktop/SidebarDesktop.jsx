@@ -6,6 +6,7 @@ const Icon = ({ name }) => {
     dashboard: <><rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" /></>,
     lancamentos: <><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3.5" y1="6" x2="3.51" y2="6" /><line x1="3.5" y1="12" x2="3.51" y2="12" /><line x1="3.5" y1="18" x2="3.51" y2="18" /></>,
     cartoes: <><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></>,
+    bancos: <><line x1="3" y1="21" x2="21" y2="21" /><line x1="4" y1="10" x2="4" y2="18" /><line x1="9" y1="10" x2="9" y2="18" /><line x1="15" y1="10" x2="15" y2="18" /><line x1="20" y1="10" x2="20" y2="18" /><polyline points="2 7 12 3 22 7" /></>,
     categorias: <><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></>,
     fp: <><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></>,
     relatorios: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></>,
@@ -23,6 +24,7 @@ const ITEMS = [
   { key: "lancamentos", label: "Lançamentos", icon: "lancamentos", tela: "historico", activeFor: ["historico", "lancamentos"] },
   { key: "cartoes", label: "Cartões", icon: "cartoes", tela: "cartoes", activeFor: ["cartoes"] },
   { key: "categorias", label: "Categorias", icon: "categorias", tela: "categorias", activeFor: ["categorias"] },
+  { key: "bancos", label: "Bancos", icon: "bancos", tela: "bancos", activeFor: ["bancos"] },
   { key: "fp", label: "Diagnóstico FP", icon: "fp", tela: "fp", activeFor: ["fp"], gatePago: true },
   { key: "relatorios", label: "Relatórios", icon: "relatorios", disabled: true },
 ];

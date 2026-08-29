@@ -5,7 +5,7 @@ import { desktopTheme as t } from "./theme";
 // nenhum schema novo. O gasto do mês vem dos lançamentos que o App.jsx já carregou.
 // Toda escrita passa pelos handlers do App, que checam res.ok antes de refletir na UI.
 
-const VAZIO = { nome: "", bandeira: "", dia_fechamento: "", dia_vencimento: "" };
+const VAZIO = { nome: "", bandeira: "", dia_fechamento: "", dia_vencimento: "", banco_id: "" };
 
 const CSS = `
 .pdx-crt { font-family: 'DM Sans', 'Helvetica Neue', sans-serif; display: flex; flex-direction: column; gap: 1rem; }
@@ -25,7 +25,9 @@ const CSS = `
 .pdx-crt__campo { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
 .pdx-crt__campo label { font-size: 0.75rem; font-weight: 600; color: ${t.textSecondary}; }
 .pdx-crt__campo input { width: 100%; box-sizing: border-box; padding: 0.6rem 0.75rem; border: 1px solid ${t.surfaceBorder}; border-radius: 8px; background: ${t.surface}; color: ${t.textPrimary}; font-family: inherit; font-size: 0.9rem; }
-.pdx-crt__campo input:focus { outline: none; border-color: ${t.accent}; box-shadow: 0 0 0 3px ${t.chipBg}; }
+.pdx-crt__campo input:focus, .pdx-crt__campo select:focus { outline: none; border-color: ${t.accent}; box-shadow: 0 0 0 3px ${t.chipBg}; }
+.pdx-crt__campo select { width: 100%; box-sizing: border-box; padding: 0.6rem 0.75rem; border: 1px solid ${t.surfaceBorder}; border-radius: 8px; background: ${t.surface}; color: ${t.textPrimary}; font-family: inherit; font-size: 0.9rem; }
+.pdx-crt__campo small { font-size: 0.72rem; color: ${t.textSecondary}; }
 .pdx-crt__erro { margin: 0.9rem 0 0; font-size: 0.82rem; color: ${t.gasto}; }
 .pdx-crt__formacoes { display: flex; gap: 0.6rem; margin-top: 1.1rem; }
 .pdx-btn { padding: 0.55rem 1.1rem; border-radius: 8px; font-family: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; border: 1px solid ${t.surfaceBorder}; background: ${t.surface}; color: ${t.textSecondary}; white-space: nowrap; }
@@ -43,7 +45,7 @@ const mesCorrente = () => {
 };
 
 export default function CartoesDesktop({
-  cartoes, lancamentos, formatBRL, normalizeText,
+  cartoes, bancos = [], lancamentos, formatBRL, normalizeText,
   onCriar, onAtualizar, onExcluir,
 }) {
   const [form, setForm] = useState(VAZIO);
@@ -75,6 +77,7 @@ export default function CartoesDesktop({
       bandeira: c.bandeira || "",
       dia_fechamento: c.dia_fechamento != null ? String(c.dia_fechamento) : "",
       dia_vencimento: c.dia_vencimento != null ? String(c.dia_vencimento) : "",
+      banco_id: c.banco_id != null ? String(c.banco_id) : "",
     });
     setEditandoId(c.id); setErro(""); setAberto(true); setConfirmarId(null);
   };
@@ -121,6 +124,17 @@ export default function CartoesDesktop({
                 onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))} />
             </div>
             <div className="pdx-crt__campo">
+              <label htmlFor="crt-banco">Banco</label>
+              <select id="crt-banco" value={form.banco_id}
+                onChange={(e) => setForm((f) => ({ ...f, banco_id: e.target.value }))}>
+                <option value="">Sem banco</option>
+                {bancos.map((b) => (
+                  <option key={b.id} value={String(b.id)}>{normalizeText(b.nome)}</option>
+                ))}
+              </select>
+              {bancos.length === 0 && <small>Cadastre instituições na tela de Bancos.</small>}
+            </div>
+            <div className="pdx-crt__campo">
               <label htmlFor="crt-bandeira">Bandeira</label>
               <input id="crt-bandeira" type="text" placeholder="Ex.: Visa" value={form.bandeira}
                 onChange={(e) => setForm((f) => ({ ...f, bandeira: e.target.value }))} />
@@ -153,7 +167,9 @@ export default function CartoesDesktop({
       ) : (
         <div className="pdx-crt__grid">
           {cartoes.map((c) => {
+            const banco = bancos.find((b) => Number(b.id) === Number(c.banco_id));
             const meta = [
+              banco ? normalizeText(banco.nome) : null,
               normalizeText(c.bandeira) || null,
               c.dia_fechamento ? `Fecha dia ${c.dia_fechamento}` : null,
               c.dia_vencimento ? `Vence dia ${c.dia_vencimento}` : null,
