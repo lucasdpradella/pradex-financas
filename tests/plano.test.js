@@ -1,10 +1,13 @@
 import { describe, it, expect } from "vitest";
 import {
   PLANOS,
-  LINK_CHECKOUT_ASSISTENTE,
+  CHECKOUT,
+  RECURSOS,
   normalizePlano,
-  temAssistente,
+  planoNecessario,
+  temAcesso,
   mostraCadeado,
+  checkoutPara,
   conteudoUpgrade,
 } from "../src/lib/plano";
 
@@ -24,47 +27,88 @@ describe("normalizePlano", () => {
   });
 });
 
-describe("temAssistente — quem abre WhatsApp e Diagnóstico FP", () => {
-  it("só o assistente libera", () => {
-    expect(temAssistente("assistente")).toBe(true);
-    expect(temAssistente("essencial")).toBe(false);
-    expect(temAssistente("none")).toBe(false);
+describe("temAcesso — a matriz de planos", () => {
+  // A tabela é a especificação: free tem o core inteiro, paga-se pelo Zap (Essencial)
+  // e por FP/Relatórios (Assistente).
+  const MATRIZ = {
+    none: { whatsapp: false, fp: false, relatorios: false },
+    essencial: { whatsapp: true, fp: false, relatorios: false },
+    assistente: { whatsapp: true, fp: true, relatorios: true },
+  };
+
+  for (const [plano, esperado] of Object.entries(MATRIZ)) {
+    for (const [recurso, liberado] of Object.entries(esperado)) {
+      it(`${plano} ${liberado ? "tem" : "NÃO tem"} ${recurso}`, () => {
+        expect(temAcesso(plano, recurso)).toBe(liberado);
+      });
+    }
+  }
+
+  // "Top inclui o meio": é o que dispensa listar recurso por plano.
+  it("assistente herda tudo do essencial", () => {
+    for (const recurso of Object.keys(RECURSOS)) {
+      if (temAcesso("essencial", recurso)) expect(temAcesso("assistente", recurso)).toBe(true);
+    }
   });
 
-  // Regressão da Fase 0: acesso_pago = (plano = 'assistente'), não plano <> 'none'.
-  // Se o Essencial liberar WhatsApp/FP, a assinatura mais barata entrega o produto caro.
-  it("essencial NÃO herda o que o Assistente vende", () => {
-    expect(temAssistente("essencial")).toBe(false);
+  it("plano inválido não libera nada", () => {
+    for (const recurso of Object.keys(RECURSOS)) {
+      expect(temAcesso("premium", recurso)).toBe(false);
+      expect(temAcesso(undefined, recurso)).toBe(false);
+    }
   });
 
-  it("valor inválido não libera", () => {
-    expect(temAssistente(undefined)).toBe(false);
-    expect(temAssistente("assistente ")).toBe(false);
+  // Falha fechada: o catálogo só tem recurso pago, então errar o nome não pode virar
+  // liberação de graça.
+  it("recurso desconhecido exige o plano mais alto", () => {
+    expect(planoNecessario("inexistente")).toBe("assistente");
+    expect(temAcesso("none", "inexistente")).toBe(false);
+    expect(temAcesso("essencial", "inexistente")).toBe(false);
+    expect(temAcesso("assistente", "inexistente")).toBe(true);
   });
 });
 
 describe("mostraCadeado", () => {
   it("é o inverso do acesso — o item fica no menu, só que trancado", () => {
-    expect(mostraCadeado("none")).toBe(true);
-    expect(mostraCadeado("essencial")).toBe(true);
-    expect(mostraCadeado("assistente")).toBe(false);
+    expect(mostraCadeado("none", "whatsapp")).toBe(true);
+    expect(mostraCadeado("essencial", "whatsapp")).toBe(false);
+    expect(mostraCadeado("essencial", "fp")).toBe(true);
+    expect(mostraCadeado("assistente", "fp")).toBe(false);
+  });
+});
+
+describe("checkoutPara — cada bloqueio manda pro checkout certo", () => {
+  it("falta Zap manda pro Essencial", () => {
+    expect(checkoutPara("whatsapp")).toBe(CHECKOUT.essencial);
+    expect(CHECKOUT.essencial).toContain("a2xpq3u");
+  });
+
+  it("falta FP ou Relatórios manda pro Assistente", () => {
+    expect(checkoutPara("fp")).toBe(CHECKOUT.assistente);
+    expect(checkoutPara("relatorios")).toBe(CHECKOUT.assistente);
+    expect(CHECKOUT.assistente).toContain("4pteia8");
+  });
+
+  it("os dois checkouts são diferentes", () => {
+    expect(CHECKOUT.essencial).not.toBe(CHECKOUT.assistente);
   });
 });
 
 describe("conteudoUpgrade", () => {
-  it("manda none e essencial pro mesmo checkout do Assistente", () => {
-    for (const p of ["none", "essencial"]) {
-      for (const ctx of ["whatsapp", "fp"]) {
-        expect(conteudoUpgrade(p, ctx).href).toBe(LINK_CHECKOUT_ASSISTENTE);
-      }
-    }
-  });
-
-  it("muda a copy: none conhece, essencial faz upgrade", () => {
+  it("free conhece o plano; quem já paga faz upgrade", () => {
+    expect(conteudoUpgrade("none", "whatsapp").cta).toBe("Conhecer o Essencial");
     expect(conteudoUpgrade("none", "fp").cta).toBe("Conhecer o Assistente");
     expect(conteudoUpgrade("essencial", "fp").cta).toBe("Fazer upgrade");
-    expect(conteudoUpgrade("none", "fp").nota).toMatch(/Assistente/);
-    expect(conteudoUpgrade("essencial", "fp").nota).toMatch(/Essencial/);
+  });
+
+  it("a nota diz de onde a pessoa está saindo", () => {
+    expect(conteudoUpgrade("none", "fp").nota).toBe("Disponível no plano Assistente.");
+    expect(conteudoUpgrade("essencial", "fp").nota).toMatch(/Essencial.*Assistente/);
+  });
+
+  it("o link acompanha o recurso bloqueado, não o plano atual", () => {
+    expect(conteudoUpgrade("none", "whatsapp").href).toBe(CHECKOUT.essencial);
+    expect(conteudoUpgrade("none", "fp").href).toBe(CHECKOUT.assistente);
   });
 
   it("o título acompanha o contexto de onde a pessoa bateu no bloqueio", () => {
@@ -72,13 +116,17 @@ describe("conteudoUpgrade", () => {
     expect(conteudoUpgrade("none", "fp").titulo).toMatch(/Planejamento Financeiro/);
   });
 
-  it("contexto desconhecido não quebra a tela", () => {
-    const r = conteudoUpgrade("none", "inexistente");
-    expect(r.titulo).toBeTruthy();
-    expect(r.href).toBe(LINK_CHECKOUT_ASSISTENTE);
+  // Relatórios ainda não existe: a copy lidera pelo FP e cita Relatórios como o que vem.
+  it("Relatórios não é vendido como pronto", () => {
+    const r = conteudoUpgrade("essencial", "relatorios");
+    expect(r.titulo).toMatch(/Planejamento Financeiro/);
+    expect(r.descricao).toMatch(/em breve/);
+    expect(r.href).toBe(CHECKOUT.assistente);
   });
 
-  it("plano inválido é tratado como none", () => {
-    expect(conteudoUpgrade("premium", "fp").cta).toBe(conteudoUpgrade("none", "fp").cta);
+  it("recurso desconhecido não quebra a tela", () => {
+    const r = conteudoUpgrade("none", "inexistente");
+    expect(r.titulo).toBeTruthy();
+    expect(r.href).toBe(CHECKOUT.assistente);
   });
 });

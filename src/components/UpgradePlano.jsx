@@ -1,7 +1,10 @@
 import { conteudoUpgrade } from "../lib/plano";
 
-// CTA de upgrade pro Assistente. Ocupa o lugar do recurso bloqueado em vez de deixar
-// buraco: `card` entra no slot do card do WhatsApp no dashboard, `tela` ocupa a tela FP.
+// CTA de upgrade. Ocupa o lugar do recurso bloqueado em vez de deixar buraco: `card`
+// entra no slot do card do WhatsApp no dashboard, `tela` ocupa a tela cheia (FP, Relatórios).
+//
+// O destino do checkout sai de `recurso`, não é fixo: falta Zap manda pro Essencial,
+// falta FP/Relatórios manda pro Assistente.
 //
 // Não é página de vendas — só contexto + link do checkout (brief, Fase 2).
 
@@ -28,8 +31,8 @@ const BOTAO = {
   padding: "0.6rem 1.1rem",
 };
 
-export default function UpgradeAssistente({ plano, contexto, variant = "card" }) {
-  const { titulo, descricao, nota, cta, href } = conteudoUpgrade(plano, contexto);
+export default function UpgradePlano({ plano, recurso, variant = "card" }) {
+  const { titulo, descricao, nota, cta, href } = conteudoUpgrade(plano, recurso);
   const tela = variant === "tela";
 
   return (

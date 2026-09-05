@@ -21,8 +21,8 @@ import InvestimentosFP from "./components/fp/InvestimentosFP";
 import BensFP from "./components/fp/BensFP";
 import DiagnosticoFP from "./components/fp/DiagnosticoFP";
 import FabWhatsapp from "./components/FabWhatsapp";
-import UpgradeAssistente from "./components/UpgradeAssistente";
-import { normalizePlano, temAssistente, mostraCadeado } from "./lib/plano";
+import UpgradePlano from "./components/UpgradePlano";
+import { normalizePlano, temAcesso, mostraCadeado } from "./lib/plano";
 import { useIsDesktop } from "./components/desktop/useIsDesktop";
 import { desktopTheme, SIDEBAR_WIDTH } from "./components/desktop/theme";
 import SidebarDesktop from "./components/desktop/SidebarDesktop";
@@ -44,7 +44,7 @@ const api = (token) => ({
 });
 
 // Telas que existem só no shell desktop (>=1024px), acessadas pela sidebar.
-const TELAS_DESKTOP = ["cartoes", "categorias", "bancos"];
+const TELAS_DESKTOP = ["cartoes", "categorias", "bancos", "relatorios"];
 
 const defaultCategories = {
   receita: ["Salário", "Freelance", "Investimentos", "Aluguel recebido", "Outros"],
@@ -171,10 +171,12 @@ export default function PradexFinancas() {
   const [precisaCadastrarTelefone, setPrecisaCadastrarTelefone] = useState(false);
   const [bannerTelefoneFechado, setBannerTelefoneFechado] = useState(false);
   // Plano da assinatura ('none' | 'essencial' | 'assistente'), fonte da verdade do
-  // que a pessoa vê. WhatsApp e Diagnóstico FP são o que o Assistente vende; quem não
-  // tem enxerga o CTA de upgrade no lugar, não um buraco.
+  // que a pessoa vê. O core do app é livre pros três; o que se paga é o WhatsApp
+  // (Essencial) e FP/Relatórios (Assistente). Quem não tem enxerga o CTA do plano
+  // certo no lugar do recurso, não um buraco.
   const [plano, setPlano] = useState("none");
-  const assistente = temAssistente(plano);
+  const podeZap = temAcesso(plano, "whatsapp");
+  const podeFp = temAcesso(plano, "fp");
   const [tela, setTela] = useState("dashboard");
   const [tipo, setTipo] = useState("gasto");
   const [form, setForm] = useState({ descricao: "", valor: "", categoria: "", data_lancamento: today, forma_pagamento: "", cartao_id: "", parcelado: false, parcela_atual: "1", total_parcelas: "", recorrente: false });
@@ -1146,7 +1148,7 @@ export default function PradexFinancas() {
     { key: "lancamentos", label: "Lançar" },
     { key: "historico", label: "Histórico" },
     // FP fica sempre no menu: sem Assistente, abre o CTA de upgrade em vez de sumir.
-    { key: "fp", label: mostraCadeado(plano) ? "FP 🔒" : "FP" },
+    { key: "fp", label: mostraCadeado(plano, "fp") ? "FP 🔒" : "FP" },
   ];
 
   if (loadingAuth) return <div style={{ minHeight: "100vh", background: "#0F1117", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "#555", fontFamily: "'DM Sans', sans-serif" }}>Carregando...</p></div>;
@@ -1211,11 +1213,11 @@ export default function PradexFinancas() {
       <style>{`.pradex-shell { min-height: 100vh; min-height: 100dvh; } .pdx-content { display: contents; } @media (min-width: 1024px) { .pdx-hide-desktop { display: none !important; } .pdx-content { display: block; max-width: 1120px; margin: 0 auto; padding: 1.5rem 2rem 2.5rem; box-sizing: border-box; } }`}</style>
 
       {isDesktop && (
-        <SidebarDesktop tela={tela} setTela={setTela} userEmail={session?.user?.email} userRole={userRole} onLogout={handleLogout} assistente={assistente} />
+        <SidebarDesktop tela={tela} setTela={setTela} userEmail={session?.user?.email} userRole={userRole} onLogout={handleLogout} plano={plano} />
       )}
       {isDesktop && (
         <TopBar
-          title={({ dashboard: "Dashboard", historico: "Lançamentos", lancamentos: "Lançamentos", cartoes: "Cartões", categorias: "Categorias", bancos: "Bancos", fp: "Diagnóstico FP" })[tela] || "Pradex"}
+          title={({ dashboard: "Dashboard", historico: "Lançamentos", lancamentos: "Lançamentos", cartoes: "Cartões", categorias: "Categorias", bancos: "Bancos", fp: "Diagnóstico FP", relatorios: "Relatórios" })[tela] || "Pradex"}
           periodoLabel={tela === "dashboard"
             ? `${monthNames[mesDashboard.mes]} ${mesDashboard.ano}`
             : `${monthNames[new Date().getMonth()]} ${new Date().getFullYear()}`}
@@ -1366,7 +1368,7 @@ export default function PradexFinancas() {
         <button onClick={handleLogout} style={{ background: "none", border: "1px solid #252832", borderRadius: "8px", color: "#555", cursor: "pointer", padding: "0.4rem 0.75rem", fontSize: "0.75rem", fontFamily: "inherit" }}>Sair</button>
       </div>
 
-      {assistente && precisaCadastrarTelefone && !bannerTelefoneFechado && (
+      {podeZap && precisaCadastrarTelefone && !bannerTelefoneFechado && (
         <div style={{ background: "#6366F112", border: "1px solid #6366F140", borderRadius: "14px", padding: "1rem 1.1rem", marginBottom: "1.25rem", display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
           <div style={{ flex: 1 }}>
             <p style={{ margin: "0 0 0.25rem", fontSize: "0.85rem", fontWeight: 700, color: "#E8E8E8" }}>Complete seu cadastro</p>
@@ -1507,7 +1509,7 @@ export default function PradexFinancas() {
               ))}
             </div>
           )}
-          {assistente ? <a
+          {podeZap ? <a
             href="https://wa.me/5511924568633?text=Oi%21%20Quero%20come%C3%A7ar%20a%20usar%20o%20Pradex%20pelo%20WhatsApp."
             target="_blank"
             rel="noopener noreferrer"
@@ -1523,7 +1525,7 @@ export default function PradexFinancas() {
               <p style={{ margin: 0, fontSize: "0.76rem", color: "#888", lineHeight: 1.4 }}>Manda texto ou áudio — "gastei 50 no mercado" — e o Pradex registra sozinho.</p>
             </div>
             <span style={{ fontSize: "1.1rem", color: "#25D366", flexShrink: 0 }}>›</span>
-          </a> : <UpgradeAssistente plano={plano} contexto="whatsapp" variant="card" />}
+          </a> : <UpgradePlano plano={plano} recurso="whatsapp" variant="card" />}
           {lancamentos.length === 0 ? (
             <div style={{ textAlign: "center", padding: "3rem 0", color: "#444" }}>
               <p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>•</p>
@@ -1995,16 +1997,26 @@ export default function PradexFinancas() {
         );
       })()}
 
+      {/* Relatórios ainda não existe. Pra quem não tem Assistente, o item da sidebar
+          leva a este CTA (que lidera pelo FP, que está pronto); pra quem tem, o item
+          continua desabilitado com "em breve" e esta tela nunca é alcançada. */}
+      {tela === "relatorios" && !podeFp && (
+        <div>
+          <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Relatórios</p>
+          <UpgradePlano plano={plano} recurso="relatorios" variant="tela" />
+        </div>
+      )}
+
       {/* FP — sem Assistente, a tela existe e explica o que falta em vez de sumir */}
-      {tela === "fp" && !assistente && (
+      {tela === "fp" && !podeFp && (
         <div>
           <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Planejamento Financeiro</p>
-          <UpgradeAssistente plano={plano} contexto="fp" variant="tela" />
+          <UpgradePlano plano={plano} recurso="fp" variant="tela" />
         </div>
       )}
 
       {/* FP */}
-      {tela === "fp" && assistente && (
+      {tela === "fp" && podeFp && (
         <div>
           <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Planejamento Financeiro</p>
 
@@ -2069,7 +2081,7 @@ export default function PradexFinancas() {
 
       </div>
 
-      {assistente && <FabWhatsapp />}
+      {podeZap && <FabWhatsapp />}
     </div>
   );
 }
