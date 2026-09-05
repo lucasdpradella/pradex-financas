@@ -1,4 +1,5 @@
 import { desktopTheme as t, SIDEBAR_WIDTH } from "./theme";
+import { temAcesso, planoNecessario } from "../../lib/plano";
 
 // Ícones outline (estilo Tabler/Lucide) inline — sem dependência nova.
 const Icon = ({ name }) => {
@@ -25,8 +26,10 @@ const ITEMS = [
   { key: "cartoes", label: "Cartões", icon: "cartoes", tela: "cartoes", activeFor: ["cartoes"] },
   { key: "categorias", label: "Categorias", icon: "categorias", tela: "categorias", activeFor: ["categorias"] },
   { key: "bancos", label: "Bancos", icon: "bancos", tela: "bancos", activeFor: ["bancos"] },
-  { key: "fp", label: "Diagnóstico FP", icon: "fp", tela: "fp", activeFor: ["fp"], gatePago: true },
-  { key: "relatorios", label: "Relatórios", icon: "relatorios", disabled: true },
+  { key: "fp", label: "Diagnóstico FP", icon: "fp", tela: "fp", activeFor: ["fp"], recurso: "fp" },
+  // Relatórios ainda não existe. Sem Assistente vira link pro CTA; com Assistente
+  // continua "em breve" e desabilitado — não há o que abrir.
+  { key: "relatorios", label: "Relatórios", icon: "relatorios", tela: "relatorios", activeFor: ["relatorios"], recurso: "relatorios", disabledComAcesso: true },
 ];
 
 const CSS = `
@@ -56,10 +59,10 @@ function iniciais(email) {
   return ((partes[0]?.[0] || "") + (partes[1]?.[0] || "")).toUpperCase() || "P";
 }
 
-export default function SidebarDesktop({ tela, setTela, userEmail, userRole, onLogout, assistente = false }) {
+export default function SidebarDesktop({ tela, setTela, userEmail, userRole, onLogout, plano = "none" }) {
   const roleLabel = userRole === "super_admin" ? "Admin" : userRole === "assessor" ? "Assessor" : "Usuário";
-  // Item com gatePago continua na lista sem o Assistente — vai com cadeado e leva pro
-  // CTA de upgrade. Sumir sem contexto era exatamente o que a Fase 2 veio corrigir.
+  // Item pago continua na lista sem o plano — vai com cadeado e leva pro CTA. Sumir
+  // sem contexto era exatamente o que o paywall veio corrigir.
   return (
     <aside className="pdx-sb">
       <style>{CSS}</style>
@@ -67,18 +70,22 @@ export default function SidebarDesktop({ tela, setTela, userEmail, userRole, onL
       <nav className="pdx-sb__nav">
         {ITEMS.map((item) => {
           const active = item.activeFor?.includes(tela);
+          const trancado = item.recurso ? !temAcesso(plano, item.recurso) : false;
+          // `disabledComAcesso`: item que só está desabilitado pra quem JÁ tem o plano
+          // (a feature não existe ainda). Sem o plano ele é clicável, porque leva ao CTA.
+          const desabilitado = item.disabled || (item.disabledComAcesso && !trancado);
           return (
             <button
               key={item.key}
               className={`pdx-sb__item${active ? " is-active" : ""}`}
-              disabled={item.disabled}
-              onClick={() => !item.disabled && setTela(item.tela)}
+              disabled={desabilitado}
+              onClick={() => !desabilitado && setTela(item.tela)}
               aria-current={active ? "page" : undefined}
             >
               <Icon name={item.icon} />
               {item.label}
-              {item.disabled && <span className="pdx-sb__soon">em breve</span>}
-              {item.gatePago && !assistente && <span className="pdx-sb__soon" aria-label="Requer plano Assistente">🔒</span>}
+              {desabilitado && <span className="pdx-sb__soon">em breve</span>}
+              {trancado && <span className="pdx-sb__soon" aria-label={`Requer plano ${planoNecessario(item.recurso) === "essencial" ? "Essencial" : "Assistente"}`}>🔒</span>}
             </button>
           );
         })}

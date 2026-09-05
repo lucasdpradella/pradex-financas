@@ -254,9 +254,23 @@ Responda chamando a tool 'registrar_acoes'.`;
 
 // ===== LOOKUP =====
 async function lookupUserByPhone(supabase: SupabaseClient, phone: string) {
-  const { data } = await supabase.from("fp_perfil").select("user_id, nome").eq("telefone", phone).limit(1).maybeSingle();
+  const { data } = await supabase.from("fp_perfil").select("user_id, nome, plano").eq("telefone", phone).limit(1).maybeSingle();
   return data;
 }
+
+// O agente é o produto do plano Essencial. Espelha src/lib/plano.js: planos são
+// ordinais, então Assistente entra junto. Sem esta checagem o gate do front seria
+// cosmético — quem já tem o número continuaria lançando de graça pelo Zap.
+const NIVEL_PLANO: Record<string, number> = { none: 0, essencial: 1, assistente: 2 };
+const CHECKOUT_ESSENCIAL = "https://pay.cakto.com.br/a2xpq3u";
+
+function podeUsarAgente(plano: unknown): boolean {
+  return (NIVEL_PLANO[String(plano ?? "none")] ?? 0) >= NIVEL_PLANO.essencial;
+}
+
+const MSG_SEM_PLANO = "Oi! 👋 Lançar por aqui faz parte do plano *Essencial* do Pradex.\n\n" +
+  "Seu app continua funcionando normalmente — dá pra registrar tudo por lá.\n\n" +
+  `Pra liberar o agente no WhatsApp: ${CHECKOUT_ESSENCIAL}`;
 
 // Categorias padrão (espelha `defaultCategories` em src/App.jsx). Frontend mostra essas + customs do banco;
 // backend antes só via customs, então o agente perdia "Alimentação", "Transporte", etc.
@@ -468,6 +482,13 @@ Deno.serve(async (req: Request) => {
       mensagemResp = onb.mensagem;
       userIdFinal = onb.userId ?? null;
       statusFinal = onb.concluido ? "sucesso" : "onboarding";
+    } else if (!podeUsarAgente(usuario.plano)) {
+      // Conta existe mas o plano não cobre o agente: responde com o CTA e NÃO processa
+      // o lançamento. Segue pelo mesmo caminho de envio/log dos outros casos.
+      userIdFinal = usuario.user_id;
+      mensagemResp = MSG_SEM_PLANO;
+      statusFinal = "sem_plano";
+      logInfo(cid, "bloqueado_sem_plano", { user_id: usuario.user_id, plano: usuario.plano ?? null });
     } else {
       userIdFinal = usuario.user_id;
       const r = await processarLancamento(supabase, usuario.user_id, usuario.nome, telefone, textoMsg, cid);
