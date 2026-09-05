@@ -7,3 +7,9 @@ supabase/.temp/
 # Android signing keystore — NUNCA commitar (single point of failure)
 *.keystore
 *.jks
+
+# pradex-cenarios/ tem repo PROPRIO (github.com/lucasdpradella/pradex-cenarios).
+# Mora aqui dentro por conveniencia, mas nao pertence a este repo — nao adicionar.
+pradex-cenarios/
+
+.claude/
