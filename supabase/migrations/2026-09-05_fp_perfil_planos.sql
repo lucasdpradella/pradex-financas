@@ -4,9 +4,14 @@
 -- Sai do boolean único (`acesso_pago`) sem quebrar o gate atual do front.
 --
 -- Fonte da verdade passa a ser `plano`. `acesso_pago` continua existindo, mas vira
--- coluna DERIVADA: um trigger reescreve `acesso_pago = (plano <> 'none')` em todo
--- insert/update. O front (App.jsx lê `acesso_pago`) segue funcionando sem tocar em
--- nenhuma linha de JS nesta fase; quem passa a ler `plano` é a Fase 2 (paywall).
+-- coluna DERIVADA: um trigger reescreve `acesso_pago = (plano = 'assistente')` em
+-- todo insert/update. Note que é só 'assistente', não 'plano <> none': hoje
+-- `acesso_pago` libera exatamente WhatsApp + Diagnóstico FP (App.jsx:2000 e 2065),
+-- que o Essencial não compra. O front segue funcionando sem tocar em nenhuma linha
+-- de JS nesta fase; quem passa a ler `plano` é a Fase 2 (paywall).
+--
+-- Efeito colateral conhecido até a Fase 2: pra quem está no Essencial o app fica
+-- igual ao free — o que ele compra a mais só aparece quando o paywall entrar.
 --
 -- ATENÇÃO — muda o runbook de 2026-08-15: `update fp_perfil set acesso_pago = true`
 -- virou no-op (o trigger sobrescreve). Liberação manual agora é via `plano` — SQL de
@@ -72,7 +77,7 @@ begin
     end if;
   end if;
 
-  new.acesso_pago := (new.plano <> 'none');
+  new.acesso_pago := (new.plano = 'assistente');
   return new;
 end;
 $$;
@@ -86,7 +91,8 @@ create trigger trg_fp_perfil_sync_plano
 -- Runbook
 -- ============================================================================
 -- Liberar na mão (emergência / cliente que pagou fora da Cakto) — o telefone é o
--- identificador que o app grava normalizado:
+-- identificador que o app grava normalizado. Escolha o plano certo: 'assistente'
+-- liga WhatsApp + FP, 'essencial' não liga nada disso:
 --
 --   update public.fp_perfil set plano = 'assistente', plano_ate = now() + interval '30 days'
 --    where telefone = '5511999998888';
