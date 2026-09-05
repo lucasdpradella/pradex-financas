@@ -56,16 +56,16 @@ function iniciais(email) {
   return ((partes[0]?.[0] || "") + (partes[1]?.[0] || "")).toUpperCase() || "P";
 }
 
-export default function SidebarDesktop({ tela, setTela, userEmail, userRole, onLogout, acessoPago = false }) {
+export default function SidebarDesktop({ tela, setTela, userEmail, userRole, onLogout, assistente = false }) {
   const roleLabel = userRole === "super_admin" ? "Admin" : userRole === "assessor" ? "Assessor" : "Usuário";
-  // Itens marcados com gatePago só existem no menu pra quem tem acesso pago.
-  const itens = ITEMS.filter((item) => !item.gatePago || acessoPago);
+  // Item com gatePago continua na lista sem o Assistente — vai com cadeado e leva pro
+  // CTA de upgrade. Sumir sem contexto era exatamente o que a Fase 2 veio corrigir.
   return (
     <aside className="pdx-sb">
       <style>{CSS}</style>
       <div className="pdx-sb__logo"><span>P</span>Pradex</div>
       <nav className="pdx-sb__nav">
-        {itens.map((item) => {
+        {ITEMS.map((item) => {
           const active = item.activeFor?.includes(tela);
           return (
             <button
@@ -78,6 +78,7 @@ export default function SidebarDesktop({ tela, setTela, userEmail, userRole, onL
               <Icon name={item.icon} />
               {item.label}
               {item.disabled && <span className="pdx-sb__soon">em breve</span>}
+              {item.gatePago && !assistente && <span className="pdx-sb__soon" aria-label="Requer plano Assistente">🔒</span>}
             </button>
           );
         })}
