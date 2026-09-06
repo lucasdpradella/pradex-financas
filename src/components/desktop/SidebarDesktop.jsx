@@ -27,9 +27,7 @@ const ITEMS = [
   { key: "categorias", label: "Categorias", icon: "categorias", tela: "categorias", activeFor: ["categorias"] },
   { key: "bancos", label: "Bancos", icon: "bancos", tela: "bancos", activeFor: ["bancos"] },
   { key: "fp", label: "Diagnóstico FP", icon: "fp", tela: "fp", activeFor: ["fp"], recurso: "fp" },
-  // Relatórios ainda não existe. Sem Assistente vira link pro CTA; com Assistente
-  // continua "em breve" e desabilitado — não há o que abrir.
-  { key: "relatorios", label: "Relatórios", icon: "relatorios", tela: "relatorios", activeFor: ["relatorios"], recurso: "relatorios", disabledComAcesso: true },
+  { key: "relatorios", label: "Relatórios", icon: "relatorios", tela: "relatorios", activeFor: ["relatorios"], recurso: "relatorios" },
 ];
 
 const CSS = `
@@ -71,9 +69,7 @@ export default function SidebarDesktop({ tela, setTela, userEmail, userRole, onL
         {ITEMS.map((item) => {
           const active = item.activeFor?.includes(tela);
           const trancado = item.recurso ? !temAcesso(plano, item.recurso) : false;
-          // `disabledComAcesso`: item que só está desabilitado pra quem JÁ tem o plano
-          // (a feature não existe ainda). Sem o plano ele é clicável, porque leva ao CTA.
-          const desabilitado = item.disabled || (item.disabledComAcesso && !trancado);
+          const desabilitado = Boolean(item.disabled);
           return (
             <button
               key={item.key}
