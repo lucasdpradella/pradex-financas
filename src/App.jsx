@@ -227,6 +227,13 @@ export default function PradexFinancas() {
 
   const inputStyle = { width: "100%", background: "#0F1117", border: "1px solid #252832", borderRadius: "10px", padding: "0.75rem 1rem", color: "#E8E8E8", fontSize: "0.9rem", marginBottom: "0.75rem", outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
 
+  // Fix 4 — estado "off" dos toggles (parcelar / recorrente). No mobile o par
+  // #252832/#555 sobre #181B24 ficava perto do invisível; #3A3F4B/#A0A0A0 sobe o
+  // contraste sem acender o botão como se estivesse ligado. O form também renderiza
+  // no desktop (TopBar → "Novo lançamento"), e lá nada muda.
+  const offBorda = isDesktop ? "#252832" : "#3A3F4B";
+  const offTexto = isDesktop ? "#555" : "#A0A0A0";
+
   useEffect(() => {
     checkSession();
 
@@ -1218,7 +1225,43 @@ export default function PradexFinancas() {
     <div className="pradex-shell" style={isDesktop
       ? { background: desktopTheme.mainBg, color: desktopTheme.textPrimary, fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", margin: 0, maxWidth: "none", boxSizing: "border-box", paddingLeft: `${SIDEBAR_WIDTH}px` }
       : { background: "#0F1117", color: "#E8E8E8", fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", maxWidth: "480px", margin: "0 auto", boxSizing: "border-box", paddingTop: "max(2rem, env(safe-area-inset-top, 0px))", paddingRight: "max(1.5rem, env(safe-area-inset-right, 0px))", paddingLeft: "max(1.5rem, env(safe-area-inset-left, 0px))", paddingBottom: "calc(56px + 1.5rem + 16px + env(safe-area-inset-bottom, 0px))" }}>
-      <style>{`.pradex-shell { min-height: 100vh; min-height: 100dvh; } .pdx-content { display: contents; } @media (min-width: 1024px) { .pdx-hide-desktop { display: none !important; } .pdx-content { display: block; max-width: 1120px; margin: 0 auto; padding: 1.5rem 2rem 2.5rem; box-sizing: border-box; } }`}</style>
+      <style>{`.pradex-shell { min-height: 100vh; min-height: 100dvh; } .pdx-content { display: contents; } @media (min-width: 1024px) { .pdx-hide-desktop { display: none !important; } .pdx-content { display: block; max-width: 1120px; margin: 0 auto; padding: 1.5rem 2rem 2.5rem; box-sizing: border-box; } }
+
+/* ===== Polimento mobile (<1024px) =====
+   Tudo aqui é escopado no media query de propósito: boa parte destes elementos
+   (form de lançar, modal de edição) também renderiza no desktop, e o desktop
+   deve ficar pixel-idêntico. Onde o inline style precisava mudar de valor, o
+   componente usa o flag isDesktop em vez desta folha. */
+@media (max-width: 1023px) {
+  /* Fix 7 — CAUSA: button/input/select/textarea não herdam font-family do body por
+     regra do próprio user-agent. Sem isto, todo controle sem fontFamily inline cai
+     na fonte do sistema e destoa da DM Sans do resto do app. */
+  button, input, select, textarea, optgroup { font-family: inherit; }
+
+  /* Fix 3 — os selects usam appearance:none (pra tirar o visual nativo) e ficavam
+     sem seta nenhuma, parecendo campo de texto. O background inline é shorthand e
+     zera background-image, então a seta precisa de !important pra sobreviver. */
+  select {
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238C97A8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.9rem center !important;
+    background-size: 14px !important;
+    padding-right: 2.5rem !important;
+  }
+
+  /* Fix 5 — alvo de toque mínimo (44px é o piso das guias de iOS e Android).
+     A cor entra aqui, e não no inline, porque vários destes botões (× dos modais,
+     × de categoria e de cartão) também renderizam no desktop. */
+  .pdx-tap { min-height: 44px; }
+  .pdx-tap-sq { min-width: 44px; min-height: 44px; color: #A0A0A0 !important; }
+
+  /* Fix 8 — o FAB do WhatsApp subiria por cima da bottom nav fixa. Fica aqui pelo
+     mesmo motivo: o componente também é renderizado no desktop, que não tem nav. */
+  .fab-whatsapp { bottom: calc(56px + 1rem + env(safe-area-inset-bottom, 0px)) !important; }
+
+  /* Fix 6 — descrição longa quebrava o layout da linha em vez de truncar. */
+  .pdx-clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+}`}</style>
 
       {isDesktop && (
         <SidebarDesktop tela={tela} setTela={setTela} userEmail={session?.user?.email} userRole={userRole} onLogout={handleLogout} plano={plano} />
@@ -1237,11 +1280,11 @@ export default function PradexFinancas() {
       )}
 
       {editando && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
           <div style={{ background: "#181B24", borderRadius: "16px 16px 0 0", padding: "1.5rem", width: "100%", maxWidth: "480px", border: "1px solid #252832", maxHeight: "90vh", overflowY: "auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
               <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>{editando._compraParcelada ? "Editar compra" : "Editar lançamento"}</p>
-              <button onClick={() => setEditando(null)} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "1.2rem" }}>×</button>
+              <button onClick={() => setEditando(null)} className="pdx-tap-sq" aria-label="Fechar" style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "1.2rem" }}>×</button>
             </div>
             <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1rem" }}>
               {["gasto", "receita"].map(t => (
@@ -1327,11 +1370,11 @@ export default function PradexFinancas() {
         const cartaoNome = compraDetalhe.cartao_id ? (cartoes.find(c => Number(c.id) === Number(compraDetalhe.cartao_id))?.nome || "") : "";
         const hojeStr = today;
         return (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
             <div style={{ background: "#181B24", borderRadius: "16px 16px 0 0", padding: "1.5rem", width: "100%", maxWidth: "480px", border: "1px solid #252832", maxHeight: "90vh", overflowY: "auto" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
                 <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Compra parcelada</p>
-                <button onClick={() => setCompraDetalhe(null)} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "1.2rem" }}>×</button>
+                <button onClick={() => setCompraDetalhe(null)} className="pdx-tap-sq" aria-label="Fechar" style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "1.2rem" }}>×</button>
               </div>
               <p style={{ margin: "0 0 0.25rem", fontSize: "1.1rem", fontWeight: 600, color: "#F0F0F0", lineHeight: 1.25 }}>{normalizeText(compraDetalhe.descricao)}</p>
               <p style={{ margin: "0 0 1rem", fontSize: "0.78rem", color: "#888", lineHeight: 1.4 }}>
@@ -1375,7 +1418,7 @@ export default function PradexFinancas() {
             {monthNames[new Date().getMonth()]} {new Date().getFullYear()}
           </h1>
         </div>
-        <button onClick={handleLogout} style={{ background: "none", border: "1px solid #252832", borderRadius: "8px", color: "#555", cursor: "pointer", padding: "0.4rem 0.75rem", fontSize: "0.75rem", fontFamily: "inherit" }}>Sair</button>
+        <button onClick={handleLogout} className="pdx-tap" style={{ background: "none", border: "1px solid #252832", borderRadius: "8px", color: "#A0A0A0", cursor: "pointer", padding: "0.4rem 0.9rem", fontSize: "0.75rem", fontFamily: "inherit" }}>Sair</button>
       </div>
 
       {podeZap && precisaCadastrarTelefone && !bannerTelefoneFechado && (
@@ -1414,21 +1457,49 @@ export default function PradexFinancas() {
         </div>
         <div style={{ background: "linear-gradient(180deg, #191D27 0%, #181B24 100%)", borderRadius: "14px", padding: "1rem 0.85rem", border: "1px solid #252832", minWidth: 0, boxSizing: "border-box" }}>
           <p style={{ margin: "0 0 0.35rem", fontSize: "0.64rem", color: "#666", textTransform: "uppercase", letterSpacing: "0.12em" }}>Cartões</p>
-          {gastosPorCartao.length > 0 ? gastosPorCartao.map((item, i) => (
-            <div key={item.cartao.id} style={{ marginBottom: i < gastosPorCartao.length - 1 ? "0.35rem" : 0 }}>
-              <p style={{ margin: 0, fontSize: "0.64rem", color: "#777" }}>{normalizeText(item.cartao.nome)}</p>
-              <p style={{ margin: 0, fontSize: "clamp(0.62rem, 2.6vw, 0.82rem)", fontWeight: 700, color: "#EF4444", whiteSpace: "normal", wordBreak: "keep-all", overflowWrap: "normal", fontVariantNumeric: "tabular-nums" }}>{formatBRL(item.total).replace(new RegExp(String.fromCharCode(160), "g"), " ")}</p>
-            </div>
-          )) : <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: "#333" }}>—</p>}
+          {/* Fix 2 — antes listava um bloco por cartão dentro de um card de 1/3 da
+              largura: com 3+ cartões o texto vazava e desalinhava a fileira. Agora é
+              o total somado + a contagem, no mesmo formato dos outros dois cards. */}
+          {gastosPorCartao.length > 0 ? (
+            <>
+              <p style={{ margin: 0, fontSize: "clamp(0.62rem, 2.6vw, 0.82rem)", fontWeight: 700, color: "#EF4444", whiteSpace: "normal", wordBreak: "keep-all", overflowWrap: "normal", fontVariantNumeric: "tabular-nums" }}>{formatBRL(gastosCredito).replace(new RegExp(String.fromCharCode(160), "g"), " ")}</p>
+              <p style={{ margin: "0.2rem 0 0", fontSize: "0.6rem", color: "#777" }}>
+                {gastosPorCartao.length === 1 ? normalizeText(gastosPorCartao[0].cartao.nome) : `${gastosPorCartao.length} cartões`}
+              </p>
+            </>
+          ) : <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: "#333" }}>—</p>}
         </div>
       </div>
 
-      {/* MENU */}
-      <div className="pdx-hide-desktop" style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", border: "1px solid #252832", gap: "2px" }}>
-        {menuItems.map(t => (
-          <button key={t.key} onClick={() => { setTela(t.key); setErro(""); }} style={{ flex: 1, minWidth: 0, padding: "0.5rem 0.2rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.65rem", fontWeight: 600, letterSpacing: "-0.01em", whiteSpace: "nowrap", background: tela === t.key ? "#252832" : "transparent", color: tela === t.key ? "#F0F0F0" : "#555", transition: "all 0.2s", fontFamily: "inherit" }}>{t.label}</button>
-        ))}
-      </div>
+      {/* MENU — bottom nav fixa (Fix 10-3).
+          Fica ancorada no rodapé em vez de rolar junto com o conteúdo: o polegar
+          alcança sem precisar voltar ao topo. maxWidth 480 + margin auto acompanha
+          a coluna do shell mobile. zIndex 40 fica abaixo dos modais (100), senão a
+          nav apareceria por cima do overlay. O paddingBottom do shell já reservava
+          56px + safe-area, então tirar a nav do fluxo não deixa buraco nem sobreposição. */}
+      <nav className="pdx-hide-desktop" aria-label="Navegação principal" style={{
+        position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 40,
+        maxWidth: "480px", margin: "0 auto",
+        display: "flex", gap: "2px",
+        background: "#0F1117", borderTop: "1px solid #252832",
+        padding: "4px 8px calc(4px + env(safe-area-inset-bottom, 0px))",
+        boxSizing: "border-box",
+      }}>
+        {menuItems.map(t => {
+          const ativo = tela === t.key;
+          return (
+            <button key={t.key} onClick={() => { setTela(t.key); setErro(""); }} className="pdx-tap" aria-current={ativo ? "page" : undefined} style={{
+              flex: 1, minWidth: 0, padding: "0.5rem 0.2rem", border: "none", borderRadius: "8px",
+              cursor: "pointer", fontSize: "0.65rem", fontWeight: 600, letterSpacing: "-0.01em",
+              whiteSpace: "nowrap", transition: "all 0.2s", fontFamily: "inherit",
+              // Fix 1 — ativo no indigo da marca; inativo em #666 (era #555, abaixo do
+              // contraste mínimo sobre #0F1117).
+              background: ativo ? "#6366F1" : "transparent",
+              color: ativo ? "#fff" : "#666",
+            }}>{t.label}</button>
+          );
+        })}
+      </nav>
 
 
       <div className="pdx-content">
@@ -1572,7 +1643,7 @@ export default function PradexFinancas() {
                   </div>
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem", marginBottom: "1rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1rem", marginBottom: "1rem" }}>
                 <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
                   <p style={{ margin: "0 0 1.25rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Gastos por categoria</p>
                   {gastosPorCategoria.length > 0 ? gastosPorCategoria.map((item, i) => (
@@ -1627,7 +1698,10 @@ export default function PradexFinancas() {
                 {lancamentos.slice(0, 5).map(l => (
                   <div key={l.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.6rem 0", borderBottom: "1px solid #252832", cursor: "pointer" }} onClick={() => handleEdit(l)}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: "0 0 0.12rem", fontSize: "0.85rem", color: "#E8E8E8", lineHeight: 1.25 }}>
+                      {/* Fix 6 — descrição longa empurrava o valor pra fora da linha.
+                          Trunca em 2 linhas no mobile (o minWidth:0 do pai é o que
+                          permite o flex encolher em vez de estourar). */}
+                      <p className="pdx-clamp2" style={{ margin: "0 0 0.12rem", fontSize: "0.85rem", color: "#E8E8E8", lineHeight: 1.25 }}>
                         {l.poderia_ter_evitado && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#F59E0B", background: "#F59E0B15" }}>Evitável</span>}
                         {l.recorrente && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#22C55E", background: "#22C55E15" }}>Recorrente</span>}
                         {normalizeText(l.descricao)}
@@ -1651,7 +1725,7 @@ export default function PradexFinancas() {
             <p style={{ margin: "0 0 1rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Novo lançamento</p>
             <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1rem" }}>
               {["gasto", "receita"].map(t => (
-                <button key={t} onClick={() => { setTipo(t); setForm(f => ({ ...f, categoria: "", parcelado: false, parcela_atual: "1", total_parcelas: "" })); }} style={{ flex: 1, padding: "0.5rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600, background: tipo === t ? (t === "receita" ? "#22C55E" : "#EF4444") : "transparent", color: tipo === t ? "#fff" : "#555", transition: "all 0.2s", fontFamily: "inherit" }}>{t === "receita" ? "Receita" : "Gasto"}</button>
+                <button key={t} onClick={() => { setTipo(t); setForm(f => ({ ...f, categoria: "", parcelado: false, parcela_atual: "1", total_parcelas: "" })); }} className="pdx-tap" style={{ flex: 1, padding: "0.5rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600, background: tipo === t ? (t === "receita" ? "#22C55E" : "#EF4444") : "transparent", color: tipo === t ? "#fff" : "#555", transition: "all 0.2s", fontFamily: "inherit" }}>{t === "receita" ? "Receita" : "Gasto"}</button>
               ))}
             </div>
             <input type="text" placeholder="Descrição" value={form.descricao} onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))} style={inputStyle} />
@@ -1672,7 +1746,7 @@ export default function PradexFinancas() {
             )}
             {form.forma_pagamento === "Crédito" && (
               <div style={{ marginBottom: "0.75rem" }}>
-                <button onClick={() => setForm(f => ({ ...f, parcelado: !f.parcelado, parcela_atual: "1", total_parcelas: "", recorrente: false }))} style={{ width: "100%", padding: "0.65rem 1rem", border: `1px solid ${form.parcelado ? "#6366F1" : "#252832"}`, borderRadius: "10px", background: form.parcelado ? "#6366F118" : "transparent", color: form.parcelado ? "#6366F1" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s" }}>
+                <button onClick={() => setForm(f => ({ ...f, parcelado: !f.parcelado, parcela_atual: "1", total_parcelas: "", recorrente: false }))} className="pdx-tap" style={{ width: "100%", padding: "0.65rem 1rem", border: `1px solid ${form.parcelado ? "#6366F1" : offBorda}`, borderRadius: "10px", background: form.parcelado ? "#6366F118" : "transparent", color: form.parcelado ? "#6366F1" : offTexto, fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s" }}>
                   {form.parcelado ? "Compra parcelada" : "+ Parcelar no crédito"}
                 </button>
                 {form.parcelado && (
@@ -1685,7 +1759,7 @@ export default function PradexFinancas() {
               </div>
             )}
             {tipo === "gasto" && !form.parcelado && (
-              <button onClick={() => setForm(f => ({ ...f, recorrente: !f.recorrente }))} style={{ width: "100%", padding: "0.65rem 1rem", border: `1px solid ${form.recorrente ? "#6366F1" : "#252832"}`, borderRadius: "10px", background: form.recorrente ? "#6366F118" : "transparent", color: form.recorrente ? "#6366F1" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s", marginBottom: "0.75rem" }}>
+              <button onClick={() => setForm(f => ({ ...f, recorrente: !f.recorrente }))} className="pdx-tap" style={{ width: "100%", padding: "0.65rem 1rem", border: `1px solid ${form.recorrente ? "#6366F1" : offBorda}`, borderRadius: "10px", background: form.recorrente ? "#6366F118" : "transparent", color: form.recorrente ? "#6366F1" : offTexto, fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s", marginBottom: "0.75rem" }}>
                 {form.recorrente ? `Recorrente ativa até Dez/${new Date().getFullYear()}` : "Marcar como recorrente"}
               </button>
             )}
@@ -1717,7 +1791,7 @@ export default function PradexFinancas() {
                 {categories.gasto.map(c => (
                   <div key={c} style={{ display: "flex", alignItems: "center", gap: "0.25rem", background: "#0F1117", borderRadius: "8px", padding: "0.3rem 0.6rem", border: "1px solid #252832" }}>
                     <span style={{ fontSize: "0.78rem", color: "#CCC" }}>{c}</span>
-                    <button onClick={() => handleRemoveCategoria(c, "gasto")} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "0.9rem", padding: 0, lineHeight: 1 }}>×</button>
+                    <button onClick={() => handleRemoveCategoria(c, "gasto")} className="pdx-tap-sq" aria-label={`Remover categoria ${c}`} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "0.9rem", padding: 0, lineHeight: 1 }}>×</button>
                   </div>
                 ))}
               </div>
@@ -1726,7 +1800,7 @@ export default function PradexFinancas() {
                 {categories.receita.map(c => (
                   <div key={c} style={{ display: "flex", alignItems: "center", gap: "0.25rem", background: "#0F1117", borderRadius: "8px", padding: "0.3rem 0.6rem", border: "1px solid #252832" }}>
                     <span style={{ fontSize: "0.78rem", color: "#CCC" }}>{c}</span>
-                    <button onClick={() => handleRemoveCategoria(c, "receita")} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "0.9rem", padding: 0, lineHeight: 1 }}>×</button>
+                    <button onClick={() => handleRemoveCategoria(c, "receita")} className="pdx-tap-sq" aria-label={`Remover categoria ${c}`} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "0.9rem", padding: 0, lineHeight: 1 }}>×</button>
                   </div>
                 ))}
               </div>
@@ -1756,7 +1830,7 @@ export default function PradexFinancas() {
                         <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", fontWeight: 600, color: "#E8E8E8", lineHeight: 1.25 }}>{normalizeText(c.nome)}</p>
                         <p style={{ margin: 0, fontSize: "0.72rem", color: "#555", lineHeight: 1.25 }}>{normalizeText(c.bandeira) && normalizeText(c.bandeira) + " · "}Fecha dia {c.dia_fechamento || "—"} · Vence dia {c.dia_vencimento || "—"}</p>
                       </div>
-                      <button onClick={() => handleDeleteCartao(c.id)} style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem" }}>×</button>
+                      <button onClick={() => handleDeleteCartao(c.id)} className="pdx-tap-sq" aria-label="Remover cartão" style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem" }}>×</button>
                     </div>
                   ))}
                 </div>
