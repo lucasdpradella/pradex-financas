@@ -26,6 +26,7 @@ import { normalizePlano, temAcesso, mostraCadeado } from "./lib/plano";
 import { useIsDesktop } from "./components/desktop/useIsDesktop";
 import { desktopTheme, SIDEBAR_WIDTH } from "./components/desktop/theme";
 import SidebarDesktop from "./components/desktop/SidebarDesktop";
+import RelatoriosDesktop from "./components/desktop/RelatoriosDesktop";
 import TopBar from "./components/desktop/TopBar";
 import TabelaLancamentos from "./components/desktop/TabelaLancamentos";
 import DashboardDesktop from "./components/desktop/DashboardDesktop";
@@ -208,6 +209,13 @@ export default function PradexFinancas() {
   // mesHistorico, que é do Histórico mobile).
   const [mesDashboard, setMesDashboard] = useState({ ano: new Date().getFullYear(), mes: new Date().getMonth() });
   const navegarMesDashboard = (dir) => setMesDashboard(prev => {
+    const total = prev.ano * 12 + prev.mes + dir;
+    return { ano: Math.floor(total / 12), mes: ((total % 12) + 12) % 12 };
+  });
+  // Mês dos Relatórios — estado próprio, não compartilhado com o Dashboard: navegar
+  // o fechamento de meses passados não deve mexer no mês que o dashboard mostra.
+  const [mesRelatorios, setMesRelatorios] = useState({ ano: new Date().getFullYear(), mes: new Date().getMonth() });
+  const navegarMesRelatorios = (dir) => setMesRelatorios(prev => {
     const total = prev.ano * 12 + prev.mes + dir;
     return { ano: Math.floor(total / 12), mes: ((total % 12) + 12) % 12 };
   });
@@ -1220,8 +1228,10 @@ export default function PradexFinancas() {
           title={({ dashboard: "Dashboard", historico: "Lançamentos", lancamentos: "Lançamentos", cartoes: "Cartões", categorias: "Categorias", bancos: "Bancos", fp: "Diagnóstico FP", relatorios: "Relatórios" })[tela] || "Pradex"}
           periodoLabel={tela === "dashboard"
             ? `${monthNames[mesDashboard.mes]} ${mesDashboard.ano}`
+            : tela === "relatorios" && podeFp
+            ? `${monthNames[mesRelatorios.mes]} ${mesRelatorios.ano}`
             : `${monthNames[new Date().getMonth()]} ${new Date().getFullYear()}`}
-          onPeriodoStep={tela === "dashboard" ? navegarMesDashboard : undefined}
+          onPeriodoStep={tela === "dashboard" ? navegarMesDashboard : tela === "relatorios" && podeFp ? navegarMesRelatorios : undefined}
           onNovoLancamento={() => setTela("lancamentos")}
         />
       )}
@@ -1997,14 +2007,22 @@ export default function PradexFinancas() {
         );
       })()}
 
-      {/* Relatórios ainda não existe. Pra quem não tem Assistente, o item da sidebar
-          leva a este CTA (que lidera pelo FP, que está pronto); pra quem tem, o item
-          continua desabilitado com "em breve" e esta tela nunca é alcançada. */}
+      {/* Relatórios — só Assistente. Sem o plano, a tela existe e mostra o CTA em vez
+          de sumir (o item da sidebar leva aqui com cadeado). */}
       {tela === "relatorios" && !podeFp && (
         <div>
           <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Relatórios</p>
           <UpgradePlano plano={plano} recurso="relatorios" variant="tela" />
         </div>
+      )}
+
+      {tela === "relatorios" && podeFp && isDesktop && (
+        <RelatoriosDesktop
+          lancamentos={lancamentos}
+          ano={mesRelatorios.ano}
+          mes={mesRelatorios.mes}
+          normalizeText={normalizeText}
+        />
       )}
 
       {/* FP — sem Assistente, a tela existe e explica o que falta em vez de sumir */}
