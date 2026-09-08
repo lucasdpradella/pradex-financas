@@ -26,7 +26,7 @@ const ITEMS = [
   { key: "cartoes", label: "Cartões", icon: "cartoes", tela: "cartoes", activeFor: ["cartoes"] },
   { key: "categorias", label: "Categorias", icon: "categorias", tela: "categorias", activeFor: ["categorias"] },
   { key: "bancos", label: "Bancos", icon: "bancos", tela: "bancos", activeFor: ["bancos"] },
-  { key: "fp", label: "Planejamento Financeiro", icon: "fp", tela: "fp", activeFor: ["fp"], recurso: "fp" },
+  { key: "fp", label: "Planejamento", icon: "fp", tela: "fp", activeFor: ["fp"], recurso: "fp" },
   { key: "relatorios", label: "Relatórios", icon: "relatorios", tela: "relatorios", activeFor: ["relatorios"], recurso: "relatorios" },
 ];
 
