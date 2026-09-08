@@ -1163,7 +1163,7 @@ export default function PradexFinancas() {
     { key: "lancamentos", label: "Lançar" },
     { key: "historico", label: "Histórico" },
     // FP fica sempre no menu: sem Assistente, abre o CTA de upgrade em vez de sumir.
-    { key: "fp", label: mostraCadeado(plano, "fp") ? "FP 🔒" : "FP" },
+    { key: "fp", label: mostraCadeado(plano, "fp") ? "Plan. 🔒" : "Plan." },
   ];
 
   if (loadingAuth) return <div style={{ minHeight: "100vh", background: "#0F1117", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "#555", fontFamily: "'DM Sans', sans-serif" }}>Carregando...</p></div>;
@@ -1268,7 +1268,7 @@ export default function PradexFinancas() {
       )}
       {isDesktop && (
         <TopBar
-          title={({ dashboard: "Dashboard", historico: "Lançamentos", lancamentos: "Lançamentos", cartoes: "Cartões", categorias: "Categorias", bancos: "Bancos", fp: "Diagnóstico FP", relatorios: "Relatórios" })[tela] || "Pradex"}
+          title={({ dashboard: "Dashboard", historico: "Lançamentos", lancamentos: "Lançamentos", cartoes: "Cartões", categorias: "Categorias", bancos: "Bancos", fp: "Planejamento Financeiro", relatorios: "Relatórios" })[tela] || "Pradex"}
           periodoLabel={tela === "dashboard"
             ? `${monthNames[mesDashboard.mes]} ${mesDashboard.ano}`
             : tela === "relatorios" && podeFp

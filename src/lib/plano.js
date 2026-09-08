@@ -49,13 +49,13 @@ const COPY = {
   },
   fp: {
     titulo: "Planejamento Financeiro completo",
-    descricao: "Perfil, objetivos, rendas, investimentos e o Diagnóstico FP: o raio-x da sua vida financeira em um lugar só.",
+    descricao: "Perfil, objetivos, rendas, investimentos e o Diagnóstico: o raio-x da sua vida financeira em um lugar só.",
   },
   // Relatórios ainda não existe. A copy lidera pelo FP, que está pronto hoje, e cita
   // Relatórios como o que vem — vender como entregue geraria pedido de reembolso.
   relatorios: {
     titulo: "Planejamento Financeiro completo",
-    descricao: "Perfil, objetivos, rendas, investimentos e o Diagnóstico FP, disponíveis agora. Os Relatórios entram em breve, no mesmo plano.",
+    descricao: "Perfil, objetivos, rendas, investimentos e o Diagnóstico, disponíveis agora. Os Relatórios entram em breve, no mesmo plano.",
   },
 };
 
