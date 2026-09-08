@@ -3,6 +3,8 @@ const HREF = "https://wa.me/5511924568633?text=Oi%21%20Quero%20come%C3%A7ar%20a%
 const BUTTON_STYLE = {
   position: "fixed",
   right: "1.5rem",
+  // O deslocamento pra cima da bottom nav (Fix 8) é feito em @media no App.jsx, não
+  // aqui: este componente também renderiza no desktop, onde não existe nav fixa.
   bottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))",
   zIndex: 50,
   display: "flex",
