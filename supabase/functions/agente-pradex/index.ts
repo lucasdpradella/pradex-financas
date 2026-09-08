@@ -254,7 +254,8 @@ Responda chamando a tool 'registrar_acoes'.`;
 
 // ===== LOOKUP =====
 async function lookupUserByPhone(supabase: SupabaseClient, phone: string) {
-  const { data } = await supabase.from("fp_perfil").select("user_id, nome, plano").eq("telefone", phone).limit(1).maybeSingle();
+  const { data } = await supabase.from("fp_perfil")
+    .select("user_id, nome, plano, trial_inicio, trial_ate").eq("telefone", phone).limit(1).maybeSingle();
   return data;
 }
 
@@ -264,8 +265,17 @@ async function lookupUserByPhone(supabase: SupabaseClient, phone: string) {
 const NIVEL_PLANO: Record<string, number> = { none: 0, essencial: 1, assistente: 2 };
 const CHECKOUT_ESSENCIAL = "https://pay.cakto.com.br/a2xpq3u";
 
-function podeUsarAgente(plano: unknown): boolean {
-  return (NIVEL_PLANO[String(plano ?? "none")] ?? 0) >= NIVEL_PLANO.essencial;
+// Espelha podeUsarWhatsapp de src/lib/plano.js: pago OU trial ativo. As duas pontas
+// precisam concordar, senão o app mostra o Zap liberado e o agente recusa.
+function trialAtivo(perfil: { trial_inicio?: unknown; trial_ate?: unknown }): boolean {
+  if (!perfil?.trial_inicio) return false;
+  const ate = new Date(String(perfil.trial_ate ?? ""));
+  return !isNaN(ate.getTime()) && Date.now() < ate.getTime();
+}
+
+function podeUsarAgente(perfil: { plano?: unknown; trial_inicio?: unknown; trial_ate?: unknown }): boolean {
+  const pago = (NIVEL_PLANO[String(perfil?.plano ?? "none")] ?? 0) >= NIVEL_PLANO.essencial;
+  return pago || trialAtivo(perfil);
 }
 
 const MSG_SEM_PLANO = "Oi! 👋 Lançar por aqui faz parte do plano *Essencial* do Pradex.\n\n" +
@@ -482,13 +492,13 @@ Deno.serve(async (req: Request) => {
       mensagemResp = onb.mensagem;
       userIdFinal = onb.userId ?? null;
       statusFinal = onb.concluido ? "sucesso" : "onboarding";
-    } else if (!podeUsarAgente(usuario.plano)) {
+    } else if (!podeUsarAgente(usuario)) {
       // Conta existe mas o plano não cobre o agente: responde com o CTA e NÃO processa
       // o lançamento. Segue pelo mesmo caminho de envio/log dos outros casos.
       userIdFinal = usuario.user_id;
       mensagemResp = MSG_SEM_PLANO;
       statusFinal = "sem_plano";
-      logInfo(cid, "bloqueado_sem_plano", { user_id: usuario.user_id, plano: usuario.plano ?? null });
+      logInfo(cid, "bloqueado_sem_plano", { user_id: usuario.user_id, plano: usuario.plano ?? null, trial_ate: usuario.trial_ate ?? null });
     } else {
       userIdFinal = usuario.user_id;
       const r = await processarLancamento(supabase, usuario.user_id, usuario.nome, telefone, textoMsg, cid);

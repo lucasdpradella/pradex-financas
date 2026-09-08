@@ -3,3 +3,6 @@ verify_jwt = false
 
 [functions.cakto-webhook]
 verify_jwt = false
+
+[functions.trial-lembretes]
+verify_jwt = false

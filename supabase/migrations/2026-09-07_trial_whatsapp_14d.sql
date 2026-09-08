@@ -1,0 +1,164 @@
+-- 2026-09-07 — Trial de 14 dias do agente WhatsApp
+--
+-- Brief: Projetos/PRADEX/briefs/2026-09-07_trial-whatsapp-14d.md
+-- Depende de 2026-09-05_fp_perfil_planos.sql (plano / plano_ate + trigger de guarda).
+--
+-- O trial libera o agente do WhatsApp sem tocar em `plano`: quem manda no plano pago
+-- continua sendo o webhook da Cakto. O acesso ao Zap passa a ser
+-- "plano >= essencial OU trial ativo", avaliado no front e na Edge Function.
+--
+-- GATILHO: botão "Testar 14 dias grátis" no app, via RPC. Não é o cadastro nem o
+-- primeiro save de telefone — telefone é obrigatório no signup, então esse gatilho
+-- seria o próprio cadastro seco, e os 10 perfis que já existem (todos com telefone)
+-- nunca disparariam trial nenhum.
+
+-- ============================================================================
+-- 1. Colunas
+-- ============================================================================
+alter table public.fp_perfil
+  add column if not exists trial_inicio timestamptz;
+
+alter table public.fp_perfil
+  add column if not exists trial_ate timestamptz;
+
+-- Índice pro job diário de lembretes, que varre só quem está em trial.
+create index if not exists fp_perfil_trial_ativo_idx
+  on public.fp_perfil (trial_ate)
+  where trial_inicio is not null;
+
+-- ============================================================================
+-- 2. Guarda: usuário não estende o próprio trial
+-- ============================================================================
+-- Mesma razão do plano: o front escreve em fp_perfil com o token do próprio usuário,
+-- então sem guarda qualquer conta faria PATCH em trial_ate e ganharia trial infinito.
+-- Estende a função da Fase 0 em vez de criar outra — um trigger só nessa tabela.
+create or replace function public.fp_perfil_sync_plano()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+begin
+  if current_user in ('anon', 'authenticated') then
+    -- Reverte em silêncio em vez de dar erro: o app nunca manda essas colunas, então
+    -- levantar exceção só quebraria o cadastro se algum payload mudar sem querer.
+    if tg_op = 'INSERT' then
+      new.plano := 'none';
+      new.plano_ate := null;
+      new.trial_inicio := null;
+      new.trial_ate := null;
+    else
+      new.plano := old.plano;
+      new.plano_ate := old.plano_ate;
+      new.trial_inicio := old.trial_inicio;
+      new.trial_ate := old.trial_ate;
+    end if;
+  end if;
+
+  new.acesso_pago := (new.plano = 'assistente');
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_fp_perfil_sync_plano on public.fp_perfil;
+create trigger trg_fp_perfil_sync_plano
+  before insert or update on public.fp_perfil
+  for each row execute function public.fp_perfil_sync_plano();
+
+-- ============================================================================
+-- 3. RPC que inicia o trial
+-- ============================================================================
+-- SECURITY DEFINER porque a guarda acima bloqueia escrita direta do usuário. Dentro
+-- da função o current_user vira o dono (postgres), então o trigger deixa passar.
+--
+-- Duas travas que fazem o trial ser de uma vez só:
+--   - só grava se trial_inicio for null (idempotente: chamar de novo não renova);
+--   - a data sai de now() do servidor, nunca de parâmetro do cliente.
+create or replace function public.fp_iniciar_trial()
+returns table (trial_inicio timestamptz, trial_ate timestamptz, ja_usado boolean)
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_inicio timestamptz;
+  v_ate timestamptz;
+begin
+  if v_user_id is null then
+    raise exception 'sem usuário autenticado';
+  end if;
+
+  select p.trial_inicio, p.trial_ate into v_inicio, v_ate
+    from public.fp_perfil p where p.user_id = v_user_id;
+
+  if not found then
+    raise exception 'perfil não encontrado';
+  end if;
+
+  -- Já usou: devolve o que existe, sem renovar. É isto que impede o usuário de
+  -- reiniciar o trial clicando de novo depois que ele expira.
+  if v_inicio is not null then
+    return query select v_inicio, v_ate, true;
+    return;
+  end if;
+
+  update public.fp_perfil
+     set trial_inicio = now(),
+         trial_ate = now() + interval '14 days'
+   where user_id = v_user_id
+   returning fp_perfil.trial_inicio, fp_perfil.trial_ate into v_inicio, v_ate;
+
+  return query select v_inicio, v_ate, false;
+end;
+$$;
+
+revoke all on function public.fp_iniciar_trial() from public, anon;
+grant execute on function public.fp_iniciar_trial() to authenticated, service_role;
+
+-- ============================================================================
+-- 4. Lembretes — idempotência por marco
+-- ============================================================================
+-- O job diário pode rodar mais de uma vez no mesmo dia (retry, execução manual,
+-- fuso). A unique (user_id, dia) é o que garante que cada marco sai uma vez só.
+create table if not exists public.trial_lembretes (
+  id          bigint generated by default as identity primary key,
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  dia         smallint not null,
+  telefone    text,
+  enviado_em  timestamptz not null default now(),
+  sucesso     boolean not null default true,
+  detalhe     text,
+  constraint trial_lembretes_unico unique (user_id, dia),
+  constraint trial_lembretes_dia_check check (dia in (5, 8, 10, 13, 14))
+);
+
+-- Sem policy: só service_role (que ignora RLS) escreve e lê. Tem telefone aqui.
+alter table public.trial_lembretes enable row level security;
+
+-- ============================================================================
+-- Runbook
+-- ============================================================================
+-- Quem está em trial agora:
+--
+--   select u.email, p.trial_inicio, p.trial_ate,
+--          extract(day from now() - p.trial_inicio)::int + 1 as dia_do_trial
+--     from public.fp_perfil p join auth.users u on u.id = p.user_id
+--    where p.trial_inicio is not null and p.trial_ate > now()
+--    order by p.trial_ate;
+--
+-- Lembretes já enviados de alguém:
+--
+--   select dia, enviado_em, sucesso, detalhe from public.trial_lembretes
+--    where user_id = public.fp_user_id_por_email('cliente@exemplo.com') order by dia;
+--
+-- Dar mais tempo pra alguém (suporte), sem reabrir o trial pra todo mundo:
+--
+--   update public.fp_perfil set trial_ate = trial_ate + interval '7 days'
+--    where user_id = public.fp_user_id_por_email('cliente@exemplo.com');
+--
+-- Deixar a pessoa testar de novo do zero (zera o marco e os lembretes):
+--
+--   update public.fp_perfil set trial_inicio = null, trial_ate = null
+--    where user_id = public.fp_user_id_por_email('cliente@exemplo.com');
+--   delete from public.trial_lembretes
+--    where user_id = public.fp_user_id_por_email('cliente@exemplo.com');
