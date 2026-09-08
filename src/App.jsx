@@ -22,7 +22,7 @@ import BensFP from "./components/fp/BensFP";
 import DiagnosticoFP from "./components/fp/DiagnosticoFP";
 import FabWhatsapp from "./components/FabWhatsapp";
 import UpgradePlano from "./components/UpgradePlano";
-import { normalizePlano, temAcesso, mostraCadeado } from "./lib/plano";
+import { normalizePlano, temAcesso, mostraCadeado, podeUsarWhatsapp, trialAtivo, diasRestantesTrial } from "./lib/plano";
 import { useIsDesktop } from "./components/desktop/useIsDesktop";
 import { desktopTheme, SIDEBAR_WIDTH } from "./components/desktop/theme";
 import SidebarDesktop from "./components/desktop/SidebarDesktop";
@@ -176,7 +176,10 @@ export default function PradexFinancas() {
   // (Essencial) e FP/Relatórios (Assistente). Quem não tem enxerga o CTA do plano
   // certo no lugar do recurso, não um buraco.
   const [plano, setPlano] = useState("none");
-  const podeZap = temAcesso(plano, "whatsapp");
+  // Trial do Zap: { trial_inicio, trial_ate } de fp_perfil. null = ainda não sei
+  // (perfil não carregado), que NÃO é o mesmo que "nunca testou" — ver plano.js.
+  const [trial, setTrial] = useState(null);
+  const podeZap = podeUsarWhatsapp(plano, trial);
   const podeFp = temAcesso(plano, "fp");
   const [tela, setTela] = useState("dashboard");
   const [tipo, setTipo] = useState("gasto");
@@ -389,7 +392,7 @@ export default function PradexFinancas() {
     setSession(null); setUserRole(null);
     setLancamentos([]); setCartoes([]); setBancos([]); setDividas([]);
     setPrecisaCadastrarTelefone(false); setBannerTelefoneFechado(false);
-    setPlano("none");
+    setPlano("none"); setTrial(null);
   };
 
   useEffect(() => {
@@ -406,17 +409,45 @@ export default function PradexFinancas() {
     if (!isDesktop && TELAS_DESKTOP.includes(tela)) setTela("dashboard");
   }, [isDesktop, tela]);
 
+  const [iniciandoTrial, setIniciandoTrial] = useState(false);
+
+  // Inicia o trial de 14 dias do Zap. Vai por RPC (fp_iniciar_trial) e não por PATCH
+  // porque o trigger de fp_perfil bloqueia escrita do usuário em trial_inicio/trial_ate
+  // — senão qualquer conta renovaria o próprio teste pra sempre. A RPC também é
+  // idempotente: chamar de novo devolve o trial existente em vez de renovar.
+  const iniciarTrial = async () => {
+    if (!session?.token || iniciandoTrial) return;
+    setIniciandoTrial(true);
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/fp_iniciar_trial`, {
+        method: "POST", headers: api(session.token), body: "{}",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error("[trial] erro ao iniciar:", err);
+        setErro("Não foi possível iniciar o teste agora. Tente de novo.");
+      } else {
+        await verificarTelefonePerfil();
+      }
+    } catch (e) {
+      console.error("[trial] erro de conexão:", e);
+      setErro("Erro de conexão ao iniciar o teste.");
+    }
+    setIniciandoTrial(false);
+  };
+
   const verificarTelefonePerfil = async () => {
     if (!session?.user?.id) return;
     try {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/fp_perfil?user_id=eq.${session.user.id}&select=telefone,plano&limit=1`,
+        `${SUPABASE_URL}/rest/v1/fp_perfil?user_id=eq.${session.user.id}&select=telefone,plano,trial_inicio,trial_ate&limit=1`,
         { headers: api(session.token) }
       );
       const rows = await res.json();
       const row = Array.isArray(rows) ? rows[0] : null;
       setPrecisaCadastrarTelefone(!row?.telefone);
       setPlano(normalizePlano(row?.plano));
+      setTrial(row ? { trial_inicio: row.trial_inicio, trial_ate: row.trial_ate } : null);
     } catch (e) {}
   };
 
@@ -1604,9 +1635,16 @@ export default function PradexFinancas() {
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ margin: "0 0 0.15rem", fontSize: "0.92rem", fontWeight: 700, color: "#E8E8E8" }}>Lance seus gastos pelo WhatsApp</p>
               <p style={{ margin: 0, fontSize: "0.76rem", color: "#888", lineHeight: 1.4 }}>Manda texto ou áudio — "gastei 50 no mercado" — e o Pradex registra sozinho.</p>
+              {/* Quem está no teste precisa saber que ele acaba — descobrir pelo
+                  silêncio no dia 15 é a pior versão disso. */}
+              {trialAtivo(trial) && (
+                <p style={{ margin: "0.3rem 0 0", fontSize: "0.72rem", color: "#6366F1", fontWeight: 600 }}>
+                  Teste grátis · {diasRestantesTrial(trial)} {diasRestantesTrial(trial) === 1 ? "dia restante" : "dias restantes"}
+                </p>
+              )}
             </div>
             <span style={{ fontSize: "1.1rem", color: "#25D366", flexShrink: 0 }}>›</span>
-          </a> : <UpgradePlano plano={plano} recurso="whatsapp" variant="card" />}
+          </a> : <UpgradePlano plano={plano} recurso="whatsapp" variant="card" trial={trial} onIniciarTrial={iniciarTrial} carregando={iniciandoTrial} />}
           {lancamentos.length === 0 ? (
             <div style={{ textAlign: "center", padding: "3rem 0", color: "#444" }}>
               <p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>•</p>

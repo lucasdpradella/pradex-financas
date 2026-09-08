@@ -31,9 +31,12 @@ const BOTAO = {
   padding: "0.6rem 1.1rem",
 };
 
-export default function UpgradePlano({ plano, recurso, variant = "card" }) {
-  const { titulo, descricao, nota, cta, href } = conteudoUpgrade(plano, recurso);
+export default function UpgradePlano({ plano, recurso, variant = "card", trial = null, onIniciarTrial, carregando = false }) {
+  const { titulo, descricao, nota, cta, href, modo } = conteudoUpgrade(plano, recurso, { trial });
   const tela = variant === "tela";
+  // Modo "trial" é ação no próprio app (RPC), não link externo de checkout — por isso
+  // vira <button>. Se o pai não passou o handler, cai no link pra não virar botão morto.
+  const acaoTrial = modo === "trial" && typeof onIniciarTrial === "function";
 
   return (
     <div
@@ -68,14 +71,24 @@ export default function UpgradePlano({ plano, recurso, variant = "card" }) {
           <p style={{ margin: "0 0 0.35rem", fontSize: "0.76rem", color: "#888", lineHeight: 1.4 }}>{descricao}</p>
           <p style={{ margin: 0, fontSize: "0.72rem", color: "#6366F1", fontWeight: 600 }}>{nota}</p>
 
-          <a
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ ...BOTAO, marginTop: "0.9rem" }}
-          >
-            {cta}
-          </a>
+          {acaoTrial ? (
+            <button
+              onClick={onIniciarTrial}
+              disabled={carregando}
+              style={{ ...BOTAO, marginTop: "0.9rem", border: "none", opacity: carregando ? 0.7 : 1, cursor: carregando ? "not-allowed" : "pointer" }}
+            >
+              {carregando ? "Liberando..." : cta}
+            </button>
+          ) : (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ ...BOTAO, marginTop: "0.9rem" }}
+            >
+              {cta}
+            </a>
+          )}
         </div>
       </div>
     </div>
