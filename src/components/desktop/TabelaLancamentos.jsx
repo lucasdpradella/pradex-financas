@@ -54,6 +54,12 @@ const fmtData = (iso) => {
 
 const SETA = (dir) => (dir === "asc" ? " ↑" : " ↓");
 
+// "YYYY-MM" de hoje — mesmo formato do filtro (data_lancamento.slice(0, 7)).
+const mesCorrente = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+
 export default function TabelaLancamentos({
   lancamentos, cartoes, categories,
   onEdit, onInlineSave, onBulkDelete, onBulkRecategorize,
@@ -62,7 +68,10 @@ export default function TabelaLancamentos({
   const [busca, setBusca] = useState("");
   const [fCategoria, setFCategoria] = useState("");
   const [fCartao, setFCartao] = useState("");
-  const [fMes, setFMes] = useState("");
+  // Abre no mês atual, igual ao Histórico mobile (mesHistorico). Com "" o default
+  // de ordenação data_lancamento desc jogava recorrentes futuras pro topo e
+  // escondia o que o usuário acabou de lançar hoje. "Todos os meses" segue no select.
+  const [fMes, setFMes] = useState(mesCorrente);
   const [ordCampo, setOrdCampo] = useState("data_lancamento");
   const [ordDir, setOrdDir] = useState("desc");
   const [sel, setSel] = useState(() => new Set());
@@ -80,6 +89,9 @@ export default function TabelaLancamentos({
   const meses = useMemo(() => {
     const s = new Set();
     lancamentos.forEach((l) => l.data_lancamento && s.add(l.data_lancamento.slice(0, 7)));
+    // O mês corrente é o valor inicial de fMes: sem isto, num mês ainda sem
+    // lançamento o select ficaria com um value sem <option> e renderizaria vazio.
+    s.add(mesCorrente());
     return [...s].sort().reverse();
   }, [lancamentos]);
 
