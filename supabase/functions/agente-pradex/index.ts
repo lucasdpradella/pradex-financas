@@ -278,6 +278,21 @@ function podeUsarAgente(perfil: { plano?: unknown; trial_inicio?: unknown; trial
   return pago || trialAtivo(perfil);
 }
 
+// Números silenciados: o agente não responde NADA (nem onboarding, nem CTA, nem
+// roteamento SDR). Existe porque todo caminho do handler responde alguma coisa —
+// número sem conta cai no onboarding e recebe resposta a cada mensagem.
+// Configurar sem redeploy:
+//   supabase secrets set AGENTE_SILENCIADOS="5511947065739,55..." --project-ref sjvuhqqsjboncwpboclv
+const SILENCIADOS: Set<string> = new Set(
+  (Deno.env.get("AGENTE_SILENCIADOS") ?? "")
+    .split(",")
+    .map((s) => {
+      const d = s.replace(/\D/g, "");
+      return d.length === 11 ? "55" + d : d;
+    })
+    .filter(Boolean),
+);
+
 const MSG_SEM_PLANO = "Oi! 👋 Lançar por aqui faz parte do plano *Essencial* do Pradex.\n\n" +
   "Seu app continua funcionando normalmente — dá pra registrar tudo por lá.\n\n" +
   `Pra liberar o agente no WhatsApp: ${CHECKOUT_ESSENCIAL}`;
@@ -456,6 +471,13 @@ Deno.serve(async (req: Request) => {
     if (!telefone) { logErro(cid, "no_phone", payload); return new Response("ok", { status: 200 }); }
 
     logInfo(cid, "msg_received", { telefone });
+
+    // Silenciado: não responde nem processa. Antes do claim e do roteamento SDR
+    // de propósito — silenciado significa silêncio em todos os caminhos.
+    if (SILENCIADOS.has(telefone)) {
+      logInfo(cid, "numero_silenciado", { telefone });
+      return new Response("ok", { status: 200 });
+    }
 
     // Roteamento SDR: se telefone é prospect ativo no CRM Pradella, encaminha pro n8n e para.
     // Não claimamos a mensagem (agente_msgs_processadas é da idempotência do Pradex, não do SDR).
