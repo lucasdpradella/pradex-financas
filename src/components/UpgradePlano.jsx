@@ -67,8 +67,8 @@ export default function UpgradePlano({ plano, recurso, variant = "card", trial =
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ margin: "0 0 0.15rem", fontSize: tela ? "1.05rem" : "0.92rem", fontWeight: 700, color: "#E8E8E8" }}>{titulo}</p>
-          <p style={{ margin: "0 0 0.35rem", fontSize: "0.76rem", color: "#888", lineHeight: 1.4 }}>{descricao}</p>
+          <p style={{ margin: "0 0 0.15rem", fontSize: tela ? "1.05rem" : "0.92rem", fontWeight: 700, color: "#F1F2F4" }}>{titulo}</p>
+          <p style={{ margin: "0 0 0.35rem", fontSize: "0.76rem", color: "#8B93A1", lineHeight: 1.4 }}>{descricao}</p>
           <p style={{ margin: 0, fontSize: "0.72rem", color: "#6366F1", fontWeight: 600 }}>{nota}</p>
 
           {acaoTrial ? (

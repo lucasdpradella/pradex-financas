@@ -164,7 +164,7 @@ function formatYAxis(v) {
 
 function ScenarioCard({ color, title, aporte, patrimonio, subtitle, highlighted = false }) {
   return (
-    <div style={{ ...styles.scenarioCard, background: highlighted ? "#EFEFEF" : "#FFFFFF", borderColor: highlighted ? "#E2E2E2" : "#E5E7EB" }}>
+    <div style={{ ...styles.scenarioCard, background: highlighted ? "#F1F2F4" : "#FFFFFF", borderColor: highlighted ? "#F1F2F4" : "#E5E7EB" }}>
       <div style={styles.scenarioHeader}>
         <div style={styles.scenarioTitleWrap}>
           <span style={{ ...styles.scenarioDot, background: color }} />
@@ -259,7 +259,7 @@ export default function DiagnosticoFP({ session }) {
   }
 
   if (loading || !dados) {
-    return <div style={{ padding: 40, textAlign: "center", color: "#888" }}>{loading ? "Carregando..." : "Sem dados suficientes para diagnóstico."}</div>;
+    return <div style={{ padding: 40, textAlign: "center", color: "#8B93A1" }}>{loading ? "Carregando..." : "Sem dados suficientes para diagnóstico."}</div>;
   }
 
   const { patrimonioAtual, aportesMensais, idadeInicio, idadeAposentadoria, expectativaVida, rendaMensalDesejada, somaRendas, somaDespesas } = dados;
@@ -369,7 +369,7 @@ export default function DiagnosticoFP({ session }) {
 
           <div style={styles.scenarioList}>
             <ScenarioCard
-              color="#19B36B"
+              color="#2FBF8A"
               title="Planejamento atual"
               aporte={`${formatBRL(aportesMensais)}/mês`}
               patrimonio={formatBRL(patrimonioAtualNaAposentadoria)}
@@ -377,14 +377,14 @@ export default function DiagnosticoFP({ session }) {
               highlighted
             />
             <ScenarioCard
-              color="#7A7A7A"
+              color="#8B93A1"
               title="Consumo total do patrimônio"
               aporte={`${formatBRL(aporteConsumo)}/mês`}
               patrimonio={formatBRL(pvConsumo)}
               subtitle={`Patrimônio mínimo aos ${idadeAposentadoria} anos`}
             />
             <ScenarioCard
-              color="#1A1A1A"
+              color="#0C0E14"
               title="Preservação do patrimônio"
               aporte={`${formatBRL(aportePreservacao)}/mês`}
               patrimonio={formatBRL(pvPreservacao)}
@@ -407,26 +407,26 @@ export default function DiagnosticoFP({ session }) {
                 </g>
               ))}
 
-              <line x1={destaqueX} y1={chart.marginTop} x2={destaqueX} y2={chart.height - chart.marginBottom} stroke="#9CA3AF" strokeDasharray="4 4" strokeWidth="1.5" />
+              <line x1={destaqueX} y1={chart.marginTop} x2={destaqueX} y2={chart.height - chart.marginBottom} stroke="#8B93A1" strokeDasharray="4 4" strokeWidth="1.5" />
 
               {hoverIdx !== null && (
                 <line
                   x1={getX(hoverIdx)} y1={chart.marginTop}
                   x2={getX(hoverIdx)} y2={chart.height - chart.marginBottom}
-                  stroke="#1A1A1A" strokeOpacity="0.3" strokeWidth="1" strokeDasharray="2 2"
+                  stroke="#0C0E14" strokeOpacity="0.3" strokeWidth="1" strokeDasharray="2 2"
                 />
               )}
 
-              <path d={buildLinePath(projecaoAtual, ages, yMax)} fill="none" stroke="#19B36B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-              <path d={buildLinePath(consumoVals, ages, yMax)} fill="none" stroke="#7A7A7A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-              <path d={buildLinePath(preservacaoVals, ages, yMax)} fill="none" stroke="#1A1A1A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d={buildLinePath(projecaoAtual, ages, yMax)} fill="none" stroke="#2FBF8A" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+              <path d={buildLinePath(consumoVals, ages, yMax)} fill="none" stroke="#8B93A1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d={buildLinePath(preservacaoVals, ages, yMax)} fill="none" stroke="#0C0E14" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
 
               {projecaoAtual.filter((_, i) => i % 5 === 0 || i === destaqueIdx).map((v, _, arr) => {
                 const realIdx = projecaoAtual.indexOf(v);
-                return <circle key={`a-${realIdx}`} cx={getX(realIdx)} cy={getY(v)} r="2.7" fill="#19B36B" />;
+                return <circle key={`a-${realIdx}`} cx={getX(realIdx)} cy={getY(v)} r="2.7" fill="#2FBF8A" />;
               })}
 
-              <circle cx={destaqueX} cy={destaqueY} r="8" fill="#2E2E2E" opacity="0.95" />
+              <circle cx={destaqueX} cy={destaqueY} r="8" fill="#1E2330" opacity="0.95" />
               <text x={destaqueX} y={destaqueY + 3} textAnchor="middle" style={styles.focusText}>1</text>
 
               {ages.map((age, index) => {
@@ -463,10 +463,10 @@ export default function DiagnosticoFP({ session }) {
           </div>
 
           <div style={styles.legend}>
-            <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#19B36B" }} />Projeção Atual</div>
-            <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#1A1A1A" }} />Preservação do Patrimônio</div>
-            <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#7A7A7A" }} />Consumo do Patrimônio</div>
-            <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#3A3A3A", boxShadow: "0 0 0 4px rgba(0,0,0,0.12)" }} />Aposentadoria</div>
+            <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#2FBF8A" }} />Projeção Atual</div>
+            <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#0C0E14" }} />Preservação do Patrimônio</div>
+            <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#8B93A1" }} />Consumo do Patrimônio</div>
+            <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#1E2330", boxShadow: "0 0 0 4px rgba(0,0,0,0.12)" }} />Aposentadoria</div>
           </div>
 
           <div style={styles.legendNote}>
@@ -484,11 +484,11 @@ const styles = {
   topRow: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap" },
   topTitle: { margin: 0, fontSize: "0.95rem", color: "#D6D9E0", fontWeight: 500 },
   topControls: { display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" },
-  toggleGroup: { display: "inline-flex", borderRadius: "999px", background: "#111111", padding: "3px" },
+  toggleGroup: { display: "inline-flex", borderRadius: "999px", background: "#0C0E14", padding: "3px" },
   toggleButton: {
     border: "none",
     background: "transparent",
-    color: "#9CA3AF",
+    color: "#8B93A1",
     padding: "0.45rem 0.85rem",
     fontSize: "0.78rem",
     fontWeight: 700,
@@ -497,46 +497,46 @@ const styles = {
     borderRadius: "999px",
     transition: "background 0.15s, color 0.15s",
   },
-  toggleButtonActive: { background: "#FFFFFF", color: "#111111" },
-  filterButton: { border: "none", borderRadius: "999px", background: "#111111", color: "#FFFFFF", padding: "0.55rem 0.9rem", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
-  board: { background: "#181B24", borderRadius: "18px", border: "1px solid #252832", padding: "1.2rem 1.1rem", display: "grid", gridTemplateColumns: "1fr", gap: "1rem" },
+  toggleButtonActive: { background: "#FFFFFF", color: "#0C0E14" },
+  filterButton: { border: "none", borderRadius: "999px", background: "#0C0E14", color: "#FFFFFF", padding: "0.55rem 0.9rem", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
+  board: { background: "#151821", borderRadius: "18px", border: "1px solid #1E2330", padding: "1.2rem 1.1rem", display: "grid", gridTemplateColumns: "1fr", gap: "1rem" },
   leftPanel: { display: "grid", alignContent: "start", gap: "1rem" },
   statusRow: { display: "flex", alignItems: "center", gap: "0.7rem" },
-  statusDot: { width: "12px", height: "12px", borderRadius: "999px", background: "#19B36B", flexShrink: 0 },
-  statusTitle: { margin: 0, fontSize: "1.05rem", fontWeight: 500, color: "#F0F0F0" },
-  separator: { width: "100%", height: "1px", background: "#2B3140" },
-  description: { margin: 0, fontSize: "0.92rem", color: "#B4BCC9", lineHeight: 1.55 },
+  statusDot: { width: "12px", height: "12px", borderRadius: "999px", background: "#2FBF8A", flexShrink: 0 },
+  statusTitle: { margin: 0, fontSize: "1.05rem", fontWeight: 500, color: "#F1F2F4" },
+  separator: { width: "100%", height: "1px", background: "#1E2330" },
+  description: { margin: 0, fontSize: "0.92rem", color: "#8B93A1", lineHeight: 1.55 },
   assumptions: { display: "grid", gap: "0.45rem" },
   assumptionRow: { display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "center" },
-  assumptionLabel: { fontSize: "0.8rem", color: "#A7AFBC" },
+  assumptionLabel: { fontSize: "0.8rem", color: "#8B93A1" },
   assumptionValue: { fontSize: "0.82rem", color: "#D49A4F", fontWeight: 700, textAlign: "right" },
   scenarioList: { display: "grid", gap: "0.85rem" },
-  scenarioCard: { border: "1px solid #252832", borderRadius: "12px", padding: "0.95rem 1rem", boxShadow: "0 1px 2px rgba(0,0,0,0.16)" },
+  scenarioCard: { border: "1px solid #1E2330", borderRadius: "12px", padding: "0.95rem 1rem", boxShadow: "0 1px 2px rgba(0,0,0,0.16)" },
   scenarioHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.75rem", marginBottom: "0.9rem" },
   scenarioTitleWrap: { display: "flex", alignItems: "center", gap: "0.7rem" },
   scenarioDot: { width: "12px", height: "12px", borderRadius: "999px", flexShrink: 0 },
   scenarioTitle: { fontSize: "0.92rem", color: "#0F172A", fontWeight: 500 },
-  infoIcon: { width: "18px", height: "18px", borderRadius: "999px", border: "1px solid #8B909B", color: "#C9CFDA", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "0.72rem", fontWeight: 700, flexShrink: 0 },
+  infoIcon: { width: "18px", height: "18px", borderRadius: "999px", border: "1px solid #8B93A1", color: "#C9CFDA", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "0.72rem", fontWeight: 700, flexShrink: 0 },
   metricRow: { display: "flex", justifyContent: "space-between", gap: "0.75rem", marginBottom: "0.55rem", alignItems: "center" },
-  metricLabel: { fontSize: "0.77rem", color: "#64748B" },
+  metricLabel: { fontSize: "0.77rem", color: "#5C6570" },
   metricValue: { fontSize: "0.8rem", color: "#111827", fontWeight: 700, textAlign: "right" },
   rightPanel: { minWidth: 0, display: "grid", gap: "0.55rem" },
   chartActions: { display: "flex", justifyContent: "flex-end", marginBottom: "0.15rem" },
-  resetButton: { border: "none", background: "#FFC700", color: "#111111", padding: "0.75rem 1.35rem", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
+  resetButton: { border: "none", background: "#E8943A", color: "#0C0E14", padding: "0.75rem 1.35rem", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
   chartWrapper: { position: "relative", overflowX: "auto", background: "#F2F4F8", border: "1px solid #E2E5EB", borderRadius: "14px", padding: "0.45rem" },
   svg: { width: "100%", minWidth: "640px", height: "auto", display: "block" },
-  axisText: { fontSize: "12px", fill: "#5A6172", fontWeight: 500 },
+  axisText: { fontSize: "12px", fill: "#5C6570", fontWeight: 500 },
   focusText: { fontSize: "11px", fill: "#FFFFFF", fontWeight: 700 },
-  tooltip: { position: "absolute", left: "50%", top: "49%", transform: "translateX(-50%)", background: "#0B0B0B", color: "#FFFFFF", borderRadius: "12px", padding: "0.95rem 1rem", width: "310px", maxWidth: "calc(100% - 24px)", boxShadow: "0 12px 24px rgba(0,0,0,0.18)", whiteSpace: "pre-line" },
+  tooltip: { position: "absolute", left: "50%", top: "49%", transform: "translateX(-50%)", background: "#0C0E14", color: "#FFFFFF", borderRadius: "12px", padding: "0.95rem 1rem", width: "310px", maxWidth: "calc(100% - 24px)", boxShadow: "0 12px 24px rgba(0,0,0,0.18)", whiteSpace: "pre-line" },
   tooltipTitle: { margin: "0 0 0.45rem", fontSize: "0.88rem", fontWeight: 700 },
   tooltipValues: { margin: "0 0 0.7rem", fontSize: "0.8rem", lineHeight: 1.45, fontWeight: 700 },
   tooltipAge: { margin: 0, fontSize: "0.78rem", opacity: 0.8 },
   tooltipAgeValue: { margin: "0.1rem 0 0", fontSize: "1rem", fontWeight: 700 },
-  miniTrack: { height: "24px", background: "#1B2230", marginTop: "0.15rem", position: "relative", overflow: "hidden", borderRadius: "8px" },
-  miniTrackFill: { position: "absolute", left: "2%", right: "2%", top: "7px", height: "10px", borderRadius: "10px", background: "linear-gradient(90deg, #2E3953 0%, #425071 100%)" },
+  miniTrack: { height: "24px", background: "#151821", marginTop: "0.15rem", position: "relative", overflow: "hidden", borderRadius: "8px" },
+  miniTrackFill: { position: "absolute", left: "2%", right: "2%", top: "7px", height: "10px", borderRadius: "10px", background: "linear-gradient(90deg, #2C3344 0%, #2C3344 100%)" },
   legend: { display: "flex", justifyContent: "center", gap: "1rem", flexWrap: "wrap", marginTop: "0.5rem", background: "#F2F4F8", padding: "0.65rem 0.85rem", borderRadius: "10px" },
-  legendItem: { display: "flex", alignItems: "center", gap: "0.45rem", fontSize: "0.75rem", color: "#5A6172", fontWeight: 600 },
+  legendItem: { display: "flex", alignItems: "center", gap: "0.45rem", fontSize: "0.75rem", color: "#5C6570", fontWeight: 600 },
   legendDot: { width: "11px", height: "11px", borderRadius: "999px", display: "inline-block", flexShrink: 0 },
-  legendNote: { display: "flex", justifyContent: "center", alignItems: "center", gap: "0.55rem", marginTop: "1rem", fontSize: "0.75rem", color: "#8B909B", textAlign: "center" },
-  legendInfo: { width: "16px", height: "16px", borderRadius: "999px", border: "1px solid #8B909B", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "0.68rem", fontWeight: 700, color: "#C9CFDA", flexShrink: 0 },
+  legendNote: { display: "flex", justifyContent: "center", alignItems: "center", gap: "0.55rem", marginTop: "1rem", fontSize: "0.75rem", color: "#8B93A1", textAlign: "center" },
+  legendInfo: { width: "16px", height: "16px", borderRadius: "999px", border: "1px solid #8B93A1", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "0.68rem", fontWeight: 700, color: "#C9CFDA", flexShrink: 0 },
 };

@@ -64,7 +64,7 @@ const montarCategories = (rows) => {
   };
 };
 
-const COLORS = ["#6366F1","#22C55E","#F59E0B","#EF4444","#8B5CF6","#EC4899","#14B8A6","#F97316"];
+const COLORS = ["#6366F1","#2FBF8A","#E8943A","#E06C65","#6366F1","#EC4899","#14B8A6","#F97316"];
 const formatBRL = (value) => Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const monthNames = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 const today = new Date().toISOString().split("T")[0];
@@ -81,10 +81,10 @@ const badgeBaseStyle = {
 const sectionToggleStyle = {
   width: "100%",
   padding: "0.8rem 1rem",
-  border: "1px solid #252832",
+  border: "1px solid #1E2330",
   borderRadius: "14px",
-  background: "#141720",
-  color: "#CFCFCF",
+  background: "#151821",
+  color: "#8B93A1",
   fontSize: "0.84rem",
   fontWeight: 600,
   cursor: "pointer",
@@ -144,12 +144,12 @@ function GraficoSimulador({ labels, dadosComAporte, dadosSemAporte, meta }) {
     if (instanceRef.current) instanceRef.current.destroy();
     const datasets = [
       { label: "Com aportes", data: dadosComAporte, borderColor: "#6366F1", backgroundColor: "rgba(99,102,241,0.08)", fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 },
-      { label: "Só rendimento", data: dadosSemAporte, borderColor: "#555", backgroundColor: "transparent", fill: false, tension: 0.4, pointRadius: 0, borderWidth: 1.5, borderDash: [4, 4] },
+      { label: "Só rendimento", data: dadosSemAporte, borderColor: "#5C6570", backgroundColor: "transparent", fill: false, tension: 0.4, pointRadius: 0, borderWidth: 1.5, borderDash: [4, 4] },
     ];
-    if (meta > 0) datasets.push({ label: "Meta", data: Array(labels.length).fill(meta), borderColor: "#F59E0B", backgroundColor: "transparent", fill: false, pointRadius: 0, borderWidth: 1.5, borderDash: [6, 4] });
+    if (meta > 0) datasets.push({ label: "Meta", data: Array(labels.length).fill(meta), borderColor: "#E8943A", backgroundColor: "transparent", fill: false, pointRadius: 0, borderWidth: 1.5, borderDash: [6, 4] });
     instanceRef.current = new window.Chart(canvasRef.current, {
       type: "line", data: { labels, datasets },
-      options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: "#555", font: { size: 10 } }, grid: { color: "#1a1d26" } }, y: { ticks: { color: "#555", font: { size: 10 }, callback: v => v >= 1000000 ? "R$" + (v/1000000).toFixed(1) + "M" : v >= 1000 ? "R$" + (v/1000).toFixed(0) + "k" : "R$" + v }, grid: { color: "#1a1d26" } } } },
+      options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: "#5C6570", font: { size: 10 } }, grid: { color: "#151821" } }, y: { ticks: { color: "#5C6570", font: { size: 10 }, callback: v => v >= 1000000 ? "R$" + (v/1000000).toFixed(1) + "M" : v >= 1000 ? "R$" + (v/1000).toFixed(0) + "k" : "R$" + v }, grid: { color: "#151821" } } } },
     });
     return () => { if (instanceRef.current) instanceRef.current.destroy(); };
   }, [JSON.stringify(dadosComAporte), JSON.stringify(dadosSemAporte), meta]);
@@ -228,14 +228,21 @@ export default function PradexFinancas() {
   const [filtroLancamentos, setFiltroLancamentos] = useState("todos");
   const [fpAba, setFpAba] = useState("perfil");
 
-  const inputStyle = { width: "100%", background: "#0F1117", border: "1px solid #252832", borderRadius: "10px", padding: "0.75rem 1rem", color: "#E8E8E8", fontSize: "0.9rem", marginBottom: "0.75rem", outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
+  const inputStyle = { width: "100%", background: "#0C0E14", border: "1px solid #1E2330", borderRadius: "10px", padding: "0.75rem 1rem", color: "#F1F2F4", fontSize: "0.9rem", marginBottom: "0.75rem", outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
+
+  // input[type=date] no iOS não encolhe abaixo da largura do próprio conteúdo: o
+  // `width: 100%` não vence a largura intrínseca do widget nativo, e o campo vaza pra
+  // direita. Passou a aparecer quando a DM Sans entrou — ela é mais larga que a Arial
+  // em que o app renderizava antes, então o "dd/mm/aaaa" cresceu junto.
+  // `appearance: none` tira o widget nativo e `minWidth: 0` libera o encolhimento.
+  const dateInputStyle = { ...inputStyle, WebkitAppearance: "none", appearance: "none", minWidth: 0, maxWidth: "100%" };
 
   // Fix 4 — estado "off" dos toggles (parcelar / recorrente). No mobile o par
-  // #252832/#555 sobre #181B24 ficava perto do invisível; #3A3F4B/#A0A0A0 sobe o
+  // #1E2330/#5C6570 sobre #151821 ficava perto do invisível; #1E2330/#8B93A1 sobe o
   // contraste sem acender o botão como se estivesse ligado. O form também renderiza
   // no desktop (TopBar → "Novo lançamento"), e lá nada muda.
-  const offBorda = isDesktop ? "#252832" : "#3A3F4B";
-  const offTexto = isDesktop ? "#555" : "#A0A0A0";
+  const offBorda = isDesktop ? "#1E2330" : "#1E2330";
+  const offTexto = isDesktop ? "#5C6570" : "#8B93A1";
 
   useEffect(() => {
     checkSession();
@@ -1197,19 +1204,19 @@ export default function PradexFinancas() {
     { key: "fp", label: mostraCadeado(plano, "fp") ? "Plan. 🔒" : "Plan." },
   ];
 
-  if (loadingAuth) return <div style={{ minHeight: "100vh", background: "#0F1117", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "#555", fontFamily: "'DM Sans', sans-serif" }}>Carregando...</p></div>;
+  if (loadingAuth) return <div style={{ minHeight: "100vh", background: "#0C0E14", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "#5C6570", fontFamily: "'DM Sans', sans-serif" }}>Carregando...</p></div>;
 
   if (!session) return (
-    <div style={{ minHeight: "100vh", background: "#0F1117", color: "#E8E8E8", fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
+    <div style={{ minHeight: "100vh", background: "#0C0E14", color: "#F1F2F4", fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
       <div style={{ width: "100%", maxWidth: "380px" }}>
         <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
-          <p style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "#555", textTransform: "uppercase", margin: "0 0 0.5rem" }}>Pradex</p>
-          <h1 style={{ margin: 0, fontSize: "2rem", fontWeight: 600, color: "#F0F0F0", letterSpacing: "-0.03em" }}>Finanças</h1>
+          <p style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "#5C6570", textTransform: "uppercase", margin: "0 0 0.5rem" }}>Pradex</p>
+          <h1 style={{ margin: 0, fontSize: "2rem", fontWeight: 600, color: "#F1F2F4", letterSpacing: "-0.03em" }}>Finanças</h1>
         </div>
-        <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
-          <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem" }}>
+        <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", border: "1px solid #1E2330" }}>
+          <div style={{ display: "flex", background: "#0C0E14", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem" }}>
             {["login", "cadastro"].map(m => (
-              <button key={m} onClick={() => { setAuthMode(m); setAuthErro(""); }} style={{ flex: 1, padding: "0.5rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600, background: authMode === m ? "#252832" : "transparent", color: authMode === m ? "#F0F0F0" : "#555", transition: "all 0.2s", fontFamily: "inherit" }}>{m === "login" ? "Entrar" : "Criar conta"}</button>
+              <button key={m} onClick={() => { setAuthMode(m); setAuthErro(""); }} style={{ flex: 1, padding: "0.5rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600, background: authMode === m ? "#1E2330" : "transparent", color: authMode === m ? "#F1F2F4" : "#5C6570", transition: "all 0.2s", fontFamily: "inherit" }}>{m === "login" ? "Entrar" : "Criar conta"}</button>
             ))}
           </div>
           <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} />
@@ -1230,7 +1237,7 @@ export default function PradexFinancas() {
                 onChange={e => setCadastroDataNasc(e.target.value)}
                 min="1900-01-01"
                 max={today}
-                style={{ ...inputStyle, color: cadastroDataNasc ? "#E8E8E8" : "#555" }}
+                style={{ ...dateInputStyle, color: cadastroDataNasc ? "#F1F2F4" : "#5C6570" }}
               />
               <input
                 type="tel"
@@ -1240,12 +1247,12 @@ export default function PradexFinancas() {
                 onChange={e => setCadastroTelefone(e.target.value)}
                 style={{ ...inputStyle, marginBottom: "0.4rem" }}
               />
-              <p style={{ margin: "0 0 0.9rem", fontSize: "0.7rem", color: "#666", lineHeight: 1.45 }}>
+              <p style={{ margin: "0 0 0.9rem", fontSize: "0.7rem", color: "#8B93A1", lineHeight: 1.45 }}>
                 Ao cadastrar seu WhatsApp, você concorda em receber e enviar mensagens com o assistente IA do Pradex pra registrar seus lançamentos. Seus dados financeiros são protegidos conforme nossa Política de Privacidade.
               </p>
             </>
           )}
-          {authErro && <p style={{ color: "#EF4444", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{authErro}</p>}
+          {authErro && <p style={{ color: "#E06C65", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{authErro}</p>}
           <button onClick={handleAuth} disabled={authLoading} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", background: "#6366F1", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: authLoading ? "not-allowed" : "pointer", opacity: authLoading ? 0.7 : 1, fontFamily: "inherit" }}>{authLoading ? "Aguarde..." : authMode === "login" ? "Entrar" : "Criar conta"}</button>
         </div>
       </div>
@@ -1255,7 +1262,7 @@ export default function PradexFinancas() {
   return (
     <div className="pradex-shell" style={isDesktop
       ? { background: desktopTheme.mainBg, color: desktopTheme.textPrimary, fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", margin: 0, maxWidth: "none", boxSizing: "border-box", paddingLeft: `${SIDEBAR_WIDTH}px` }
-      : { background: "#0F1117", color: "#E8E8E8", fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", maxWidth: "480px", margin: "0 auto", boxSizing: "border-box", paddingTop: "max(2rem, env(safe-area-inset-top, 0px))", paddingRight: "max(1.5rem, env(safe-area-inset-right, 0px))", paddingLeft: "max(1.5rem, env(safe-area-inset-left, 0px))", paddingBottom: "calc(56px + 1.5rem + 16px + env(safe-area-inset-bottom, 0px))" }}>
+      : { background: "#0C0E14", color: "#F1F2F4", fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", maxWidth: "480px", margin: "0 auto", boxSizing: "border-box", paddingTop: "max(2rem, env(safe-area-inset-top, 0px))", paddingRight: "max(1.5rem, env(safe-area-inset-right, 0px))", paddingLeft: "max(1.5rem, env(safe-area-inset-left, 0px))", paddingBottom: "calc(56px + 1.5rem + 16px + env(safe-area-inset-bottom, 0px))" }}>
       <style>{`.pradex-shell { min-height: 100vh; min-height: 100dvh; } .pdx-content { display: contents; } @media (min-width: 1024px) { .pdx-hide-desktop { display: none !important; } .pdx-content { display: block; max-width: 1120px; margin: 0 auto; padding: 1.5rem 2rem 2.5rem; box-sizing: border-box; } }
 
 /* ===== Polimento mobile (<1024px) =====
@@ -1284,7 +1291,7 @@ export default function PradexFinancas() {
      A cor entra aqui, e não no inline, porque vários destes botões (× dos modais,
      × de categoria e de cartão) também renderizam no desktop. */
   .pdx-tap { min-height: 44px; }
-  .pdx-tap-sq { min-width: 44px; min-height: 44px; color: #A0A0A0 !important; }
+  .pdx-tap-sq { min-width: 44px; min-height: 44px; color: #8B93A1 !important; }
 
   /* Fix 8 — o FAB do WhatsApp subiria por cima da bottom nav fixa. Fica aqui pelo
      mesmo motivo: o componente também é renderizado no desktop, que não tem nav. */
@@ -1312,28 +1319,28 @@ export default function PradexFinancas() {
 
       {editando && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-          <div style={{ background: "#181B24", borderRadius: "16px 16px 0 0", padding: "1.5rem", width: "100%", maxWidth: "480px", border: "1px solid #252832", maxHeight: "90vh", overflowY: "auto" }}>
+          <div style={{ background: "#151821", borderRadius: "16px 16px 0 0", padding: "1.5rem", width: "100%", maxWidth: "480px", border: "1px solid #1E2330", maxHeight: "90vh", overflowY: "auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
-              <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>{editando._compraParcelada ? "Editar compra" : "Editar lançamento"}</p>
-              <button onClick={() => setEditando(null)} className="pdx-tap-sq" aria-label="Fechar" style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "1.2rem" }}>×</button>
+              <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>{editando._compraParcelada ? "Editar compra" : "Editar lançamento"}</p>
+              <button onClick={() => setEditando(null)} className="pdx-tap-sq" aria-label="Fechar" style={{ background: "none", border: "none", color: "#5C6570", cursor: "pointer", fontSize: "1.2rem" }}>×</button>
             </div>
-            <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1rem" }}>
+            <div style={{ display: "flex", background: "#0C0E14", borderRadius: "10px", padding: "4px", marginBottom: "1rem" }}>
               {["gasto", "receita"].map(t => (
-                <button key={t} onClick={() => setEditando(e => ({ ...e, tipo: t, categoria: "", parcelado: t === "gasto" ? e.parcelado : false, parcela_atual: t === "gasto" ? e.parcela_atual : "1", total_parcelas: t === "gasto" ? e.total_parcelas : "", recorrente: t === "gasto" ? e.recorrente : false }))} style={{ flex: 1, padding: "0.5rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600, background: editando.tipo === t ? (t === "receita" ? "#22C55E" : "#EF4444") : "transparent", color: editando.tipo === t ? "#fff" : "#555", transition: "all 0.2s", fontFamily: "inherit" }}>{t === "receita" ? "Receita" : "Gasto"}</button>
+                <button key={t} onClick={() => setEditando(e => ({ ...e, tipo: t, categoria: "", parcelado: t === "gasto" ? e.parcelado : false, parcela_atual: t === "gasto" ? e.parcela_atual : "1", total_parcelas: t === "gasto" ? e.total_parcelas : "", recorrente: t === "gasto" ? e.recorrente : false }))} style={{ flex: 1, padding: "0.5rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600, background: editando.tipo === t ? (t === "receita" ? "#2FBF8A" : "#E06C65") : "transparent", color: editando.tipo === t ? "#fff" : "#5C6570", transition: "all 0.2s", fontFamily: "inherit" }}>{t === "receita" ? "Receita" : "Gasto"}</button>
               ))}
             </div>
             <input type="text" placeholder="Descrição" value={editando.descricao} onChange={e => setEditando(ed => ({ ...ed, descricao: e.target.value }))} style={inputStyle} />
             <input type="text" placeholder={editando.parcelado ? "Valor da parcela (R$)" : "Valor (R$)"} value={editando.valor} onChange={e => setEditando(ed => ({ ...ed, valor: e.target.value }))} style={inputStyle} />
-            <select value={editando.categoria} onChange={e => setEditando(ed => ({ ...ed, categoria: e.target.value }))} style={{ ...inputStyle, color: editando.categoria ? "#E8E8E8" : "#555", appearance: "none" }}>
+            <select value={editando.categoria} onChange={e => setEditando(ed => ({ ...ed, categoria: e.target.value }))} style={{ ...inputStyle, color: editando.categoria ? "#F1F2F4" : "#5C6570", appearance: "none" }}>
               <option value="">Categoria</option>
               {categories[editando.tipo].map(c => <option key={c} value={c}>{normalizeText(c)}</option>)}
             </select>
-            <select value={editando.forma_pagamento} onChange={e => setEditando(ed => ({ ...ed, forma_pagamento: e.target.value, cartao_id: "", parcelado: e.target.value === "Crédito" ? ed.parcelado : false, parcela_atual: e.target.value === "Crédito" ? ed.parcela_atual : "1", total_parcelas: e.target.value === "Crédito" ? ed.total_parcelas : "", recorrente: e.target.value === "Crédito" ? ed.recorrente : false }))} style={{ ...inputStyle, color: editando.forma_pagamento ? "#E8E8E8" : "#555", appearance: "none" }}>
+            <select value={editando.forma_pagamento} onChange={e => setEditando(ed => ({ ...ed, forma_pagamento: e.target.value, cartao_id: "", parcelado: e.target.value === "Crédito" ? ed.parcelado : false, parcela_atual: e.target.value === "Crédito" ? ed.parcela_atual : "1", total_parcelas: e.target.value === "Crédito" ? ed.total_parcelas : "", recorrente: e.target.value === "Crédito" ? ed.recorrente : false }))} style={{ ...inputStyle, color: editando.forma_pagamento ? "#F1F2F4" : "#5C6570", appearance: "none" }}>
               <option value="">Forma de pagamento</option>
               {formasPagamento.map(f => <option key={f} value={f}>{f}</option>)}
             </select>
             {editando.forma_pagamento === "Crédito" && cartoes.length > 0 && (
-              <select value={editando.cartao_id} onChange={e => setEditando(ed => ({ ...ed, cartao_id: e.target.value }))} style={{ ...inputStyle, color: editando.cartao_id ? "#E8E8E8" : "#555", appearance: "none" }}>
+              <select value={editando.cartao_id} onChange={e => setEditando(ed => ({ ...ed, cartao_id: e.target.value }))} style={{ ...inputStyle, color: editando.cartao_id ? "#F1F2F4" : "#5C6570", appearance: "none" }}>
                 <option value="">Selecione o cartão</option>
                 {cartoes.map(c => <option key={c.id} value={c.id}>{normalizeText(c.nome)}</option>)}
               </select>
@@ -1341,7 +1348,7 @@ export default function PradexFinancas() {
             {editando.tipo === "gasto" && editando.forma_pagamento === "Crédito" && (
               <div style={{ marginBottom: "0.75rem" }}>
                 {!editando._compraParcelada && (
-                  <button onClick={() => setEditando(ed => ({ ...ed, parcelado: !ed.parcelado, parcela_atual: ed.parcelado ? "1" : (ed.parcela_atual || "1"), total_parcelas: ed.parcelado ? "" : ed.total_parcelas, recorrente: false }))} style={{ width: "100%", padding: "0.75rem", border: `1px solid ${editando.parcelado ? "#6366F1" : "#252832"}`, borderRadius: "10px", background: editando.parcelado ? "#6366F118" : "transparent", color: editando.parcelado ? "#6366F1" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s" }}>
+                  <button onClick={() => setEditando(ed => ({ ...ed, parcelado: !ed.parcelado, parcela_atual: ed.parcelado ? "1" : (ed.parcela_atual || "1"), total_parcelas: ed.parcelado ? "" : ed.total_parcelas, recorrente: false }))} style={{ width: "100%", padding: "0.75rem", border: `1px solid ${editando.parcelado ? "#6366F1" : "#1E2330"}`, borderRadius: "10px", background: editando.parcelado ? "#6366F118" : "transparent", color: editando.parcelado ? "#6366F1" : "#5C6570", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s" }}>
                     {editando.parcelado ? "Compra parcelada" : "+ Marcar como compra parcelada"}
                   </button>
                 )}
@@ -1353,12 +1360,12 @@ export default function PradexFinancas() {
                 )}
                 {editando._compraParcelada && (
                   <div style={{ marginTop: 0 }}>
-                    <p style={{ margin: "0 0 0.4rem", fontSize: "0.72rem", color: "#666", textTransform: "uppercase", letterSpacing: "0.08em" }}>Total de parcelas</p>
+                    <p style={{ margin: "0 0 0.4rem", fontSize: "0.72rem", color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.08em" }}>Total de parcelas</p>
                     <input type="number" placeholder="Total de parcelas" min="2" max="48" value={editando.total_parcelas || ""} onChange={e => setEditando(ed => ({ ...ed, total_parcelas: e.target.value }))} style={{ ...inputStyle, marginBottom: 0 }} />
                   </div>
                 )}
                 {editando.parcelado && editando.total_parcelas >= 2 && editando.valor && (
-                  <p style={{ margin: "0.4rem 0 0", fontSize: "0.78rem", color: "#888" }}>
+                  <p style={{ margin: "0.4rem 0 0", fontSize: "0.78rem", color: "#8B93A1" }}>
                     {editando._compraParcelada
                       ? `Re-gera ${editando.total_parcelas} parcelas de ${formatBRL(parseFloat(String(editando.valor).replace(",", ".")) || 0)}, mensais, a partir da data abaixo.`
                       : `Atualiza da parcela ${editando.parcela_atual || 1} até ${editando.total_parcelas}, repetindo ${formatBRL(parseFloat(String(editando.valor).replace(",", ".")) || 0)} por mês.`}
@@ -1366,14 +1373,14 @@ export default function PradexFinancas() {
                 )}
               </div>
             )}
-            <input type="date" value={editando.data_lancamento} onChange={e => setEditando(ed => ({ ...ed, data_lancamento: e.target.value }))} style={inputStyle} />
+            <input type="date" value={editando.data_lancamento} onChange={e => setEditando(ed => ({ ...ed, data_lancamento: e.target.value }))} style={dateInputStyle} />
             {editando.tipo === "gasto" && !editando.parcelado && (
-              <button onClick={() => setEditando(ed => ({ ...ed, recorrente: !ed.recorrente }))} style={{ width: "100%", padding: "0.75rem", border: `1px solid ${editando.recorrente ? "#6366F1" : "#252832"}`, borderRadius: "10px", background: editando.recorrente ? "#6366F118" : "transparent", color: editando.recorrente ? "#6366F1" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginBottom: "0.75rem", transition: "all 0.2s" }}>
+              <button onClick={() => setEditando(ed => ({ ...ed, recorrente: !ed.recorrente }))} style={{ width: "100%", padding: "0.75rem", border: `1px solid ${editando.recorrente ? "#6366F1" : "#1E2330"}`, borderRadius: "10px", background: editando.recorrente ? "#6366F118" : "transparent", color: editando.recorrente ? "#6366F1" : "#5C6570", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginBottom: "0.75rem", transition: "all 0.2s" }}>
                 {editando.recorrente ? "Recorrente ativa até Dez/" + new Date().getFullYear() : "Marcar como recorrente"}
               </button>
             )}
             {editando.tipo === "gasto" && !editando._compraParcelada && (
-              <button onClick={() => setEditando(ed => ({ ...ed, poderia_ter_evitado: !ed.poderia_ter_evitado }))} style={{ width: "100%", padding: "0.75rem", border: `1px solid ${editando.poderia_ter_evitado ? "#F59E0B" : "#252832"}`, borderRadius: "10px", background: editando.poderia_ter_evitado ? "#F59E0B18" : "transparent", color: editando.poderia_ter_evitado ? "#F59E0B" : "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginBottom: "0.75rem", transition: "all 0.2s" }}>
+              <button onClick={() => setEditando(ed => ({ ...ed, poderia_ter_evitado: !ed.poderia_ter_evitado }))} style={{ width: "100%", padding: "0.75rem", border: `1px solid ${editando.poderia_ter_evitado ? "#E8943A" : "#1E2330"}`, borderRadius: "10px", background: editando.poderia_ter_evitado ? "#E8943A18" : "transparent", color: editando.poderia_ter_evitado ? "#E8943A" : "#5C6570", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginBottom: "0.75rem", transition: "all 0.2s" }}>
                 {editando.poderia_ter_evitado ? "Marcado como gasto evitável" : "Marcar como gasto evitável"}
               </button>
             )}
@@ -1383,12 +1390,12 @@ export default function PradexFinancas() {
                 if (ok) setEditando(null);
               }}
               disabled={savingEdit || deletandoCompra}
-              style={{ width: "100%", padding: "0.75rem", border: "1px solid #EF444440", borderRadius: "10px", background: "transparent", color: "#EF4444", fontSize: "0.9rem", fontWeight: 600, cursor: (savingEdit || deletandoCompra) ? "not-allowed" : "pointer", opacity: (savingEdit || deletandoCompra) ? 0.6 : 1, fontFamily: "inherit", marginBottom: "0.75rem" }}
+              style={{ width: "100%", padding: "0.75rem", border: "1px solid #E06C6540", borderRadius: "10px", background: "transparent", color: "#E06C65", fontSize: "0.9rem", fontWeight: 600, cursor: (savingEdit || deletandoCompra) ? "not-allowed" : "pointer", opacity: (savingEdit || deletandoCompra) ? 0.6 : 1, fontFamily: "inherit", marginBottom: "0.75rem" }}
             >
               {deletandoCompra ? "Excluindo..." : (editando._compraParcelada ? "Excluir compra" : "Excluir lançamento")}
             </button>
             <div style={{ display: "flex", gap: "0.75rem" }}>
-              <button onClick={() => setEditando(null)} style={{ flex: 1, padding: "0.75rem", border: "1px solid #252832", borderRadius: "10px", background: "transparent", color: "#888", fontSize: "0.9rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
+              <button onClick={() => setEditando(null)} style={{ flex: 1, padding: "0.75rem", border: "1px solid #1E2330", borderRadius: "10px", background: "transparent", color: "#8B93A1", fontSize: "0.9rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
               <button onClick={handleSaveEdit} disabled={savingEdit} style={{ flex: 2, padding: "0.75rem", border: "none", borderRadius: "10px", background: "#6366F1", color: "#fff", fontSize: "0.9rem", fontWeight: 700, cursor: savingEdit ? "not-allowed" : "pointer", opacity: savingEdit ? 0.7 : 1, fontFamily: "inherit" }}>
                 {savingEdit ? "Salvando..." : "Salvar alterações"}
               </button>
@@ -1402,32 +1409,32 @@ export default function PradexFinancas() {
         const hojeStr = today;
         return (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-            <div style={{ background: "#181B24", borderRadius: "16px 16px 0 0", padding: "1.5rem", width: "100%", maxWidth: "480px", border: "1px solid #252832", maxHeight: "90vh", overflowY: "auto" }}>
+            <div style={{ background: "#151821", borderRadius: "16px 16px 0 0", padding: "1.5rem", width: "100%", maxWidth: "480px", border: "1px solid #1E2330", maxHeight: "90vh", overflowY: "auto" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Compra parcelada</p>
-                <button onClick={() => setCompraDetalhe(null)} className="pdx-tap-sq" aria-label="Fechar" style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "1.2rem" }}>×</button>
+                <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Compra parcelada</p>
+                <button onClick={() => setCompraDetalhe(null)} className="pdx-tap-sq" aria-label="Fechar" style={{ background: "none", border: "none", color: "#5C6570", cursor: "pointer", fontSize: "1.2rem" }}>×</button>
               </div>
-              <p style={{ margin: "0 0 0.25rem", fontSize: "1.1rem", fontWeight: 600, color: "#F0F0F0", lineHeight: 1.25 }}>{normalizeText(compraDetalhe.descricao)}</p>
-              <p style={{ margin: "0 0 1rem", fontSize: "0.78rem", color: "#888", lineHeight: 1.4 }}>
+              <p style={{ margin: "0 0 0.25rem", fontSize: "1.1rem", fontWeight: 600, color: "#F1F2F4", lineHeight: 1.25 }}>{normalizeText(compraDetalhe.descricao)}</p>
+              <p style={{ margin: "0 0 1rem", fontSize: "0.78rem", color: "#8B93A1", lineHeight: 1.4 }}>
                 {compraDetalhe._nParcelas}× {formatBRL(compraDetalhe._valorParcela)} · Total {formatBRL(compraDetalhe.valor)}
                 {cartaoNome ? ` · ${normalizeText(cartaoNome)}` : ""}
                 {compraDetalhe.categoria ? ` · ${normalizeText(compraDetalhe.categoria)}` : ""}
               </p>
-              <div style={{ background: "#0F1117", borderRadius: "12px", border: "1px solid #252832", padding: "0.5rem 0.75rem", marginBottom: "1rem" }}>
+              <div style={{ background: "#0C0E14", borderRadius: "12px", border: "1px solid #1E2330", padding: "0.5rem 0.75rem", marginBottom: "1rem" }}>
                 {compraDetalhe._parcelas.map((p) => {
                   const paga = (p.data_lancamento || "") <= hojeStr;
                   return (
-                    <div key={p.id} style={{ display: "flex", alignItems: "center", padding: "0.55rem 0", borderBottom: "1px solid #1a1d26", gap: "0.5rem" }}>
-                      <span style={{ fontSize: "0.78rem", color: "#888", minWidth: "40px" }}>{p.parcela_atual}/{compraDetalhe._nParcelas}</span>
-                      <span style={{ fontSize: "0.78rem", color: "#CCC", flex: 1 }}>{formatData(p.data_lancamento)}</span>
-                      <span style={{ fontSize: "0.7rem", padding: "1px 8px", borderRadius: "999px", background: paga ? "#22C55E15" : "#3F3F3F", color: paga ? "#22C55E" : "#888", fontWeight: 600 }}>{paga ? "Paga" : "Pendente"}</span>
-                      <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "#E8E8E8", minWidth: "84px", textAlign: "right" }}>{formatBRL(p.valor)}</span>
+                    <div key={p.id} style={{ display: "flex", alignItems: "center", padding: "0.55rem 0", borderBottom: "1px solid #151821", gap: "0.5rem" }}>
+                      <span style={{ fontSize: "0.78rem", color: "#8B93A1", minWidth: "40px" }}>{p.parcela_atual}/{compraDetalhe._nParcelas}</span>
+                      <span style={{ fontSize: "0.78rem", color: "#8B93A1", flex: 1 }}>{formatData(p.data_lancamento)}</span>
+                      <span style={{ fontSize: "0.7rem", padding: "1px 8px", borderRadius: "999px", background: paga ? "#2FBF8A15" : "#1E2330", color: paga ? "#2FBF8A" : "#8B93A1", fontWeight: 600 }}>{paga ? "Paga" : "Pendente"}</span>
+                      <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "#F1F2F4", minWidth: "84px", textAlign: "right" }}>{formatBRL(p.valor)}</span>
                     </div>
                   );
                 })}
               </div>
               <div style={{ display: "flex", gap: "0.75rem" }}>
-                <button onClick={() => handleDelete(compraDetalhe)} disabled={deletandoCompra} style={{ flex: 1, padding: "0.75rem", border: "1px solid #EF444440", borderRadius: "10px", background: "transparent", color: "#EF4444", fontSize: "0.9rem", fontWeight: 600, cursor: deletandoCompra ? "not-allowed" : "pointer", opacity: deletandoCompra ? 0.6 : 1, fontFamily: "inherit" }}>
+                <button onClick={() => handleDelete(compraDetalhe)} disabled={deletandoCompra} style={{ flex: 1, padding: "0.75rem", border: "1px solid #E06C6540", borderRadius: "10px", background: "transparent", color: "#E06C65", fontSize: "0.9rem", fontWeight: 600, cursor: deletandoCompra ? "not-allowed" : "pointer", opacity: deletandoCompra ? 0.6 : 1, fontFamily: "inherit" }}>
                   {deletandoCompra ? "Excluindo..." : "Excluir compra"}
                 </button>
                 <button onClick={() => { handleEdit(compraDetalhe); setCompraDetalhe(null); }} style={{ flex: 2, padding: "0.75rem", border: "none", borderRadius: "10px", background: "#6366F1", color: "#fff", fontSize: "0.9rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
@@ -1442,21 +1449,21 @@ export default function PradexFinancas() {
       {/* HEADER */}
       <div className="pdx-hide-desktop" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
         <div>
-          <p style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "#555", textTransform: "uppercase", margin: "0 0 0.25rem" }}>
+          <p style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "#5C6570", textTransform: "uppercase", margin: "0 0 0.25rem" }}>
             Pradex Finanças {userRole === "super_admin" ? "· Admin" : userRole === "assessor" ? "· Assessor" : ""}
           </p>
-          <h1 style={{ margin: 0, fontSize: "1.6rem", fontWeight: 600, color: "#F0F0F0", letterSpacing: "-0.03em" }}>
+          <h1 style={{ margin: 0, fontSize: "1.6rem", fontWeight: 600, color: "#F1F2F4", letterSpacing: "-0.03em" }}>
             {monthNames[new Date().getMonth()]} {new Date().getFullYear()}
           </h1>
         </div>
-        <button onClick={handleLogout} className="pdx-tap" style={{ background: "none", border: "1px solid #252832", borderRadius: "8px", color: "#A0A0A0", cursor: "pointer", padding: "0.4rem 0.9rem", fontSize: "0.75rem", fontFamily: "inherit" }}>Sair</button>
+        <button onClick={handleLogout} className="pdx-tap" style={{ background: "none", border: "1px solid #1E2330", borderRadius: "8px", color: "#8B93A1", cursor: "pointer", padding: "0.4rem 0.9rem", fontSize: "0.75rem", fontFamily: "inherit" }}>Sair</button>
       </div>
 
       {podeZap && precisaCadastrarTelefone && !bannerTelefoneFechado && (
         <div style={{ background: "#6366F112", border: "1px solid #6366F140", borderRadius: "14px", padding: "1rem 1.1rem", marginBottom: "1.25rem", display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
           <div style={{ flex: 1 }}>
-            <p style={{ margin: "0 0 0.25rem", fontSize: "0.85rem", fontWeight: 700, color: "#E8E8E8" }}>Complete seu cadastro</p>
-            <p style={{ margin: "0 0 0.7rem", fontSize: "0.78rem", color: "#A3A3A3", lineHeight: 1.45 }}>
+            <p style={{ margin: "0 0 0.25rem", fontSize: "0.85rem", fontWeight: 700, color: "#F1F2F4" }}>Complete seu cadastro</p>
+            <p style={{ margin: "0 0 0.7rem", fontSize: "0.78rem", color: "#8B93A1", lineHeight: 1.45 }}>
               Cadastre seu WhatsApp pra usar o agente Pradex e registrar lançamentos por mensagem.
             </p>
             <button
@@ -1468,7 +1475,7 @@ export default function PradexFinancas() {
           </div>
           <button
             onClick={() => setBannerTelefoneFechado(true)}
-            style={{ background: "none", border: "none", color: "#666", cursor: "pointer", fontSize: "1.1rem", lineHeight: 1, padding: "0 0.25rem" }}
+            style={{ background: "none", border: "none", color: "#8B93A1", cursor: "pointer", fontSize: "1.1rem", lineHeight: 1, padding: "0 0.25rem" }}
             aria-label="Fechar"
           >
             ×
@@ -1478,27 +1485,27 @@ export default function PradexFinancas() {
 
       {/* CARDS */}
       <div className="pdx-hide-desktop" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "0.75rem", marginBottom: "1.5rem", width: "100%" }}>
-        <div style={{ background: "linear-gradient(180deg, #191D27 0%, #181B24 100%)", borderRadius: "14px", padding: "1rem 0.85rem", border: "1px solid #252832", minWidth: 0, boxSizing: "border-box" }}>
-          <p style={{ margin: "0 0 0.35rem", fontSize: "0.64rem", color: "#666", textTransform: "uppercase", letterSpacing: "0.12em" }}>Ganhos</p>
-          <p style={{ margin: 0, fontSize: "clamp(0.62rem, 2.6vw, 0.82rem)", fontWeight: 700, color: "#22C55E", whiteSpace: "normal", wordBreak: "keep-all", overflowWrap: "normal", fontVariantNumeric: "tabular-nums" }}>{formatBRL(totalReceitas).replace(new RegExp(String.fromCharCode(160), "g"), " ")}</p>
+        <div style={{ background: "linear-gradient(180deg, #151821 0%, #151821 100%)", borderRadius: "14px", padding: "1rem 0.85rem", border: "1px solid #1E2330", minWidth: 0, boxSizing: "border-box" }}>
+          <p style={{ margin: "0 0 0.35rem", fontSize: "0.64rem", color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.12em" }}>Ganhos</p>
+          <p style={{ margin: 0, fontSize: "clamp(0.62rem, 2.6vw, 0.82rem)", fontWeight: 700, color: "#2FBF8A", whiteSpace: "normal", wordBreak: "keep-all", overflowWrap: "normal", fontVariantNumeric: "tabular-nums" }}>{formatBRL(totalReceitas).replace(new RegExp(String.fromCharCode(160), "g"), " ")}</p>
         </div>
-        <div style={{ background: "linear-gradient(180deg, #191D27 0%, #181B24 100%)", borderRadius: "14px", padding: "1rem 0.85rem", border: "1px solid #252832", minWidth: 0, boxSizing: "border-box" }}>
-          <p style={{ margin: "0 0 0.35rem", fontSize: "0.64rem", color: "#666", textTransform: "uppercase", letterSpacing: "0.12em" }}>Débito</p>
-          <p style={{ margin: 0, fontSize: "clamp(0.62rem, 2.6vw, 0.82rem)", fontWeight: 700, color: "#EF4444", whiteSpace: "normal", wordBreak: "keep-all", overflowWrap: "normal", fontVariantNumeric: "tabular-nums" }}>{formatBRL(gastosDebito).replace(new RegExp(String.fromCharCode(160), "g"), " ")}</p>
+        <div style={{ background: "linear-gradient(180deg, #151821 0%, #151821 100%)", borderRadius: "14px", padding: "1rem 0.85rem", border: "1px solid #1E2330", minWidth: 0, boxSizing: "border-box" }}>
+          <p style={{ margin: "0 0 0.35rem", fontSize: "0.64rem", color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.12em" }}>Débito</p>
+          <p style={{ margin: 0, fontSize: "clamp(0.62rem, 2.6vw, 0.82rem)", fontWeight: 700, color: "#E06C65", whiteSpace: "normal", wordBreak: "keep-all", overflowWrap: "normal", fontVariantNumeric: "tabular-nums" }}>{formatBRL(gastosDebito).replace(new RegExp(String.fromCharCode(160), "g"), " ")}</p>
         </div>
-        <div style={{ background: "linear-gradient(180deg, #191D27 0%, #181B24 100%)", borderRadius: "14px", padding: "1rem 0.85rem", border: "1px solid #252832", minWidth: 0, boxSizing: "border-box" }}>
-          <p style={{ margin: "0 0 0.35rem", fontSize: "0.64rem", color: "#666", textTransform: "uppercase", letterSpacing: "0.12em" }}>Cartões</p>
+        <div style={{ background: "linear-gradient(180deg, #151821 0%, #151821 100%)", borderRadius: "14px", padding: "1rem 0.85rem", border: "1px solid #1E2330", minWidth: 0, boxSizing: "border-box" }}>
+          <p style={{ margin: "0 0 0.35rem", fontSize: "0.64rem", color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.12em" }}>Cartões</p>
           {/* Fix 2 — antes listava um bloco por cartão dentro de um card de 1/3 da
               largura: com 3+ cartões o texto vazava e desalinhava a fileira. Agora é
               o total somado + a contagem, no mesmo formato dos outros dois cards. */}
           {gastosPorCartao.length > 0 ? (
             <>
-              <p style={{ margin: 0, fontSize: "clamp(0.62rem, 2.6vw, 0.82rem)", fontWeight: 700, color: "#EF4444", whiteSpace: "normal", wordBreak: "keep-all", overflowWrap: "normal", fontVariantNumeric: "tabular-nums" }}>{formatBRL(gastosCredito).replace(new RegExp(String.fromCharCode(160), "g"), " ")}</p>
-              <p style={{ margin: "0.2rem 0 0", fontSize: "0.6rem", color: "#777" }}>
+              <p style={{ margin: 0, fontSize: "clamp(0.62rem, 2.6vw, 0.82rem)", fontWeight: 700, color: "#E06C65", whiteSpace: "normal", wordBreak: "keep-all", overflowWrap: "normal", fontVariantNumeric: "tabular-nums" }}>{formatBRL(gastosCredito).replace(new RegExp(String.fromCharCode(160), "g"), " ")}</p>
+              <p style={{ margin: "0.2rem 0 0", fontSize: "0.6rem", color: "#8B93A1" }}>
                 {gastosPorCartao.length === 1 ? normalizeText(gastosPorCartao[0].cartao.nome) : `${gastosPorCartao.length} cartões`}
               </p>
             </>
-          ) : <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: "#333" }}>—</p>}
+          ) : <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: "#5C6570" }}>—</p>}
         </div>
       </div>
 
@@ -1512,7 +1519,7 @@ export default function PradexFinancas() {
         position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 40,
         maxWidth: "480px", margin: "0 auto",
         display: "flex", gap: "2px",
-        background: "#0F1117", borderTop: "1px solid #252832",
+        background: "#0C0E14", borderTop: "1px solid #1E2330",
         padding: "4px 8px calc(4px + env(safe-area-inset-bottom, 0px))",
         boxSizing: "border-box",
       }}>
@@ -1523,10 +1530,10 @@ export default function PradexFinancas() {
               flex: 1, minWidth: 0, padding: "0.5rem 0.2rem", border: "none", borderRadius: "8px",
               cursor: "pointer", fontSize: "0.65rem", fontWeight: 600, letterSpacing: "-0.01em",
               whiteSpace: "nowrap", transition: "all 0.2s", fontFamily: "inherit",
-              // Fix 1 — ativo no indigo da marca; inativo em #666 (era #555, abaixo do
-              // contraste mínimo sobre #0F1117).
+              // Fix 1 — ativo no indigo da marca; inativo em #8B93A1 (era #5C6570, abaixo do
+              // contraste mínimo sobre #0C0E14).
               background: ativo ? "#6366F1" : "transparent",
-              color: ativo ? "#fff" : "#666",
+              color: ativo ? "#fff" : "#8B93A1",
             }}>{t.label}</button>
           );
         })}
@@ -1601,21 +1608,21 @@ export default function PradexFinancas() {
         <div>
           {rascunhos.length > 0 && (
             <div style={{ marginBottom: "1.25rem" }}>
-              <p style={{ margin: "0 0 0.75rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Pendentes do WhatsApp ({rascunhos.length})</p>
+              <p style={{ margin: "0 0 0.75rem", fontSize: "0.75rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Pendentes do WhatsApp ({rascunhos.length})</p>
               {rascunhos.map(r => (
-                <div key={r.id} style={{ background: "#181B24", borderRadius: "16px", padding: "1.25rem", marginBottom: "0.75rem", border: "1px solid #252832" }}>
+                <div key={r.id} style={{ background: "#151821", borderRadius: "16px", padding: "1.25rem", marginBottom: "0.75rem", border: "1px solid #1E2330" }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", marginBottom: "0.75rem" }}>
-                    <div style={{ width: "36px", height: "36px", borderRadius: "10px", flexShrink: 0, background: r.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem" }}>{r.tipo === "receita" ? "+" : "-"}</div>
+                    <div style={{ width: "36px", height: "36px", borderRadius: "10px", flexShrink: 0, background: r.tipo === "receita" ? "#2FBF8A18" : "#E06C6518", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem" }}>{r.tipo === "receita" ? "+" : "-"}</div>
                     <div style={{ flex: 1 }}>
-                      <p style={{ margin: "0 0 0.16rem", fontSize: "0.9rem", fontWeight: 600, color: "#E8E8E8", lineHeight: 1.25 }}>{normalizeText(r.descricao)}</p>
-                      <p style={{ margin: "0 0 0.2rem", fontSize: "0.85rem", fontWeight: 700, color: r.tipo === "receita" ? "#22C55E" : "#EF4444" }}>{formatBRL(r.valor)}</p>
-                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{normalizeText(r.categoria)} · {getFormaPagamentoLabel(r.forma_pagamento)}</p>
+                      <p style={{ margin: "0 0 0.16rem", fontSize: "0.9rem", fontWeight: 600, color: "#F1F2F4", lineHeight: 1.25 }}>{normalizeText(r.descricao)}</p>
+                      <p style={{ margin: "0 0 0.2rem", fontSize: "0.85rem", fontWeight: 700, color: r.tipo === "receita" ? "#2FBF8A" : "#E06C65" }}>{formatBRL(r.valor)}</p>
+                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#5C6570" }}>{normalizeText(r.categoria)} · {getFormaPagamentoLabel(r.forma_pagamento)}</p>
                     </div>
                   </div>
-                  {r.texto_original && <div style={{ background: "#0F1117", borderRadius: "8px", padding: "0.5rem 0.75rem", marginBottom: "0.75rem" }}><p style={{ margin: 0, fontSize: "0.72rem", color: "#555" }}>Texto original: "{r.texto_original}"</p></div>}
+                  {r.texto_original && <div style={{ background: "#0C0E14", borderRadius: "8px", padding: "0.5rem 0.75rem", marginBottom: "0.75rem" }}><p style={{ margin: 0, fontSize: "0.72rem", color: "#5C6570" }}>Texto original: "{r.texto_original}"</p></div>}
                   <div style={{ display: "flex", gap: "0.5rem" }}>
-                    <button onClick={() => rejeitarRascunho(r.id)} style={{ flex: 1, padding: "0.65rem", border: "1px solid #252832", borderRadius: "10px", background: "transparent", color: "#555", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Rejeitar</button>
-                    <button onClick={() => confirmarRascunho(r)} style={{ flex: 2, padding: "0.65rem", border: "none", borderRadius: "10px", background: "#22C55E", color: "#fff", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Confirmar</button>
+                    <button onClick={() => rejeitarRascunho(r.id)} style={{ flex: 1, padding: "0.65rem", border: "1px solid #1E2330", borderRadius: "10px", background: "transparent", color: "#5C6570", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Rejeitar</button>
+                    <button onClick={() => confirmarRascunho(r)} style={{ flex: 2, padding: "0.65rem", border: "none", borderRadius: "10px", background: "#2FBF8A", color: "#fff", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Confirmar</button>
                   </div>
                 </div>
               ))}
@@ -1633,8 +1640,8 @@ export default function PradexFinancas() {
               </svg>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ margin: "0 0 0.15rem", fontSize: "0.92rem", fontWeight: 700, color: "#E8E8E8" }}>Lance seus gastos pelo WhatsApp</p>
-              <p style={{ margin: 0, fontSize: "0.76rem", color: "#888", lineHeight: 1.4 }}>Manda texto ou áudio — "gastei 50 no mercado" — e o Pradex registra sozinho.</p>
+              <p style={{ margin: "0 0 0.15rem", fontSize: "0.92rem", fontWeight: 700, color: "#F1F2F4" }}>Lance seus gastos pelo WhatsApp</p>
+              <p style={{ margin: 0, fontSize: "0.76rem", color: "#8B93A1", lineHeight: 1.4 }}>Manda texto ou áudio — "gastei 50 no mercado" — e o Pradex registra sozinho.</p>
               {/* Quem está no teste precisa saber que ele acaba — descobrir pelo
                   silêncio no dia 15 é a pior versão disso. */}
               {trialAtivo(trial) && (
@@ -1646,108 +1653,108 @@ export default function PradexFinancas() {
             <span style={{ fontSize: "1.1rem", color: "#25D366", flexShrink: 0 }}>›</span>
           </a> : <UpgradePlano plano={plano} recurso="whatsapp" variant="card" trial={trial} onIniciarTrial={iniciarTrial} carregando={iniciandoTrial} />}
           {lancamentos.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "3rem 0", color: "#444" }}>
+            <div style={{ textAlign: "center", padding: "3rem 0", color: "#5C6570" }}>
               <p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>•</p>
-              <p style={{ fontSize: "0.95rem", color: "#CFCFCF", margin: "0 0 0.4rem" }}>Seu painel ainda está vazio.</p>
-              <p style={{ fontSize: "0.82rem", color: "#666", margin: 0 }}>Adicione os primeiros lançamentos para visualizar o resumo do mês.</p>
+              <p style={{ fontSize: "0.95rem", color: "#8B93A1", margin: "0 0 0.4rem" }}>Seu painel ainda está vazio.</p>
+              <p style={{ fontSize: "0.82rem", color: "#8B93A1", margin: 0 }}>Adicione os primeiros lançamentos para visualizar o resumo do mês.</p>
             </div>
           ) : (
             <>
               {gastosEvitaveis.length > 0 && (
-                <div style={{ background: "#F59E0B0F", borderRadius: "16px", padding: "1.25rem 1.5rem", marginBottom: "1rem", border: "1px solid #F59E0B30" }}>
-                  <p style={{ margin: "0 0 0.5rem", fontSize: "0.75rem", fontWeight: 600, color: "#F59E0B", textTransform: "uppercase", letterSpacing: "0.1em" }}>Botão do Arrependimento</p>
-                  <p style={{ margin: "0 0 0.25rem", fontSize: "0.9rem", color: "#E8E8E8" }}>Você marcou <strong style={{ color: "#F59E0B" }}>{formatBRL(totalEvitavel)}</strong> em gastos evitáveis.</p>
-                  <p style={{ margin: 0, fontSize: "0.8rem", color: "#888" }}>Investindo esse dinheiro, teria <strong style={{ color: "#22C55E" }}>{formatBRL(totalImpacto12m)}</strong> em 12 meses.</p>
+                <div style={{ background: "#E8943A0F", borderRadius: "16px", padding: "1.25rem 1.5rem", marginBottom: "1rem", border: "1px solid #E8943A30" }}>
+                  <p style={{ margin: "0 0 0.5rem", fontSize: "0.75rem", fontWeight: 600, color: "#E8943A", textTransform: "uppercase", letterSpacing: "0.1em" }}>Botão do Arrependimento</p>
+                  <p style={{ margin: "0 0 0.25rem", fontSize: "0.9rem", color: "#F1F2F4" }}>Você marcou <strong style={{ color: "#E8943A" }}>{formatBRL(totalEvitavel)}</strong> em gastos evitáveis.</p>
+                  <p style={{ margin: 0, fontSize: "0.8rem", color: "#8B93A1" }}>Investindo esse dinheiro, teria <strong style={{ color: "#2FBF8A" }}>{formatBRL(totalImpacto12m)}</strong> em 12 meses.</p>
                 </div>
               )}
-              <div style={{ background: "linear-gradient(180deg, #1A1E29 0%, #181B24 100%)", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832", boxShadow: "0 10px 30px rgba(0,0,0,0.18)" }}>
+              <div style={{ background: "linear-gradient(180deg, #151821 0%, #151821 100%)", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #1E2330", boxShadow: "0 10px 30px rgba(0,0,0,0.18)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", marginBottom: "1rem" }}>
                   <div>
-                    <p style={{ margin: "0 0 0.25rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Resumo dos gastos</p>
-                    <p style={{ margin: 0, fontSize: "0.8rem", color: "#666" }}>Separação entre débito e cartão no mês atual</p>
+                    <p style={{ margin: "0 0 0.25rem", fontSize: "0.75rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Resumo dos gastos</p>
+                    <p style={{ margin: 0, fontSize: "0.8rem", color: "#8B93A1" }}>Separação entre débito e cartão no mês atual</p>
                   </div>
-                  <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#E8E8E8" }}>{formatBRL(totalGastos)}</p>
+                  <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#F1F2F4" }}>{formatBRL(totalGastos)}</p>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-                  <div style={{ background: "#0F1117", borderRadius: "12px", padding: "1rem", border: "1px solid #252832" }}>
-                    <p style={{ margin: "0 0 0.35rem", fontSize: "0.7rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.08em" }}>Débito</p>
-                    <p style={{ margin: "0 0 0.35rem", fontSize: "0.95rem", fontWeight: 700, color: "#EF4444" }}>{formatBRL(gastosDebito)}</p>
-                    <p style={{ margin: 0, fontSize: "0.72rem", color: "#777" }}>{percentualDebito.toFixed(0)}% dos gastos</p>
+                  <div style={{ background: "#0C0E14", borderRadius: "12px", padding: "1rem", border: "1px solid #1E2330" }}>
+                    <p style={{ margin: "0 0 0.35rem", fontSize: "0.7rem", color: "#5C6570", textTransform: "uppercase", letterSpacing: "0.08em" }}>Débito</p>
+                    <p style={{ margin: "0 0 0.35rem", fontSize: "0.95rem", fontWeight: 700, color: "#E06C65" }}>{formatBRL(gastosDebito)}</p>
+                    <p style={{ margin: 0, fontSize: "0.72rem", color: "#8B93A1" }}>{percentualDebito.toFixed(0)}% dos gastos</p>
                   </div>
-                  <div style={{ background: "#0F1117", borderRadius: "12px", padding: "1rem", border: "1px solid #252832" }}>
-                    <p style={{ margin: "0 0 0.35rem", fontSize: "0.7rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.08em" }}>Cartão</p>
-                    <p style={{ margin: "0 0 0.35rem", fontSize: "0.95rem", fontWeight: 700, color: "#F59E0B" }}>{formatBRL(gastosCredito)}</p>
-                    <p style={{ margin: 0, fontSize: "0.72rem", color: "#777" }}>{percentualCredito.toFixed(0)}% dos gastos</p>
+                  <div style={{ background: "#0C0E14", borderRadius: "12px", padding: "1rem", border: "1px solid #1E2330" }}>
+                    <p style={{ margin: "0 0 0.35rem", fontSize: "0.7rem", color: "#5C6570", textTransform: "uppercase", letterSpacing: "0.08em" }}>Cartão</p>
+                    <p style={{ margin: "0 0 0.35rem", fontSize: "0.95rem", fontWeight: 700, color: "#E8943A" }}>{formatBRL(gastosCredito)}</p>
+                    <p style={{ margin: 0, fontSize: "0.72rem", color: "#8B93A1" }}>{percentualCredito.toFixed(0)}% dos gastos</p>
                   </div>
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1rem", marginBottom: "1rem" }}>
-                <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
-                  <p style={{ margin: "0 0 1.25rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Gastos por categoria</p>
+                <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", border: "1px solid #1E2330" }}>
+                  <p style={{ margin: "0 0 1.25rem", fontSize: "0.75rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Gastos por categoria</p>
                   {gastosPorCategoria.length > 0 ? gastosPorCategoria.map((item, i) => (
                     <div key={item.cat} style={{ marginBottom: "0.85rem" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.3rem", gap: "0.75rem" }}>
-                        <span style={{ fontSize: "0.82rem", color: "#CCC" }}>{item.cat}</span>
+                        <span style={{ fontSize: "0.82rem", color: "#8B93A1" }}>{item.cat}</span>
                         <span style={{ fontSize: "0.82rem", fontWeight: 600, color: COLORS[i % COLORS.length], whiteSpace: "nowrap" }}>{formatBRL(item.total)}</span>
                       </div>
-                      <div style={{ background: "#0F1117", borderRadius: "4px", height: "6px", overflow: "hidden" }}><div style={{ background: COLORS[i % COLORS.length], height: "100%", width: `${(item.total / maxGasto) * 100}%`, borderRadius: "4px" }} /></div>
+                      <div style={{ background: "#0C0E14", borderRadius: "4px", height: "6px", overflow: "hidden" }}><div style={{ background: COLORS[i % COLORS.length], height: "100%", width: `${(item.total / maxGasto) * 100}%`, borderRadius: "4px" }} /></div>
                     </div>
-                  )) : <p style={{ margin: 0, fontSize: "0.85rem", color: "#555" }}>Sem gastos neste mês.</p>}
+                  )) : <p style={{ margin: 0, fontSize: "0.85rem", color: "#5C6570" }}>Sem gastos neste mês.</p>}
                 </div>
-                <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
-                  <p style={{ margin: "0 0 1.25rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Próximas parcelas</p>
+                <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", border: "1px solid #1E2330" }}>
+                  <p style={{ margin: "0 0 1.25rem", fontSize: "0.75rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Próximas parcelas</p>
                   {projecaoParcelas.some(m => m.total > 0) ? projecaoParcelas.map((mes) => (
-                    <div key={mes.key} style={{ padding: "0.85rem 0", borderBottom: "1px solid #252832" }}>
+                    <div key={mes.key} style={{ padding: "0.85rem 0", borderBottom: "1px solid #1E2330" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.75rem", marginBottom: mes.parcelas.length > 0 ? "0.45rem" : 0 }}>
                         <div>
-                          <p style={{ margin: "0 0 0.15rem", fontSize: "0.82rem", color: "#E8E8E8", fontWeight: 600 }}>{mes.label}</p>
-                          <p style={{ margin: 0, fontSize: "0.7rem", color: "#555" }}>{mes.comprasAtivas > 0 ? `${mes.comprasAtivas} compra${mes.comprasAtivas > 1 ? "s" : ""} parcelada${mes.comprasAtivas > 1 ? "s" : ""}` : "Sem parcelas"}</p>
+                          <p style={{ margin: "0 0 0.15rem", fontSize: "0.82rem", color: "#F1F2F4", fontWeight: 600 }}>{mes.label}</p>
+                          <p style={{ margin: 0, fontSize: "0.7rem", color: "#5C6570" }}>{mes.comprasAtivas > 0 ? `${mes.comprasAtivas} compra${mes.comprasAtivas > 1 ? "s" : ""} parcelada${mes.comprasAtivas > 1 ? "s" : ""}` : "Sem parcelas"}</p>
                         </div>
-                        <p style={{ margin: 0, fontSize: "0.88rem", fontWeight: 700, color: mes.total > 0 ? "#EF4444" : "#555", whiteSpace: "nowrap" }}>{formatBRL(mes.total)}</p>
+                        <p style={{ margin: 0, fontSize: "0.88rem", fontWeight: 700, color: mes.total > 0 ? "#E06C65" : "#5C6570", whiteSpace: "nowrap" }}>{formatBRL(mes.total)}</p>
                       </div>
                       {mes.parcelas.map((parcela) => (
                         <div key={parcela.id} style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", marginTop: "0.3rem" }}>
-                          <p style={{ margin: 0, fontSize: "0.72rem", color: "#888", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <p style={{ margin: 0, fontSize: "0.72rem", color: "#8B93A1", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {limparDescricaoParcela(parcela.descricao)} <span style={{ color: "#6366F1" }}>{parcela.parcela_atual}/{parcela.total_parcelas}x</span>
                           </p>
-                          <p style={{ margin: 0, fontSize: "0.72rem", color: "#CCC", whiteSpace: "nowrap" }}>{formatBRL(parcela.valor)}</p>
+                          <p style={{ margin: 0, fontSize: "0.72rem", color: "#8B93A1", whiteSpace: "nowrap" }}>{formatBRL(parcela.valor)}</p>
                         </div>
                       ))}
                     </div>
-                  )) : <p style={{ margin: 0, fontSize: "0.85rem", color: "#555" }}>Nenhuma parcela futura prevista nos próximos 3 meses.</p>}
+                  )) : <p style={{ margin: 0, fontSize: "0.85rem", color: "#5C6570" }}>Nenhuma parcela futura prevista nos próximos 3 meses.</p>}
                 </div>
               </div>
               {gastosPorCartao.length > 0 && (
-                <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
-                  <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Faturas do mês</p>
+                <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #1E2330" }}>
+                  <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Faturas do mês</p>
                   {gastosPorCartao.map((item) => (
-                    <div key={item.cartao.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem 0", borderBottom: "1px solid #252832" }}>
+                    <div key={item.cartao.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem 0", borderBottom: "1px solid #1E2330" }}>
                       <div>
-                        <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", color: "#E8E8E8", fontWeight: 500, lineHeight: 1.25 }}>{normalizeText(item.cartao.nome)}</p>
-                        <p style={{ margin: 0, fontSize: "0.7rem", color: "#555", lineHeight: 1.25 }}>Fecha dia {item.cartao.dia_fechamento} · Vence dia {item.cartao.dia_vencimento}</p>
+                        <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", color: "#F1F2F4", fontWeight: 500, lineHeight: 1.25 }}>{normalizeText(item.cartao.nome)}</p>
+                        <p style={{ margin: 0, fontSize: "0.7rem", color: "#5C6570", lineHeight: 1.25 }}>Fecha dia {item.cartao.dia_fechamento} · Vence dia {item.cartao.dia_vencimento}</p>
                       </div>
-                      <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#EF4444" }}>{formatBRL(item.total)}</p>
+                      <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#E06C65" }}>{formatBRL(item.total)}</p>
                     </div>
                   ))}
                 </div>
               )}
-              <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
-                <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Últimos lançamentos</p>
+              <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", border: "1px solid #1E2330" }}>
+                <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Últimos lançamentos</p>
                 {lancamentos.slice(0, 5).map(l => (
-                  <div key={l.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.6rem 0", borderBottom: "1px solid #252832", cursor: "pointer" }} onClick={() => handleEdit(l)}>
+                  <div key={l.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.6rem 0", borderBottom: "1px solid #1E2330", cursor: "pointer" }} onClick={() => handleEdit(l)}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       {/* Fix 6 — descrição longa empurrava o valor pra fora da linha.
                           Trunca em 2 linhas no mobile (o minWidth:0 do pai é o que
                           permite o flex encolher em vez de estourar). */}
-                      <p className="pdx-clamp2" style={{ margin: "0 0 0.12rem", fontSize: "0.85rem", color: "#E8E8E8", lineHeight: 1.25 }}>
-                        {l.poderia_ter_evitado && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#F59E0B", background: "#F59E0B15" }}>Evitável</span>}
-                        {l.recorrente && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#22C55E", background: "#22C55E15" }}>Recorrente</span>}
+                      <p className="pdx-clamp2" style={{ margin: "0 0 0.12rem", fontSize: "0.85rem", color: "#F1F2F4", lineHeight: 1.25 }}>
+                        {l.poderia_ter_evitado && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#E8943A", background: "#E8943A15" }}>Evitável</span>}
+                        {l.recorrente && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#2FBF8A", background: "#2FBF8A15" }}>Recorrente</span>}
                         {normalizeText(l.descricao)}
-                        {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.7rem", color: "#555", background: "#252832", padding: "1px 6px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
+                        {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.7rem", color: "#5C6570", background: "#1E2330", padding: "1px 6px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
                       </p>
-                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#555", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}</p>
+                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#5C6570", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}</p>
                     </div>
-                    <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444" }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
+                    <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: l.tipo === "receita" ? "#2FBF8A" : "#E06C65" }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
                   </div>
                 ))}
               </div>
@@ -1759,25 +1766,25 @@ export default function PradexFinancas() {
       {/* LANÇAR */}
       {tela === "lancamentos" && (
         <>
-          <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
-            <p style={{ margin: "0 0 1rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Novo lançamento</p>
-            <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1rem" }}>
+          <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #1E2330" }}>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Novo lançamento</p>
+            <div style={{ display: "flex", background: "#0C0E14", borderRadius: "10px", padding: "4px", marginBottom: "1rem" }}>
               {["gasto", "receita"].map(t => (
-                <button key={t} onClick={() => { setTipo(t); setForm(f => ({ ...f, categoria: "", parcelado: false, parcela_atual: "1", total_parcelas: "" })); }} className="pdx-tap" style={{ flex: 1, padding: "0.5rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600, background: tipo === t ? (t === "receita" ? "#22C55E" : "#EF4444") : "transparent", color: tipo === t ? "#fff" : "#555", transition: "all 0.2s", fontFamily: "inherit" }}>{t === "receita" ? "Receita" : "Gasto"}</button>
+                <button key={t} onClick={() => { setTipo(t); setForm(f => ({ ...f, categoria: "", parcelado: false, parcela_atual: "1", total_parcelas: "" })); }} className="pdx-tap" style={{ flex: 1, padding: "0.5rem", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600, background: tipo === t ? (t === "receita" ? "#2FBF8A" : "#E06C65") : "transparent", color: tipo === t ? "#fff" : "#5C6570", transition: "all 0.2s", fontFamily: "inherit" }}>{t === "receita" ? "Receita" : "Gasto"}</button>
               ))}
             </div>
             <input type="text" placeholder="Descrição" value={form.descricao} onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))} style={inputStyle} />
             <input type="text" placeholder={form.parcelado ? "Valor da parcela (R$)" : "Valor total (R$)"} value={form.valor} onChange={e => setForm(f => ({ ...f, valor: e.target.value }))} style={inputStyle} />
-            <select value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))} style={{ ...inputStyle, color: form.categoria ? "#E8E8E8" : "#555", appearance: "none" }}>
+            <select value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))} style={{ ...inputStyle, color: form.categoria ? "#F1F2F4" : "#5C6570", appearance: "none" }}>
               <option value="">Categoria</option>
               {categories[tipo].map(c => <option key={c} value={c}>{normalizeText(c)}</option>)}
             </select>
-            <select value={form.forma_pagamento} onChange={e => setForm(f => ({ ...f, forma_pagamento: e.target.value, cartao_id: "", parcelado: false, parcela_atual: "1", total_parcelas: "" }))} style={{ ...inputStyle, color: form.forma_pagamento ? "#E8E8E8" : "#555", appearance: "none" }}>
+            <select value={form.forma_pagamento} onChange={e => setForm(f => ({ ...f, forma_pagamento: e.target.value, cartao_id: "", parcelado: false, parcela_atual: "1", total_parcelas: "" }))} style={{ ...inputStyle, color: form.forma_pagamento ? "#F1F2F4" : "#5C6570", appearance: "none" }}>
               <option value="">Forma de pagamento</option>
               {formasPagamento.map(f => <option key={f} value={f}>{f}</option>)}
             </select>
             {form.forma_pagamento === "Crédito" && cartoes.length > 0 && (
-              <select value={form.cartao_id} onChange={e => setForm(f => ({ ...f, cartao_id: e.target.value }))} style={{ ...inputStyle, color: form.cartao_id ? "#E8E8E8" : "#555", appearance: "none" }}>
+              <select value={form.cartao_id} onChange={e => setForm(f => ({ ...f, cartao_id: e.target.value }))} style={{ ...inputStyle, color: form.cartao_id ? "#F1F2F4" : "#5C6570", appearance: "none" }}>
                 <option value="">Selecione o cartão</option>
                 {cartoes.map(c => <option key={c.id} value={c.id}>{normalizeText(c.nome)}</option>)}
               </select>
@@ -1793,7 +1800,7 @@ export default function PradexFinancas() {
                     <input type="number" placeholder="Total de parcelas" min="2" max="48" value={form.total_parcelas} onChange={e => setForm(f => ({ ...f, total_parcelas: e.target.value }))} style={{ ...inputStyle, marginBottom: 0 }} />
                   </div>
                 )}
-                {form.parcelado && form.total_parcelas >= 2 && form.valor && <p style={{ margin: "0.4rem 0 0", fontSize: "0.78rem", color: "#888" }}>Lança da parcela {form.parcela_atual || 1} até {form.total_parcelas}, repetindo {formatBRL(parseFloat(form.valor.replace(",", ".")) || 0)} por mês.</p>}
+                {form.parcelado && form.total_parcelas >= 2 && form.valor && <p style={{ margin: "0.4rem 0 0", fontSize: "0.78rem", color: "#8B93A1" }}>Lança da parcela {form.parcela_atual || 1} até {form.total_parcelas}, repetindo {formatBRL(parseFloat(form.valor.replace(",", ".")) || 0)} por mês.</p>}
               </div>
             )}
             {tipo === "gasto" && !form.parcelado && (
@@ -1801,21 +1808,21 @@ export default function PradexFinancas() {
                 {form.recorrente ? `Recorrente ativa até Dez/${new Date().getFullYear()}` : "Marcar como recorrente"}
               </button>
             )}
-            <input type="date" value={form.data_lancamento} onChange={e => setForm(f => ({ ...f, data_lancamento: e.target.value }))} style={inputStyle} />
-            {erro && <p style={{ color: "#EF4444", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{erro}</p>}
-            <button onClick={handleSubmit} disabled={saving} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", background: success ? "#16A34A" : tipo === "receita" ? "#22C55E" : "#EF4444", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, transition: "all 0.2s", fontFamily: "inherit" }}>{saving ? "Salvando..." : success ? "Salvo!" : form.parcelado && form.total_parcelas >= 2 ? `Parcelar em ${form.total_parcelas}x` : form.recorrente ? "Adicionar + criar recorrências" : "Adicionar"}</button>
+            <input type="date" value={form.data_lancamento} onChange={e => setForm(f => ({ ...f, data_lancamento: e.target.value }))} style={dateInputStyle} />
+            {erro && <p style={{ color: "#E06C65", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{erro}</p>}
+            <button onClick={handleSubmit} disabled={saving} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", background: success ? "#2FBF8A" : tipo === "receita" ? "#2FBF8A" : "#E06C65", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, transition: "all 0.2s", fontFamily: "inherit" }}>{saving ? "Salvando..." : success ? "Salvo!" : form.parcelado && form.total_parcelas >= 2 ? `Parcelar em ${form.total_parcelas}x` : form.recorrente ? "Adicionar + criar recorrências" : "Adicionar"}</button>
           </div>
 
           <button onClick={() => setMostrarCategorias(!mostrarCategorias)} style={{ ...sectionToggleStyle, marginBottom: "0.75rem" }}>
-            <span style={{ display: "block", fontSize: "0.84rem", color: "#E8E8E8" }}>{mostrarCategorias ? "Fechar categorias" : "Gerenciar categorias"}</span>
-            <span style={{ display: "block", fontSize: "0.72rem", color: "#666", fontWeight: 500, marginTop: "0.2rem" }}>Organize as categorias de receitas e gastos do app.</span>
+            <span style={{ display: "block", fontSize: "0.84rem", color: "#F1F2F4" }}>{mostrarCategorias ? "Fechar categorias" : "Gerenciar categorias"}</span>
+            <span style={{ display: "block", fontSize: "0.72rem", color: "#8B93A1", fontWeight: 500, marginTop: "0.2rem" }}>Organize as categorias de receitas e gastos do app.</span>
           </button>
           {mostrarCategorias && (
-            <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
-              <p style={{ margin: "0 0 1rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Nova categoria</p>
+            <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #1E2330" }}>
+              <p style={{ margin: "0 0 1rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Nova categoria</p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginBottom: "0.75rem" }}>
                 {["gasto", "receita"].map(t => (
-                  <button key={t} onClick={() => setNovaCategoria(n => ({ ...n, tipo: t }))} style={{ padding: "0.5rem", border: `1px solid ${novaCategoria.tipo === t ? "#6366F1" : "#252832"}`, borderRadius: "8px", background: novaCategoria.tipo === t ? "#6366F118" : "transparent", color: novaCategoria.tipo === t ? "#6366F1" : "#555", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                  <button key={t} onClick={() => setNovaCategoria(n => ({ ...n, tipo: t }))} style={{ padding: "0.5rem", border: `1px solid ${novaCategoria.tipo === t ? "#6366F1" : "#1E2330"}`, borderRadius: "8px", background: novaCategoria.tipo === t ? "#6366F118" : "transparent", color: novaCategoria.tipo === t ? "#6366F1" : "#5C6570", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
                     {t === "gasto" ? "Gasto" : "Receita"}
                   </button>
                 ))}
@@ -1824,21 +1831,21 @@ export default function PradexFinancas() {
                 <input type="text" placeholder="Nome da categoria" value={novaCategoria.nome} onChange={e => setNovaCategoria(n => ({ ...n, nome: e.target.value }))} onKeyDown={e => e.key === "Enter" && handleAddCategoria()} style={{ ...inputStyle, marginBottom: 0, flex: 1 }} />
                 <button onClick={handleAddCategoria} style={{ padding: "0.75rem 1rem", border: "none", borderRadius: "10px", background: "#6366F1", color: "#fff", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>Adicionar</button>
               </div>
-              <p style={{ margin: "0 0 0.5rem", fontSize: "0.7rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>Gastos</p>
+              <p style={{ margin: "0 0 0.5rem", fontSize: "0.7rem", color: "#5C6570", textTransform: "uppercase", letterSpacing: "0.1em" }}>Gastos</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginBottom: "1rem" }}>
                 {categories.gasto.map(c => (
-                  <div key={c} style={{ display: "flex", alignItems: "center", gap: "0.25rem", background: "#0F1117", borderRadius: "8px", padding: "0.3rem 0.6rem", border: "1px solid #252832" }}>
-                    <span style={{ fontSize: "0.78rem", color: "#CCC" }}>{c}</span>
-                    <button onClick={() => handleRemoveCategoria(c, "gasto")} className="pdx-tap-sq" aria-label={`Remover categoria ${c}`} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "0.9rem", padding: 0, lineHeight: 1 }}>×</button>
+                  <div key={c} style={{ display: "flex", alignItems: "center", gap: "0.25rem", background: "#0C0E14", borderRadius: "8px", padding: "0.3rem 0.6rem", border: "1px solid #1E2330" }}>
+                    <span style={{ fontSize: "0.78rem", color: "#8B93A1" }}>{c}</span>
+                    <button onClick={() => handleRemoveCategoria(c, "gasto")} className="pdx-tap-sq" aria-label={`Remover categoria ${c}`} style={{ background: "none", border: "none", color: "#5C6570", cursor: "pointer", fontSize: "0.9rem", padding: 0, lineHeight: 1 }}>×</button>
                   </div>
                 ))}
               </div>
-              <p style={{ margin: "0 0 0.5rem", fontSize: "0.7rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>Receitas</p>
+              <p style={{ margin: "0 0 0.5rem", fontSize: "0.7rem", color: "#5C6570", textTransform: "uppercase", letterSpacing: "0.1em" }}>Receitas</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
                 {categories.receita.map(c => (
-                  <div key={c} style={{ display: "flex", alignItems: "center", gap: "0.25rem", background: "#0F1117", borderRadius: "8px", padding: "0.3rem 0.6rem", border: "1px solid #252832" }}>
-                    <span style={{ fontSize: "0.78rem", color: "#CCC" }}>{c}</span>
-                    <button onClick={() => handleRemoveCategoria(c, "receita")} className="pdx-tap-sq" aria-label={`Remover categoria ${c}`} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "0.9rem", padding: 0, lineHeight: 1 }}>×</button>
+                  <div key={c} style={{ display: "flex", alignItems: "center", gap: "0.25rem", background: "#0C0E14", borderRadius: "8px", padding: "0.3rem 0.6rem", border: "1px solid #1E2330" }}>
+                    <span style={{ fontSize: "0.78rem", color: "#8B93A1" }}>{c}</span>
+                    <button onClick={() => handleRemoveCategoria(c, "receita")} className="pdx-tap-sq" aria-label={`Remover categoria ${c}`} style={{ background: "none", border: "none", color: "#5C6570", cursor: "pointer", fontSize: "0.9rem", padding: 0, lineHeight: 1 }}>×</button>
                   </div>
                 ))}
               </div>
@@ -1846,29 +1853,29 @@ export default function PradexFinancas() {
           )}
 
           <button onClick={() => setMostrarFormCartao(!mostrarFormCartao)} style={{ ...sectionToggleStyle, marginBottom: "1rem" }}>
-            <span style={{ display: "block", fontSize: "0.84rem", color: "#E8E8E8" }}>{mostrarFormCartao ? "Fechar cartões" : "Gerenciar cartões"}</span>
-            <span style={{ display: "block", fontSize: "0.72rem", color: "#666", fontWeight: 500, marginTop: "0.2rem" }}>Cadastre os cartões para acompanhar compras e faturas.</span>
+            <span style={{ display: "block", fontSize: "0.84rem", color: "#F1F2F4" }}>{mostrarFormCartao ? "Fechar cartões" : "Gerenciar cartões"}</span>
+            <span style={{ display: "block", fontSize: "0.72rem", color: "#8B93A1", fontWeight: 500, marginTop: "0.2rem" }}>Cadastre os cartões para acompanhar compras e faturas.</span>
           </button>
           {mostrarFormCartao && (
-            <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
-              <p style={{ margin: "0 0 1rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Novo cartão</p>
+            <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #1E2330" }}>
+              <p style={{ margin: "0 0 1rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Novo cartão</p>
               <input type="text" placeholder="Nome do cartão" value={formCartao.nome} onChange={e => setFormCartao(f => ({ ...f, nome: e.target.value }))} style={inputStyle} />
               <input type="text" placeholder="Bandeira (ex: Visa)" value={formCartao.bandeira} onChange={e => setFormCartao(f => ({ ...f, bandeira: e.target.value }))} style={inputStyle} />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "0.75rem" }}>
                 <input type="number" placeholder="Dia fechamento" min="1" max="31" value={formCartao.dia_fechamento} onChange={e => setFormCartao(f => ({ ...f, dia_fechamento: e.target.value }))} style={{ ...inputStyle, marginBottom: 0 }} />
                 <input type="number" placeholder="Dia vencimento" min="1" max="31" value={formCartao.dia_vencimento} onChange={e => setFormCartao(f => ({ ...f, dia_vencimento: e.target.value }))} style={{ ...inputStyle, marginBottom: 0 }} />
               </div>
-              {erroCartao && <p style={{ color: "#EF4444", fontSize: "0.8rem", marginBottom: "0.75rem", marginTop: "0.75rem" }}>{erroCartao}</p>}
-              <button onClick={handleSaveCartao} disabled={savingCartao} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", marginTop: "0.75rem", background: successCartao ? "#16A34A" : "#6366F1", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: savingCartao ? "not-allowed" : "pointer", opacity: savingCartao ? 0.7 : 1, transition: "all 0.2s", fontFamily: "inherit" }}>{savingCartao ? "Salvando..." : successCartao ? "Salvo!" : "Adicionar cartão"}</button>
+              {erroCartao && <p style={{ color: "#E06C65", fontSize: "0.8rem", marginBottom: "0.75rem", marginTop: "0.75rem" }}>{erroCartao}</p>}
+              <button onClick={handleSaveCartao} disabled={savingCartao} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", marginTop: "0.75rem", background: successCartao ? "#2FBF8A" : "#6366F1", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: savingCartao ? "not-allowed" : "pointer", opacity: savingCartao ? 0.7 : 1, transition: "all 0.2s", fontFamily: "inherit" }}>{savingCartao ? "Salvando..." : successCartao ? "Salvo!" : "Adicionar cartão"}</button>
               {cartoes.length > 0 && (
                 <div style={{ marginTop: "1rem" }}>
                   {cartoes.map(c => (
-                    <div key={c.id} style={{ display: "flex", alignItems: "center", padding: "0.75rem 0", borderBottom: "1px solid #252832", gap: "0.75rem" }}>
+                    <div key={c.id} style={{ display: "flex", alignItems: "center", padding: "0.75rem 0", borderBottom: "1px solid #1E2330", gap: "0.75rem" }}>
                       <div style={{ flex: 1 }}>
-                        <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", fontWeight: 600, color: "#E8E8E8", lineHeight: 1.25 }}>{normalizeText(c.nome)}</p>
-                        <p style={{ margin: 0, fontSize: "0.72rem", color: "#555", lineHeight: 1.25 }}>{normalizeText(c.bandeira) && normalizeText(c.bandeira) + " · "}Fecha dia {c.dia_fechamento || "—"} · Vence dia {c.dia_vencimento || "—"}</p>
+                        <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", fontWeight: 600, color: "#F1F2F4", lineHeight: 1.25 }}>{normalizeText(c.nome)}</p>
+                        <p style={{ margin: 0, fontSize: "0.72rem", color: "#5C6570", lineHeight: 1.25 }}>{normalizeText(c.bandeira) && normalizeText(c.bandeira) + " · "}Fecha dia {c.dia_fechamento || "—"} · Vence dia {c.dia_vencimento || "—"}</p>
                       </div>
-                      <button onClick={() => handleDeleteCartao(c.id)} className="pdx-tap-sq" aria-label="Remover cartão" style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem" }}>×</button>
+                      <button onClick={() => handleDeleteCartao(c.id)} className="pdx-tap-sq" aria-label="Remover cartão" style={{ background: "none", border: "none", color: "#5C6570", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem" }}>×</button>
                     </div>
                   ))}
                 </div>
@@ -1877,80 +1884,80 @@ export default function PradexFinancas() {
           )}
 
           <div>
-            <p style={{ margin: "0 0 1rem", fontSize: "0.7rem", color: "#666", textTransform: "uppercase", letterSpacing: "0.15em" }}>Lançamentos {loading && "· carregando..."}</p>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.7rem", color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.15em" }}>Lançamentos {loading && "· carregando..."}</p>
             <div style={{ marginBottom: "1rem" }}>
-              <select value={filtroLancamentos} onChange={e => setFiltroLancamentos(e.target.value)} style={{ ...inputStyle, marginBottom: 0, color: "#E8E8E8", appearance: "none" }}>
+              <select value={filtroLancamentos} onChange={e => setFiltroLancamentos(e.target.value)} style={{ ...inputStyle, marginBottom: 0, color: "#F1F2F4", appearance: "none" }}>
                 {opcoesFiltroLancamentos.map(opcao => <option key={opcao.value} value={opcao.value}>{opcao.label}</option>)}
               </select>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "0.6rem", marginTop: "0.75rem" }}>
-                <div style={{ background: "#181B24", borderRadius: "10px", border: "1px solid #252832", padding: "0.8rem 0.9rem" }}>
-                  <p style={{ margin: "0 0 0.25rem", fontSize: "0.66rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.08em" }}>Total filtrado</p>
-                  <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 700, color: "#E8E8E8" }}>{formatBRL(totalFiltradoLancamentos)}</p>
+                <div style={{ background: "#151821", borderRadius: "10px", border: "1px solid #1E2330", padding: "0.8rem 0.9rem" }}>
+                  <p style={{ margin: "0 0 0.25rem", fontSize: "0.66rem", color: "#5C6570", textTransform: "uppercase", letterSpacing: "0.08em" }}>Total filtrado</p>
+                  <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 700, color: "#F1F2F4" }}>{formatBRL(totalFiltradoLancamentos)}</p>
                 </div>
-                <div style={{ background: "#181B24", borderRadius: "10px", border: "1px solid #252832", padding: "0.8rem 0.9rem" }}>
-                  <p style={{ margin: "0 0 0.25rem", fontSize: "0.66rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.08em" }}>Lançamentos</p>
-                  <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 700, color: "#E8E8E8" }}>{quantidadeFiltradaLancamentos}</p>
+                <div style={{ background: "#151821", borderRadius: "10px", border: "1px solid #1E2330", padding: "0.8rem 0.9rem" }}>
+                  <p style={{ margin: "0 0 0.25rem", fontSize: "0.66rem", color: "#5C6570", textTransform: "uppercase", letterSpacing: "0.08em" }}>Lançamentos</p>
+                  <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 700, color: "#F1F2F4" }}>{quantidadeFiltradaLancamentos}</p>
                 </div>
                 {cartaoSelecionado && (
-                  <div style={{ background: "#181B24", borderRadius: "10px", border: "1px solid #252832", padding: "0.8rem 0.9rem" }}>
-                    <p style={{ margin: "0 0 0.25rem", fontSize: "0.66rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.08em" }}>{normalizeText(cartaoSelecionado.nome)}</p>
-                    <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 700, color: "#F59E0B" }}>{formatBRL(totalCartaoSelecionado)}</p>
+                  <div style={{ background: "#151821", borderRadius: "10px", border: "1px solid #1E2330", padding: "0.8rem 0.9rem" }}>
+                    <p style={{ margin: "0 0 0.25rem", fontSize: "0.66rem", color: "#5C6570", textTransform: "uppercase", letterSpacing: "0.08em" }}>{normalizeText(cartaoSelecionado.nome)}</p>
+                    <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 700, color: "#E8943A" }}>{formatBRL(totalCartaoSelecionado)}</p>
                   </div>
                 )}
               </div>
               {cartaoSelecionado && (
-                <p style={{ margin: "0.6rem 0 0", fontSize: "0.76rem", color: "#777" }}>
+                <p style={{ margin: "0.6rem 0 0", fontSize: "0.76rem", color: "#8B93A1" }}>
                   Mostrando apenas compras no cartão {normalizeText(cartaoSelecionado.nome)}.
                 </p>
               )}
             </div>
             {!loading && lancamentosFiltrados.length === 0 && (
-              <div style={{ textAlign: "center", padding: "2.2rem 1rem", color: "#444", background: "#141720", borderRadius: "14px", border: "1px solid #252832" }}>
-                <p style={{ margin: "0 0 0.35rem", fontSize: "0.92rem", color: "#CFCFCF" }}>Nenhum lançamento encontrado nesse filtro.</p>
-                <p style={{ margin: 0, fontSize: "0.78rem", color: "#666" }}>Tente trocar o filtro ou adicionar um novo lançamento.</p>
+              <div style={{ textAlign: "center", padding: "2.2rem 1rem", color: "#5C6570", background: "#151821", borderRadius: "14px", border: "1px solid #1E2330" }}>
+                <p style={{ margin: "0 0 0.35rem", fontSize: "0.92rem", color: "#8B93A1" }}>Nenhum lançamento encontrado nesse filtro.</p>
+                <p style={{ margin: 0, fontSize: "0.78rem", color: "#8B93A1" }}>Tente trocar o filtro ou adicionar um novo lançamento.</p>
               </div>
             )}
             {lancamentosFiltrados.map(l => {
               if (l._compraParcelada) {
                 const cartaoNome = l.cartao_id ? (cartoes.find(c => Number(c.id) === Number(l.cartao_id))?.nome || "") : "";
                 return (
-                  <div key={`compra-${l._grupoParcelaId}`} onClick={() => setCompraDetalhe(l)} style={{ display: "flex", alignItems: "center", padding: "0.9rem 1rem", background: "#181B24", borderRadius: "12px", marginBottom: "0.5rem", border: "1px solid #6366F140", gap: "0.75rem", cursor: "pointer" }}>
+                  <div key={`compra-${l._grupoParcelaId}`} onClick={() => setCompraDetalhe(l)} style={{ display: "flex", alignItems: "center", padding: "0.9rem 1rem", background: "#151821", borderRadius: "12px", marginBottom: "0.5rem", border: "1px solid #6366F140", gap: "0.75rem", cursor: "pointer" }}>
                     <div style={{ width: "36px", height: "36px", borderRadius: "10px", flexShrink: 0, background: "#6366F118", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem", color: "#6366F1" }}>{l._nParcelas}x</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", fontWeight: 500, color: "#E8E8E8", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.25 }}>
+                      <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", fontWeight: 500, color: "#F1F2F4", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.25 }}>
                         {normalizeText(l.descricao)}
                       </p>
-                      <p style={{ margin: 0, fontSize: "0.72rem", color: "#555", lineHeight: 1.25 }}>
+                      <p style={{ margin: 0, fontSize: "0.72rem", color: "#5C6570", lineHeight: 1.25 }}>
                         <span style={{ marginRight: "6px", fontSize: "0.68rem", color: "#6366F1", background: "#6366F115", padding: "1px 6px", borderRadius: "999px" }}>compra parcelada</span>
                         {l._nParcelas}× {formatBRL(l._valorParcela)} · {cartaoNome ? normalizeText(cartaoNome) + " · " : ""}{normalizeText(l.categoria)} · {formatData(l._dataInicio)} → {formatData(l._dataFim)}
                       </p>
                     </div>
-                    <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#EF4444", flexShrink: 0 }}>-{formatBRL(l.valor)}</p>
+                    <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#E06C65", flexShrink: 0 }}>-{formatBRL(l.valor)}</p>
                   </div>
                 );
               }
               return (
-                <div key={l._idsGrupo ? `grupo-${l._idsGrupo[0]}` : l.id} onClick={() => handleEdit(l)} style={{ display: "flex", alignItems: "center", padding: "0.9rem 1rem", background: l.poderia_ter_evitado ? "#F59E0B08" : "#181B24", borderRadius: "12px", marginBottom: "0.5rem", border: `1px solid ${l.poderia_ter_evitado ? "#F59E0B30" : "#252832"}`, gap: "0.75rem", cursor: "pointer" }}>
-                  <div style={{ width: "36px", height: "36px", borderRadius: "10px", flexShrink: 0, background: l.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem" }}>{l.tipo === "receita" ? "+" : "-"}</div>
+                <div key={l._idsGrupo ? `grupo-${l._idsGrupo[0]}` : l.id} onClick={() => handleEdit(l)} style={{ display: "flex", alignItems: "center", padding: "0.9rem 1rem", background: l.poderia_ter_evitado ? "#E8943A08" : "#151821", borderRadius: "12px", marginBottom: "0.5rem", border: `1px solid ${l.poderia_ter_evitado ? "#E8943A30" : "#1E2330"}`, gap: "0.75rem", cursor: "pointer" }}>
+                  <div style={{ width: "36px", height: "36px", borderRadius: "10px", flexShrink: 0, background: l.tipo === "receita" ? "#2FBF8A18" : "#E06C6518", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem" }}>{l.tipo === "receita" ? "+" : "-"}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", fontWeight: 500, color: "#E8E8E8", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.25 }}>
+                    <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", fontWeight: 500, color: "#F1F2F4", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.25 }}>
                       {normalizeText(l.descricao)}
                       {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#6366F1", background: "#6366F115", padding: "1px 5px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
-                      {l._totalMeses && l._totalMeses > 1 && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#22C55E", background: "#22C55E15", padding: "1px 6px", borderRadius: "999px" }}>{l._totalMeses} meses</span>}
+                      {l._totalMeses && l._totalMeses > 1 && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#2FBF8A", background: "#2FBF8A15", padding: "1px 6px", borderRadius: "999px" }}>{l._totalMeses} meses</span>}
                     </p>
-                    <p style={{ margin: 0, fontSize: "0.72rem", color: "#555", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}</p>
+                    <p style={{ margin: 0, fontSize: "0.72rem", color: "#5C6570", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}</p>
                   </div>
                   {l.tipo === "gasto" && !l._totalMeses && (
                     <div style={{ width: "76px", display: "flex", justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleToggleArrependimento(e, l); }}
-                        style={{ background: l.poderia_ter_evitado ? "#F59E0B15" : "transparent", border: `1px solid ${l.poderia_ter_evitado ? "#F59E0B35" : "#252832"}`, cursor: "pointer", fontSize: "0.66rem", padding: "3px 8px", opacity: l.poderia_ter_evitado ? 1 : 0.5, transition: "opacity 0.2s, background 0.2s, border-color 0.2s", color: "#F59E0B", fontWeight: 700, borderRadius: "999px", whiteSpace: "nowrap", fontFamily: "inherit" }}
+                        style={{ background: l.poderia_ter_evitado ? "#E8943A15" : "transparent", border: `1px solid ${l.poderia_ter_evitado ? "#E8943A35" : "#1E2330"}`, cursor: "pointer", fontSize: "0.66rem", padding: "3px 8px", opacity: l.poderia_ter_evitado ? 1 : 0.5, transition: "opacity 0.2s, background 0.2s, border-color 0.2s", color: "#E8943A", fontWeight: 700, borderRadius: "999px", whiteSpace: "nowrap", fontFamily: "inherit" }}
                       >
                         Evitável
                       </button>
                     </div>
                   )}
-                  <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444", flexShrink: 0 }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
+                  <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: l.tipo === "receita" ? "#2FBF8A" : "#E06C65", flexShrink: 0 }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
                 </div>
               );
             })}
@@ -1990,59 +1997,59 @@ export default function PradexFinancas() {
         return (
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem" }}>
-              <button onClick={() => navegarMes(-1)} style={{ background: "#181B24", border: "1px solid #252832", borderRadius: "8px", color: "#888", cursor: "pointer", padding: "0.4rem 0.8rem", fontSize: "1rem", fontFamily: "inherit" }}>‹</button>
+              <button onClick={() => navegarMes(-1)} style={{ background: "#151821", border: "1px solid #1E2330", borderRadius: "8px", color: "#8B93A1", cursor: "pointer", padding: "0.4rem 0.8rem", fontSize: "1rem", fontFamily: "inherit" }}>‹</button>
               <div style={{ textAlign: "center" }}>
-                <p style={{ margin: 0, fontSize: "1.1rem", fontWeight: 600, color: "#F0F0F0" }}>{monthNames[mes]} {ano}</p>
+                <p style={{ margin: 0, fontSize: "1.1rem", fontWeight: 600, color: "#F1F2F4" }}>{monthNames[mes]} {ano}</p>
                 {ehMesAtual && <p style={{ margin: 0, fontSize: "0.7rem", color: "#6366F1" }}>mês atual</p>}
               </div>
-              <button onClick={() => navegarMes(1)} style={{ background: "#181B24", border: "1px solid #252832", borderRadius: "8px", color: "#888", cursor: "pointer", padding: "0.4rem 0.8rem", fontSize: "1rem", fontFamily: "inherit" }}>›</button>
+              <button onClick={() => navegarMes(1)} style={{ background: "#151821", border: "1px solid #1E2330", borderRadius: "8px", color: "#8B93A1", cursor: "pointer", padding: "0.4rem 0.8rem", fontSize: "1rem", fontFamily: "inherit" }}>›</button>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "0.75rem" }}>
-              {[{ label: "Receitas", value: receitasMes, color: "#22C55E" }, { label: "Débito", value: gastosDebitoMes, color: "#EF4444" }, { label: "Cartão", value: gastosCartaoMes, color: "#F59E0B" }, { label: "Saldo", value: saldoMes, color: saldoMes >= 0 ? "#22C55E" : "#EF4444" }].map(card => (
-                <div key={card.label} style={{ background: "#181B24", borderRadius: "12px", padding: "1rem 0.75rem", border: "1px solid #252832" }}>
-                  <p style={{ margin: "0 0 0.4rem", fontSize: "0.65rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>{card.label}</p>
+              {[{ label: "Receitas", value: receitasMes, color: "#2FBF8A" }, { label: "Débito", value: gastosDebitoMes, color: "#E06C65" }, { label: "Cartão", value: gastosCartaoMes, color: "#E8943A" }, { label: "Saldo", value: saldoMes, color: saldoMes >= 0 ? "#2FBF8A" : "#E06C65" }].map(card => (
+                <div key={card.label} style={{ background: "#151821", borderRadius: "12px", padding: "1rem 0.75rem", border: "1px solid #1E2330" }}>
+                  <p style={{ margin: "0 0 0.4rem", fontSize: "0.65rem", color: "#5C6570", textTransform: "uppercase", letterSpacing: "0.1em" }}>{card.label}</p>
                   <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 700, color: card.color }}>{formatBRL(card.value)}</p>
                 </div>
               ))}
             </div>
-            <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", color: "#666" }}>Gasto total do mês: <span style={{ color: "#E8E8E8", fontWeight: 700 }}>{formatBRL(gastosMes)}</span></p>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", color: "#8B93A1" }}>Gasto total do mês: <span style={{ color: "#F1F2F4", fontWeight: 700 }}>{formatBRL(gastosMes)}</span></p>
             {lancMes.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "3rem 0", color: "#444" }}>
+              <div style={{ textAlign: "center", padding: "3rem 0", color: "#5C6570" }}>
                 <p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>•</p>
                 <p style={{ fontSize: "0.9rem" }}>Nenhum lançamento em {monthNames[mes]} {ano}.</p>
               </div>
             ) : (
               <>
-                {evitaveisMes > 0 && <div style={{ background: "#F59E0B0F", borderRadius: "12px", padding: "1rem 1.25rem", marginBottom: "1rem", border: "1px solid #F59E0B30" }}><p style={{ margin: 0, fontSize: "0.8rem", color: "#F59E0B" }}><strong>{formatBRL(evitaveisMes)}</strong> em gastos evitáveis nesse mês</p></div>}
+                {evitaveisMes > 0 && <div style={{ background: "#E8943A0F", borderRadius: "12px", padding: "1rem 1.25rem", marginBottom: "1rem", border: "1px solid #E8943A30" }}><p style={{ margin: 0, fontSize: "0.8rem", color: "#E8943A" }}><strong>{formatBRL(evitaveisMes)}</strong> em gastos evitáveis nesse mês</p></div>}
                 {gastosCat.length > 0 && (
-                  <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
-                    <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Gastos por categoria</p>
+                  <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #1E2330" }}>
+                    <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Gastos por categoria</p>
                     {gastosCat.map((item, i) => (
                       <div key={item.cat} style={{ marginBottom: "0.85rem" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.3rem" }}>
-                          <span style={{ fontSize: "0.82rem", color: "#CCC" }}>{item.cat}</span>
+                          <span style={{ fontSize: "0.82rem", color: "#8B93A1" }}>{item.cat}</span>
                           <span style={{ fontSize: "0.82rem", fontWeight: 600, color: COLORS[i % COLORS.length] }}>{formatBRL(item.total)}</span>
                         </div>
-                        <div style={{ background: "#0F1117", borderRadius: "4px", height: "6px", overflow: "hidden" }}><div style={{ background: COLORS[i % COLORS.length], height: "100%", width: `${(item.total / maxCat) * 100}%`, borderRadius: "4px" }} /></div>
+                        <div style={{ background: "#0C0E14", borderRadius: "4px", height: "6px", overflow: "hidden" }}><div style={{ background: COLORS[i % COLORS.length], height: "100%", width: `${(item.total / maxCat) * 100}%`, borderRadius: "4px" }} /></div>
                       </div>
                     ))}
                   </div>
                 )}
-                <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
-                  <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>{lancMes.length} lançamento{lancMes.length > 1 ? "s" : ""}</p>
+                <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", border: "1px solid #1E2330" }}>
+                  <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>{lancMes.length} lançamento{lancMes.length > 1 ? "s" : ""}</p>
                   {lancMes.map(l => (
-                    <div key={l.id} onClick={() => handleEdit(l)} style={{ display: "flex", alignItems: "center", padding: "0.7rem 0", borderBottom: "1px solid #1a1d26", cursor: "pointer", gap: "0.75rem" }}>
-                      <div style={{ width: "32px", height: "32px", borderRadius: "8px", flexShrink: 0, background: l.tipo === "receita" ? "#22C55E18" : "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem" }}>{l.tipo === "receita" ? "+" : "-"}</div>
+                    <div key={l.id} onClick={() => handleEdit(l)} style={{ display: "flex", alignItems: "center", padding: "0.7rem 0", borderBottom: "1px solid #151821", cursor: "pointer", gap: "0.75rem" }}>
+                      <div style={{ width: "32px", height: "32px", borderRadius: "8px", flexShrink: 0, background: l.tipo === "receita" ? "#2FBF8A18" : "#E06C6518", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem" }}>{l.tipo === "receita" ? "+" : "-"}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ margin: "0 0 0.12rem", fontSize: "0.85rem", color: "#E8E8E8", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.25 }}>
-                          {l.poderia_ter_evitado && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#F59E0B", background: "#F59E0B15" }}>Evitável</span>}
-                          {l.recorrente && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#22C55E", background: "#22C55E15" }}>Recorrente</span>}
+                        <p style={{ margin: "0 0 0.12rem", fontSize: "0.85rem", color: "#F1F2F4", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.25 }}>
+                          {l.poderia_ter_evitado && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#E8943A", background: "#E8943A15" }}>Evitável</span>}
+                          {l.recorrente && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#2FBF8A", background: "#2FBF8A15" }}>Recorrente</span>}
                           {normalizeText(l.descricao)}
                           {l.total_parcelas && <span style={{ marginLeft: "5px", fontSize: "0.65rem", color: "#6366F1", background: "#6366F115", padding: "1px 4px", borderRadius: "3px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
                         </p>
-                        <p style={{ margin: 0, fontSize: "0.7rem", color: "#555", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}</p>
+                        <p style={{ margin: 0, fontSize: "0.7rem", color: "#5C6570", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}</p>
                       </div>
-                      <p style={{ margin: 0, fontSize: "0.88rem", fontWeight: 700, color: l.tipo === "receita" ? "#22C55E" : "#EF4444", flexShrink: 0 }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
+                      <p style={{ margin: 0, fontSize: "0.88rem", fontWeight: 700, color: l.tipo === "receita" ? "#2FBF8A" : "#E06C65", flexShrink: 0 }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
                     </div>
                   ))}
                 </div>
@@ -2075,18 +2082,18 @@ export default function PradexFinancas() {
         const temDados = patrimonioAtual > 0 || aporteMensal > 0;
         return (
           <div>
-            <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Simulador de Metas</p>
-            <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #252832" }}>
+            <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Simulador de Metas</p>
+            <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #1E2330" }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
                 {[{ label: "Patrimônio atual (R$)", key: "patrimonioAtual", placeholder: "Ex: 50.000" }, { label: "Quanto guardar por mês (R$)", key: "aporteMensal", placeholder: "Ex: 1.000" }].map(({ label, key, placeholder }) => (
                   <div key={key}>
-                    <p style={{ margin: "0 0 0.3rem", fontSize: "0.7rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</p>
+                    <p style={{ margin: "0 0 0.3rem", fontSize: "0.7rem", color: "#5C6570", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</p>
                     <input type="text" placeholder={placeholder} value={simulador[key] || ""} onChange={e => setSimulador(s => ({ ...s, [key]: e.target.value }))} style={{ ...inputStyle, marginBottom: 0, fontSize: "0.85rem" }} />
                   </div>
                 ))}
               </div>
               <div style={{ marginTop: "0.75rem" }}>
-                <p style={{ margin: "0 0 0.3rem", fontSize: "0.7rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.08em" }}>Meta (R$)</p>
+                <p style={{ margin: "0 0 0.3rem", fontSize: "0.7rem", color: "#5C6570", textTransform: "uppercase", letterSpacing: "0.08em" }}>Meta (R$)</p>
                 <input type="text" placeholder="Ex: 500.000" value={simulador.meta || ""} onChange={e => setSimulador(s => ({ ...s, meta: e.target.value }))} style={{ ...inputStyle, marginBottom: 0, fontSize: "0.85rem" }} />
               </div>
             </div>
@@ -2094,27 +2101,27 @@ export default function PradexFinancas() {
               <>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem", marginBottom: "1rem" }}>
                   {[{ label: "1 ano", valor: dadosComAporte[12], prog: progresso12 }, { label: "3 anos", valor: dadosComAporte[36], prog: progresso36 }, { label: "5 anos", valor: dadosComAporte[60], prog: progresso60 }].map(({ label, valor, prog }) => (
-                    <div key={label} style={{ background: "#181B24", borderRadius: "12px", padding: "1rem 0.75rem", border: "1px solid #252832" }}>
-                      <p style={{ margin: "0 0 0.3rem", fontSize: "0.65rem", color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</p>
+                    <div key={label} style={{ background: "#151821", borderRadius: "12px", padding: "1rem 0.75rem", border: "1px solid #1E2330" }}>
+                      <p style={{ margin: "0 0 0.3rem", fontSize: "0.65rem", color: "#5C6570", textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</p>
                       <p style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", fontWeight: 700, color: "#6366F1" }}>{formatBRL(valor)}</p>
-                      {meta > 0 && (<><div style={{ background: "#0F1117", borderRadius: "4px", height: "4px", overflow: "hidden" }}><div style={{ background: prog >= 100 ? "#22C55E" : "#6366F1", height: "100%", width: `${prog}%`, borderRadius: "4px", transition: "width 0.5s" }} /></div><p style={{ margin: "0.25rem 0 0", fontSize: "0.65rem", color: prog >= 100 ? "#22C55E" : "#555" }}>{Math.round(prog)}% da meta</p></>)}
+                      {meta > 0 && (<><div style={{ background: "#0C0E14", borderRadius: "4px", height: "4px", overflow: "hidden" }}><div style={{ background: prog >= 100 ? "#2FBF8A" : "#6366F1", height: "100%", width: `${prog}%`, borderRadius: "4px", transition: "width 0.5s" }} /></div><p style={{ margin: "0.25rem 0 0", fontSize: "0.65rem", color: prog >= 100 ? "#2FBF8A" : "#5C6570" }}>{Math.round(prog)}% da meta</p></>)}
                     </div>
                   ))}
                 </div>
-                {meta > 0 && mesMeta > 0 && <div style={{ background: "#22C55E0F", borderRadius: "12px", padding: "1rem 1.25rem", marginBottom: "1rem", border: "1px solid #22C55E30" }}><p style={{ margin: 0, fontSize: "0.85rem", color: "#22C55E" }}>Você atinge sua meta em <strong>{mesMeta < 12 ? `${mesMeta} meses` : `${Math.floor(mesMeta / 12)} ano${Math.floor(mesMeta / 12) > 1 ? "s" : ""}${mesMeta % 12 > 0 ? ` e ${mesMeta % 12} meses` : ""}`}</strong></p></div>}
-                {meta > 0 && mesMeta === -1 && <div style={{ background: "#EF44440F", borderRadius: "12px", padding: "1rem 1.25rem", marginBottom: "1rem", border: "1px solid #EF444430" }}><p style={{ margin: 0, fontSize: "0.85rem", color: "#EF4444" }}>Com esse aporte, você não atinge a meta em 5 anos.</p></div>}
-                <div style={{ background: "#181B24", borderRadius: "16px", padding: "1.5rem", border: "1px solid #252832" }}>
-                  <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Projeção patrimonial</p>
+                {meta > 0 && mesMeta > 0 && <div style={{ background: "#2FBF8A0F", borderRadius: "12px", padding: "1rem 1.25rem", marginBottom: "1rem", border: "1px solid #2FBF8A30" }}><p style={{ margin: 0, fontSize: "0.85rem", color: "#2FBF8A" }}>Você atinge sua meta em <strong>{mesMeta < 12 ? `${mesMeta} meses` : `${Math.floor(mesMeta / 12)} ano${Math.floor(mesMeta / 12) > 1 ? "s" : ""}${mesMeta % 12 > 0 ? ` e ${mesMeta % 12} meses` : ""}`}</strong></p></div>}
+                {meta > 0 && mesMeta === -1 && <div style={{ background: "#E06C650F", borderRadius: "12px", padding: "1rem 1.25rem", marginBottom: "1rem", border: "1px solid #E06C6530" }}><p style={{ margin: 0, fontSize: "0.85rem", color: "#E06C65" }}>Com esse aporte, você não atinge a meta em 5 anos.</p></div>}
+                <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", border: "1px solid #1E2330" }}>
+                  <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Projeção patrimonial</p>
                   <div style={{ display: "flex", gap: "1rem", marginBottom: "1rem", flexWrap: "wrap" }}>
                     <span style={{ fontSize: "0.7rem", color: "#6366F1" }}>Com aportes</span>
-                    <span style={{ fontSize: "0.7rem", color: "#555" }}>Só rendimento</span>
-                    {meta > 0 && <span style={{ fontSize: "0.7rem", color: "#F59E0B" }}>- - Meta</span>}
+                    <span style={{ fontSize: "0.7rem", color: "#5C6570" }}>Só rendimento</span>
+                    {meta > 0 && <span style={{ fontSize: "0.7rem", color: "#E8943A" }}>- - Meta</span>}
                   </div>
                   <GraficoSimulador labels={labels} dadosComAporte={dadosComAporte} dadosSemAporte={dadosSemAporte} meta={meta} />
                 </div>
               </>
             )}
-            {!temDados && <div style={{ textAlign: "center", padding: "3rem 0", color: "#444" }}><p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>•</p><p style={{ fontSize: "0.9rem" }}>Preencha os campos acima para ver a projeção.</p></div>}
+            {!temDados && <div style={{ textAlign: "center", padding: "3rem 0", color: "#5C6570" }}><p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>•</p><p style={{ fontSize: "0.9rem" }}>Preencha os campos acima para ver a projeção.</p></div>}
           </div>
         );
       })()}
@@ -2123,7 +2130,7 @@ export default function PradexFinancas() {
           de sumir (o item da sidebar leva aqui com cadeado). */}
       {tela === "relatorios" && !podeFp && (
         <div>
-          <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Relatórios</p>
+          <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Relatórios</p>
           <UpgradePlano plano={plano} recurso="relatorios" variant="tela" />
         </div>
       )}
@@ -2140,7 +2147,7 @@ export default function PradexFinancas() {
       {/* FP — sem Assistente, a tela existe e explica o que falta em vez de sumir */}
       {tela === "fp" && !podeFp && (
         <div>
-          <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Planejamento Financeiro</p>
+          <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Planejamento Financeiro</p>
           <UpgradePlano plano={plano} recurso="fp" variant="tela" />
         </div>
       )}
@@ -2148,10 +2155,10 @@ export default function PradexFinancas() {
       {/* FP */}
       {tela === "fp" && podeFp && (
         <div>
-          <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em" }}>Planejamento Financeiro</p>
+          <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Planejamento Financeiro</p>
 
           {/* Subabas */}
-          <div style={{ display: "flex", background: "#0F1117", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", gap: "2px", border: "1px solid #252832" }}>
+          <div style={{ display: "flex", background: "#0C0E14", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", gap: "2px", border: "1px solid #1E2330" }}>
             {[
               { key: "perfil", label: "Perfil" },
               { key: "objetivos", label: "Objetivos" },
@@ -2166,8 +2173,8 @@ export default function PradexFinancas() {
                 style={{
                   flex: 1, padding: "0.4rem 0.1rem", border: "none", borderRadius: "8px",
                   cursor: "pointer", fontSize: "0.6rem", fontWeight: 600, whiteSpace: "nowrap",
-                  background: fpAba === aba.key ? "#252832" : "transparent",
-                  color: fpAba === aba.key ? "#F0F0F0" : "#555",
+                  background: fpAba === aba.key ? "#1E2330" : "transparent",
+                  color: fpAba === aba.key ? "#F1F2F4" : "#5C6570",
                   transition: "all 0.2s", fontFamily: "inherit"
                 }}
               >
@@ -2196,11 +2203,11 @@ export default function PradexFinancas() {
 
           {/* Outras abas — em breve */}
           {fpAba !== "perfil" && fpAba !== "objetivos" && fpAba !== "rendas" && fpAba !== "investimentos" && fpAba !== "bens" && fpAba !== "diagnostico" && (
-            <div style={{ background: "#181B24", borderRadius: "16px", padding: "2rem 1.5rem", border: "1px solid #252832", textAlign: "center" }}>
+            <div style={{ background: "#151821", borderRadius: "16px", padding: "2rem 1.5rem", border: "1px solid #1E2330", textAlign: "center" }}>
               <p style={{ margin: "0 0 0.4rem", fontSize: "1.5rem" }}>🚧</p>
-              <p style={{ margin: "0 0 0.25rem", fontSize: "0.9rem", color: "#CFCFCF", fontWeight: 600 }}>Em construção</p>
-              <p style={{ margin: 0, fontSize: "0.8rem", color: "#555" }}>
-                A aba <strong style={{ color: "#888" }}>
+              <p style={{ margin: "0 0 0.25rem", fontSize: "0.9rem", color: "#8B93A1", fontWeight: 600 }}>Em construção</p>
+              <p style={{ margin: 0, fontSize: "0.8rem", color: "#5C6570" }}>
+                A aba <strong style={{ color: "#8B93A1" }}>
                   {fpAba === "investimentos" ? "Investimentos" : fpAba === "bens" ? "Bens" : "Diagnóstico"}
                 </strong> será implementada em breve.
               </p>
