@@ -312,7 +312,7 @@ export default function ObjetivosFP({ session }) {
       </div>
 
       {erro && (
-        <div style={{ ...aviso, marginTop: 16, background: "rgba(244,67,54,0.08)", border: "1px solid rgba(244,67,54,0.3)", color: "#ef9a9a" }}>
+        <div style={{ ...aviso, marginTop: 16, background: "rgba(244,67,54,0.08)", border: "1px solid rgba(244,67,54,0.3)", color: "#E06C65" }}>
           <span>!</span>
           <span>{erro}</span>
         </div>
@@ -322,8 +322,8 @@ export default function ObjetivosFP({ session }) {
 }
 
 const card = {
-  background: "var(--card-bg, #1a1a2e)",
-  border: "1px solid var(--border, #2a2a4a)",
+  background: "var(--card-bg, #151821)",
+  border: "1px solid var(--border, #1E2330)",
   borderRadius: 12,
   padding: "24px 20px",
 };
@@ -331,7 +331,7 @@ const cardHeader = { marginBottom: 20 };
 const badge = {
   display: "inline-block",
   background: "rgba(124,106,247,0.15)",
-  color: "var(--accent, #7c6af7)",
+  color: "var(--accent, #C6A46B)",
   fontSize: 11,
   fontWeight: 700,
   padding: "3px 10px",
@@ -340,8 +340,8 @@ const badge = {
   textTransform: "uppercase",
   letterSpacing: "0.06em",
 };
-const titulo = { margin: "0 0 6px", fontSize: 18, fontWeight: 700, color: "var(--text-primary, #e8e8f0)" };
-const subtitulo = { margin: "0 0 12px", fontSize: 13, color: "var(--text-muted, #888)" };
+const titulo = { margin: "0 0 6px", fontSize: 18, fontWeight: 700, color: "var(--text-primary, #F1F2F4)" };
+const subtitulo = { margin: "0 0 12px", fontSize: 13, color: "var(--text-muted, #8B93A1)" };
 const aviso = {
   display: "flex",
   gap: 10,
@@ -355,19 +355,19 @@ const aviso = {
 };
 const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 16 };
 const campo = { display: "flex", flexDirection: "column", gap: 6 };
-const lbl = { fontSize: 12, fontWeight: 600, color: "var(--text-secondary, #aaa)", textTransform: "uppercase", letterSpacing: "0.05em" };
+const lbl = { fontSize: 12, fontWeight: 600, color: "var(--text-secondary, #8B93A1)", textTransform: "uppercase", letterSpacing: "0.05em" };
 const input = {
-  background: "var(--input-bg, #0f0f1e)",
-  border: "1px solid var(--border, #2a2a4a)",
+  background: "var(--input-bg, #0C0E14)",
+  border: "1px solid var(--border, #1E2330)",
   borderRadius: 8,
   padding: "10px 12px",
-  color: "var(--text-primary, #e8e8f0)",
+  color: "var(--text-primary, #F1F2F4)",
   fontSize: 14,
   outline: "none",
 };
 const linhaObjetivo = {
   background: "rgba(255,255,255,0.03)",
-  border: "1px solid var(--border, #2a2a4a)",
+  border: "1px solid var(--border, #1E2330)",
   borderRadius: 10,
   padding: "16px",
   marginBottom: 16,
@@ -376,7 +376,7 @@ const linhaHeader = { display: "flex", justifyContent: "space-between", alignIte
 const numeroBadge = {
   width: 26,
   height: 26,
-  background: "var(--accent, #7c6af7)",
+  background: "var(--accent, #C6A46B)",
   borderRadius: "50%",
   display: "flex",
   alignItems: "center",
@@ -386,9 +386,9 @@ const numeroBadge = {
   color: "#fff",
 };
 const rodape = { display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 16, marginTop: 20 };
-const okStyle = { fontSize: 13, color: "#4caf50", fontWeight: 600 };
+const okStyle = { fontSize: 13, color: "#2FBF8A", fontWeight: 600 };
 const btnPrimario = {
-  background: "var(--accent, #7c6af7)",
+  background: "var(--accent, #C6A46B)",
   color: "#fff",
   border: "none",
   borderRadius: 8,
@@ -399,8 +399,8 @@ const btnPrimario = {
 };
 const btnSecundario = {
   background: "transparent",
-  color: "var(--accent, #7c6af7)",
-  border: "1px solid var(--accent, #7c6af7)",
+  color: "var(--accent, #C6A46B)",
+  border: "1px solid var(--accent, #C6A46B)",
   borderRadius: 8,
   padding: "8px 16px",
   fontSize: 13,
@@ -410,7 +410,7 @@ const btnSecundario = {
 };
 const btnRemover = {
   background: "transparent",
-  color: "#e57373",
+  color: "#E06C65",
   border: "1px solid rgba(229,115,115,0.3)",
   borderRadius: 6,
   padding: "4px 10px",

@@ -466,13 +466,13 @@ export default function RendasDespesasFP({ session }) {
   return (
     <div style={styles.container}>
       <div style={styles.resumoRow}>
-        <div style={{ ...styles.resumoCard, borderColor: "#4caf50" }}>
+        <div style={{ ...styles.resumoCard, borderColor: "#2FBF8A" }}>
           <div style={styles.resumoLabel}>RECEITA DO MES ATUAL</div>
-          <div style={{ ...styles.resumoValor, color: "#4caf50" }}>{formatBRL(resumoLancamentos.receitasMesAtual)}</div>
+          <div style={{ ...styles.resumoValor, color: "#2FBF8A" }}>{formatBRL(resumoLancamentos.receitasMesAtual)}</div>
         </div>
-        <div style={{ ...styles.resumoCard, borderColor: "#f44336" }}>
+        <div style={{ ...styles.resumoCard, borderColor: "#E06C65" }}>
           <div style={styles.resumoLabel}>DESPESA DO MES ATUAL</div>
-          <div style={{ ...styles.resumoValor, color: "#f44336" }}>{formatBRL(resumoLancamentos.despesasMesAtual)}</div>
+          <div style={{ ...styles.resumoValor, color: "#E06C65" }}>{formatBRL(resumoLancamentos.despesasMesAtual)}</div>
         </div>
       </div>
 
@@ -559,11 +559,11 @@ const styles = {
   loading: {
     padding: 40,
     textAlign: "center",
-    color: "#888",
+    color: "#8B93A1",
   },
   aviso: {
     background: "#fff8e1",
-    border: "1px solid #ffe082",
+    border: "1px solid #E8943A",
     borderRadius: 8,
     padding: "12px 16px",
     marginBottom: 24,
@@ -585,7 +585,7 @@ const styles = {
   },
   resumoLabel: {
     fontSize: 12,
-    color: "#777",
+    color: "#8B93A1",
     marginBottom: 6,
     textTransform: "uppercase",
     letterSpacing: 0.5,
@@ -607,23 +607,23 @@ const styles = {
     fontSize: 18,
     fontWeight: 700,
     margin: 0,
-    color: "#E8E8E8",
+    color: "#F1F2F4",
   },
   vazio: {
     padding: "24px 0",
-    color: "#aaa",
+    color: "#8B93A1",
     fontSize: 14,
     textAlign: "center",
-    background: "#fafafa",
+    background: "#F1F2F4",
     borderRadius: 8,
-    border: "1px dashed #e0e0e0",
+    border: "1px dashed #F1F2F4",
   },
   card: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
     background: "#fff",
-    border: "1px solid #e8e8e8",
+    border: "1px solid #F1F2F4",
     borderRadius: 10,
     padding: "14px 18px",
     marginBottom: 10,
@@ -635,17 +635,17 @@ const styles = {
   cardTitulo: {
     fontWeight: 600,
     fontSize: 15,
-    color: "#1a1a1a",
+    color: "#0C0E14",
     marginBottom: 3,
   },
   cardSub: {
     fontSize: 12,
-    color: "#777",
+    color: "#8B93A1",
     marginBottom: 3,
   },
   cardDatas: {
     fontSize: 12,
-    color: "#aaa",
+    color: "#8B93A1",
   },
   cardRight: {
     textAlign: "right",
@@ -657,7 +657,7 @@ const styles = {
   cardValor: {
     fontWeight: 700,
     fontSize: 16,
-    color: "#1a1a1a",
+    color: "#0C0E14",
   },
   cardAcoes: {
     display: "flex",
@@ -666,7 +666,7 @@ const styles = {
   },
   btnAcao: {
     background: "none",
-    border: "1px solid #d9d9d9",
+    border: "1px solid #F1F2F4",
     cursor: "pointer",
     fontSize: 12,
     padding: "4px 8px",
@@ -699,12 +699,12 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     padding: "20px 24px 16px",
-    borderBottom: "1px solid #f0f0f0",
+    borderBottom: "1px solid #F1F2F4",
   },
   modalTitulo: {
     fontSize: 20,
     fontWeight: 700,
-    color: "#1a1a1a",
+    color: "#0C0E14",
     textTransform: "capitalize",
   },
   btnFechar: {
@@ -712,7 +712,7 @@ const styles = {
     border: "none",
     fontSize: 24,
     cursor: "pointer",
-    color: "#888",
+    color: "#8B93A1",
     lineHeight: 1,
     padding: 0,
   },
@@ -726,7 +726,7 @@ const styles = {
     justifyContent: "flex-end",
     gap: 12,
     padding: "16px 24px",
-    borderTop: "1px solid #f0f0f0",
+    borderTop: "1px solid #F1F2F4",
   },
   campo: {
     marginBottom: 16,
@@ -734,18 +734,18 @@ const styles = {
   label: {
     display: "block",
     fontSize: 12,
-    color: "#888",
+    color: "#8B93A1",
     marginBottom: 6,
   },
   input: {
     width: "100%",
     padding: "10px 12px",
     border: "none",
-    borderBottom: "1.5px solid #ddd",
+    borderBottom: "1.5px solid #8B93A1",
     borderRadius: 0,
     fontSize: 15,
-    color: "#1a1a1a",
-    background: "#fafafa",
+    color: "#0C0E14",
+    background: "#F1F2F4",
     outline: "none",
     boxSizing: "border-box",
   },
@@ -753,10 +753,10 @@ const styles = {
     width: "100%",
     padding: "10px 12px",
     border: "none",
-    borderBottom: "1.5px solid #ddd",
-    background: "#fafafa",
+    borderBottom: "1.5px solid #8B93A1",
+    background: "#F1F2F4",
     fontSize: 15,
-    color: "#1a1a1a",
+    color: "#0C0E14",
     outline: "none",
     cursor: "pointer",
     appearance: "none",
@@ -776,38 +776,38 @@ const styles = {
     flex: 1,
     padding: "8px 10px",
     border: "none",
-    borderBottom: "1.5px solid #ddd",
-    background: "#fafafa",
+    borderBottom: "1.5px solid #8B93A1",
+    background: "#F1F2F4",
     fontSize: 13,
-    color: "#1a1a1a",
+    color: "#0C0E14",
     outline: "none",
     cursor: "pointer",
     boxSizing: "border-box",
   },
   tagFamiliar: {
     fontSize: 12,
-    color: "#888",
+    color: "#8B93A1",
     marginBottom: 14,
   },
   radioLabel: {
     display: "flex",
     alignItems: "center",
     fontSize: 14,
-    color: "#333",
+    color: "#5C6570",
     marginBottom: 8,
     cursor: "pointer",
   },
   erro: {
     background: "#ffebee",
-    color: "#c62828",
+    color: "#E06C65",
     borderRadius: 6,
     padding: "8px 12px",
     fontSize: 13,
     marginTop: 8,
   },
   btnAdicionar: {
-    background: "#f5c800",
-    color: "#1a1a1a",
+    background: "#E8943A",
+    color: "#0C0E14",
     border: "none",
     borderRadius: 6,
     padding: "10px 20px",
@@ -818,7 +818,7 @@ const styles = {
   btnCancelar: {
     background: "none",
     border: "none",
-    color: "#555",
+    color: "#5C6570",
     fontSize: 14,
     cursor: "pointer",
     padding: "10px 16px",
@@ -837,7 +837,7 @@ const styles = {
   cardLancTitulo: {
     fontWeight: 700,
     fontSize: 14,
-    color: "#E8E8E8",
+    color: "#F1F2F4",
     marginBottom: 3,
   },
   cardLancSub: {
@@ -847,7 +847,7 @@ const styles = {
   cardLancValor: {
     fontWeight: 700,
     fontSize: 18,
-    color: "#f44336",
+    color: "#E06C65",
     marginBottom: 6,
   },
   btnUsarTotal: {

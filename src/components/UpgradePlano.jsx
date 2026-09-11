@@ -19,10 +19,10 @@ const BOTAO = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  background: "#6366F1",
+  background: "#C6A46B",
   border: "none",
   borderRadius: "10px",
-  color: "#fff",
+  color: "#0C0E14",
   fontSize: "0.82rem",
   fontWeight: 700,
   fontFamily: "inherit",
@@ -41,8 +41,8 @@ export default function UpgradePlano({ plano, recurso, variant = "card", trial =
   return (
     <div
       style={{
-        background: "#6366F112",
-        border: "1px solid #6366F140",
+        background: "#C6A46B12",
+        border: "1px solid #C6A46B40",
         borderRadius: "16px",
         padding: tela ? "2rem 1.5rem" : "1rem 1.25rem",
         marginBottom: "1.25rem",
@@ -56,8 +56,8 @@ export default function UpgradePlano({ plano, recurso, variant = "card", trial =
             height: tela ? "48px" : "40px",
             borderRadius: "12px",
             flexShrink: 0,
-            background: "#6366F1",
-            color: "#fff",
+            background: "#C6A46B",
+            color: "#0C0E14",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -67,9 +67,9 @@ export default function UpgradePlano({ plano, recurso, variant = "card", trial =
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ margin: "0 0 0.15rem", fontSize: tela ? "1.05rem" : "0.92rem", fontWeight: 700, color: "#E8E8E8" }}>{titulo}</p>
-          <p style={{ margin: "0 0 0.35rem", fontSize: "0.76rem", color: "#888", lineHeight: 1.4 }}>{descricao}</p>
-          <p style={{ margin: 0, fontSize: "0.72rem", color: "#6366F1", fontWeight: 600 }}>{nota}</p>
+          <p style={{ margin: "0 0 0.15rem", fontSize: tela ? "1.05rem" : "0.92rem", fontWeight: 700, color: "#F1F2F4" }}>{titulo}</p>
+          <p style={{ margin: "0 0 0.35rem", fontSize: "0.76rem", color: "#8B93A1", lineHeight: 1.4 }}>{descricao}</p>
+          <p style={{ margin: 0, fontSize: "0.72rem", color: "#C6A46B", fontWeight: 600 }}>{nota}</p>
 
           {acaoTrial ? (
             <button
