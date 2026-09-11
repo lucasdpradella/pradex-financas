@@ -331,7 +331,7 @@ const cardHeader = { marginBottom: 20 };
 const badge = {
   display: "inline-block",
   background: "rgba(124,106,247,0.15)",
-  color: "var(--accent, #C6A46B)",
+  color: "var(--accent, #6366F1)",
   fontSize: 11,
   fontWeight: 700,
   padding: "3px 10px",
@@ -376,7 +376,7 @@ const linhaHeader = { display: "flex", justifyContent: "space-between", alignIte
 const numeroBadge = {
   width: 26,
   height: 26,
-  background: "var(--accent, #C6A46B)",
+  background: "var(--accent, #6366F1)",
   borderRadius: "50%",
   display: "flex",
   alignItems: "center",
@@ -388,7 +388,7 @@ const numeroBadge = {
 const rodape = { display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 16, marginTop: 20 };
 const okStyle = { fontSize: 13, color: "#2FBF8A", fontWeight: 600 };
 const btnPrimario = {
-  background: "var(--accent, #C6A46B)",
+  background: "var(--accent, #6366F1)",
   color: "#fff",
   border: "none",
   borderRadius: 8,
@@ -399,8 +399,8 @@ const btnPrimario = {
 };
 const btnSecundario = {
   background: "transparent",
-  color: "var(--accent, #C6A46B)",
-  border: "1px solid var(--accent, #C6A46B)",
+  color: "var(--accent, #6366F1)",
+  border: "1px solid var(--accent, #6366F1)",
   borderRadius: 8,
   padding: "8px 16px",
   fontSize: 13,

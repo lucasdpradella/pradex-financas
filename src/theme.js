@@ -20,12 +20,15 @@ export const theme = {
   textMuted: "#8B93A1",
   textFaint: "#5C6570",
 
-  // Marca. O indigo morreu em 2026-09-11: no Brasil roxo é Nubank, no código era o
-  // default do Tailwind, e ainda havia dois hex concorrentes.
-  accent: "#C6A46B",
-  // Bronze é CLARO (luminância ~0.41). Texto branco em cima dele dá ~2.3:1 e reprova em
-  // qualquer critério. Quando o acento for fundo, o texto usa isto — dá ~8:1.
-  onAccent: "#0C0E14",
+  // Marca. O bronze #C6A46B foi testado em 2026-09-11 e reprovado pelo PRADELLA depois
+  // de ver o app logado — o azul fica. O que a rodada resolveu foi a DUPLICIDADE: havia
+  // dois hex de marca brigando (#6366f1 no mobile, #4F46E5 no shell desktop) mais duas
+  // variantes soltas (#7c6af7, #7c3aed). Agora é um só.
+  accent: "#6366F1",
+  // O azul é escuro o bastante pra carregar texto branco (~4.4:1). Se um dia o acento
+  // virar um tom claro, isto precisa virar #0C0E14 junto — foi o que quebrou no teste
+  // do bronze, onde o branco caía pra 2.3:1 nos 11 botões de fundo sólido.
+  onAccent: "#FFFFFF",
 
   // Semânticas. Valem pra variação, nunca pro número-herói do saldo:
   // pintar o saldo ensina o usuário a ter medo do próprio número.

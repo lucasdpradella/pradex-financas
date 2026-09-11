@@ -509,7 +509,7 @@ const styles = {
   assumptions: { display: "grid", gap: "0.45rem" },
   assumptionRow: { display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "center" },
   assumptionLabel: { fontSize: "0.8rem", color: "#8B93A1" },
-  assumptionValue: { fontSize: "0.82rem", color: "#C6A46B", fontWeight: 700, textAlign: "right" },
+  assumptionValue: { fontSize: "0.82rem", color: "#6366F1", fontWeight: 700, textAlign: "right" },
   scenarioList: { display: "grid", gap: "0.85rem" },
   scenarioCard: { border: "1px solid #1E2330", borderRadius: "12px", padding: "0.95rem 1rem", boxShadow: "0 1px 2px rgba(0,0,0,0.16)" },
   scenarioHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.75rem", marginBottom: "0.9rem" },

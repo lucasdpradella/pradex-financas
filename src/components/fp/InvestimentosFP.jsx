@@ -213,7 +213,7 @@ export default function InvestimentosFP({ session }) {
       <div style={st.resumoRow}>
         <div style={st.resumoCard}>
           <div style={st.resumoLabel}>Total investido</div>
-          <div style={{ ...st.resumoValor, color: "#C6A46B" }}>{formatBRL(totalGeral)}</div>
+          <div style={{ ...st.resumoValor, color: "#6366F1" }}>{formatBRL(totalGeral)}</div>
         </div>
         {TIPOS.map((tipo) => {
           const total = investimentos.filter((i) => i.tipo === tipo).reduce((s, i) => s + Number(i.valor || 0), 0);
@@ -299,7 +299,7 @@ const st = {
   cardTitulo: { fontWeight: 600, fontSize: 14, color: "#F1F2F4", marginBottom: 3 },
   cardSub: { fontSize: 12, color: "#5C6570" },
   cardRight: { textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 },
-  cardValor: { fontWeight: 700, fontSize: 16, color: "#C6A46B" },
+  cardValor: { fontWeight: 700, fontSize: 16, color: "#6366F1" },
   cardAcoes: { display: "flex", gap: 6 },
   btnAcao: { background: "none", border: "none", cursor: "pointer", fontSize: 14, padding: "2px 4px", borderRadius: 4 },
   overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 },
@@ -314,6 +314,6 @@ const st = {
   input: { width: "100%", background: "#0C0E14", border: "1px solid var(--border, #2C3344)", borderRadius: 8, padding: "9px 12px", color: "#F1F2F4", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" },
   select: { width: "100%", background: "#0C0E14", border: "1px solid var(--border, #2C3344)", borderRadius: 8, padding: "9px 12px", color: "#F1F2F4", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" },
   erro: { background: "rgba(239,68,68,.1)", color: "#E06C65", borderRadius: 6, padding: "8px 12px", fontSize: 13, marginTop: 8 },
-  btnPrimario: { background: "#C6A46B", color: "#0C0E14", border: "none", borderRadius: 8, padding: "9px 18px", fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "inherit" },
+  btnPrimario: { background: "#6366F1", color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "inherit" },
   btnCancelar: { background: "none", border: "none", color: "#5C6570", fontSize: 13, cursor: "pointer", padding: "9px 16px", fontFamily: "inherit" },
 };

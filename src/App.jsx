@@ -64,7 +64,7 @@ const montarCategories = (rows) => {
   };
 };
 
-const COLORS = ["#C6A46B","#2FBF8A","#E8943A","#E06C65","#C6A46B","#EC4899","#14B8A6","#F97316"];
+const COLORS = ["#6366F1","#2FBF8A","#E8943A","#E06C65","#6366F1","#EC4899","#14B8A6","#F97316"];
 const formatBRL = (value) => Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const monthNames = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 const today = new Date().toISOString().split("T")[0];
@@ -143,7 +143,7 @@ function GraficoSimulador({ labels, dadosComAporte, dadosSemAporte, meta }) {
     if (!canvasRef.current || !window.Chart) return;
     if (instanceRef.current) instanceRef.current.destroy();
     const datasets = [
-      { label: "Com aportes", data: dadosComAporte, borderColor: "#C6A46B", backgroundColor: "rgba(99,102,241,0.08)", fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 },
+      { label: "Com aportes", data: dadosComAporte, borderColor: "#6366F1", backgroundColor: "rgba(99,102,241,0.08)", fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 },
       { label: "Só rendimento", data: dadosSemAporte, borderColor: "#5C6570", backgroundColor: "transparent", fill: false, tension: 0.4, pointRadius: 0, borderWidth: 1.5, borderDash: [4, 4] },
     ];
     if (meta > 0) datasets.push({ label: "Meta", data: Array(labels.length).fill(meta), borderColor: "#E8943A", backgroundColor: "transparent", fill: false, pointRadius: 0, borderWidth: 1.5, borderDash: [6, 4] });
@@ -1246,7 +1246,7 @@ export default function PradexFinancas() {
             </>
           )}
           {authErro && <p style={{ color: "#E06C65", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{authErro}</p>}
-          <button onClick={handleAuth} disabled={authLoading} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", background: "#C6A46B", color: "#0C0E14", fontSize: "0.95rem", fontWeight: 700, cursor: authLoading ? "not-allowed" : "pointer", opacity: authLoading ? 0.7 : 1, fontFamily: "inherit" }}>{authLoading ? "Aguarde..." : authMode === "login" ? "Entrar" : "Criar conta"}</button>
+          <button onClick={handleAuth} disabled={authLoading} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", background: "#6366F1", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: authLoading ? "not-allowed" : "pointer", opacity: authLoading ? 0.7 : 1, fontFamily: "inherit" }}>{authLoading ? "Aguarde..." : authMode === "login" ? "Entrar" : "Criar conta"}</button>
         </div>
       </div>
     </div>
@@ -1341,7 +1341,7 @@ export default function PradexFinancas() {
             {editando.tipo === "gasto" && editando.forma_pagamento === "Crédito" && (
               <div style={{ marginBottom: "0.75rem" }}>
                 {!editando._compraParcelada && (
-                  <button onClick={() => setEditando(ed => ({ ...ed, parcelado: !ed.parcelado, parcela_atual: ed.parcelado ? "1" : (ed.parcela_atual || "1"), total_parcelas: ed.parcelado ? "" : ed.total_parcelas, recorrente: false }))} style={{ width: "100%", padding: "0.75rem", border: `1px solid ${editando.parcelado ? "#C6A46B" : "#1E2330"}`, borderRadius: "10px", background: editando.parcelado ? "#C6A46B18" : "transparent", color: editando.parcelado ? "#C6A46B" : "#5C6570", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s" }}>
+                  <button onClick={() => setEditando(ed => ({ ...ed, parcelado: !ed.parcelado, parcela_atual: ed.parcelado ? "1" : (ed.parcela_atual || "1"), total_parcelas: ed.parcelado ? "" : ed.total_parcelas, recorrente: false }))} style={{ width: "100%", padding: "0.75rem", border: `1px solid ${editando.parcelado ? "#6366F1" : "#1E2330"}`, borderRadius: "10px", background: editando.parcelado ? "#6366F118" : "transparent", color: editando.parcelado ? "#6366F1" : "#5C6570", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s" }}>
                     {editando.parcelado ? "Compra parcelada" : "+ Marcar como compra parcelada"}
                   </button>
                 )}
@@ -1368,7 +1368,7 @@ export default function PradexFinancas() {
             )}
             <input type="date" value={editando.data_lancamento} onChange={e => setEditando(ed => ({ ...ed, data_lancamento: e.target.value }))} style={inputStyle} />
             {editando.tipo === "gasto" && !editando.parcelado && (
-              <button onClick={() => setEditando(ed => ({ ...ed, recorrente: !ed.recorrente }))} style={{ width: "100%", padding: "0.75rem", border: `1px solid ${editando.recorrente ? "#C6A46B" : "#1E2330"}`, borderRadius: "10px", background: editando.recorrente ? "#C6A46B18" : "transparent", color: editando.recorrente ? "#C6A46B" : "#5C6570", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginBottom: "0.75rem", transition: "all 0.2s" }}>
+              <button onClick={() => setEditando(ed => ({ ...ed, recorrente: !ed.recorrente }))} style={{ width: "100%", padding: "0.75rem", border: `1px solid ${editando.recorrente ? "#6366F1" : "#1E2330"}`, borderRadius: "10px", background: editando.recorrente ? "#6366F118" : "transparent", color: editando.recorrente ? "#6366F1" : "#5C6570", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginBottom: "0.75rem", transition: "all 0.2s" }}>
                 {editando.recorrente ? "Recorrente ativa até Dez/" + new Date().getFullYear() : "Marcar como recorrente"}
               </button>
             )}
@@ -1389,7 +1389,7 @@ export default function PradexFinancas() {
             </button>
             <div style={{ display: "flex", gap: "0.75rem" }}>
               <button onClick={() => setEditando(null)} style={{ flex: 1, padding: "0.75rem", border: "1px solid #1E2330", borderRadius: "10px", background: "transparent", color: "#8B93A1", fontSize: "0.9rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
-              <button onClick={handleSaveEdit} disabled={savingEdit} style={{ flex: 2, padding: "0.75rem", border: "none", borderRadius: "10px", background: "#C6A46B", color: "#0C0E14", fontSize: "0.9rem", fontWeight: 700, cursor: savingEdit ? "not-allowed" : "pointer", opacity: savingEdit ? 0.7 : 1, fontFamily: "inherit" }}>
+              <button onClick={handleSaveEdit} disabled={savingEdit} style={{ flex: 2, padding: "0.75rem", border: "none", borderRadius: "10px", background: "#6366F1", color: "#fff", fontSize: "0.9rem", fontWeight: 700, cursor: savingEdit ? "not-allowed" : "pointer", opacity: savingEdit ? 0.7 : 1, fontFamily: "inherit" }}>
                 {savingEdit ? "Salvando..." : "Salvar alterações"}
               </button>
             </div>
@@ -1430,7 +1430,7 @@ export default function PradexFinancas() {
                 <button onClick={() => handleDelete(compraDetalhe)} disabled={deletandoCompra} style={{ flex: 1, padding: "0.75rem", border: "1px solid #E06C6540", borderRadius: "10px", background: "transparent", color: "#E06C65", fontSize: "0.9rem", fontWeight: 600, cursor: deletandoCompra ? "not-allowed" : "pointer", opacity: deletandoCompra ? 0.6 : 1, fontFamily: "inherit" }}>
                   {deletandoCompra ? "Excluindo..." : "Excluir compra"}
                 </button>
-                <button onClick={() => { handleEdit(compraDetalhe); setCompraDetalhe(null); }} style={{ flex: 2, padding: "0.75rem", border: "none", borderRadius: "10px", background: "#C6A46B", color: "#0C0E14", fontSize: "0.9rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                <button onClick={() => { handleEdit(compraDetalhe); setCompraDetalhe(null); }} style={{ flex: 2, padding: "0.75rem", border: "none", borderRadius: "10px", background: "#6366F1", color: "#fff", fontSize: "0.9rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
                   Editar compra
                 </button>
               </div>
@@ -1453,7 +1453,7 @@ export default function PradexFinancas() {
       </div>
 
       {podeZap && precisaCadastrarTelefone && !bannerTelefoneFechado && (
-        <div style={{ background: "#C6A46B12", border: "1px solid #C6A46B40", borderRadius: "14px", padding: "1rem 1.1rem", marginBottom: "1.25rem", display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
+        <div style={{ background: "#6366F112", border: "1px solid #6366F140", borderRadius: "14px", padding: "1rem 1.1rem", marginBottom: "1.25rem", display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
           <div style={{ flex: 1 }}>
             <p style={{ margin: "0 0 0.25rem", fontSize: "0.85rem", fontWeight: 700, color: "#F1F2F4" }}>Complete seu cadastro</p>
             <p style={{ margin: "0 0 0.7rem", fontSize: "0.78rem", color: "#8B93A1", lineHeight: 1.45 }}>
@@ -1461,7 +1461,7 @@ export default function PradexFinancas() {
             </p>
             <button
               onClick={() => { setTela("fp"); setFpAba("perfil"); }}
-              style={{ background: "#C6A46B", border: "none", borderRadius: "8px", color: "#0C0E14", cursor: "pointer", padding: "0.45rem 0.9rem", fontSize: "0.78rem", fontWeight: 700, fontFamily: "inherit" }}
+              style={{ background: "#6366F1", border: "none", borderRadius: "8px", color: "#fff", cursor: "pointer", padding: "0.45rem 0.9rem", fontSize: "0.78rem", fontWeight: 700, fontFamily: "inherit" }}
             >
               Ir para o perfil
             </button>
@@ -1525,7 +1525,7 @@ export default function PradexFinancas() {
               whiteSpace: "nowrap", transition: "all 0.2s", fontFamily: "inherit",
               // Fix 1 — ativo no indigo da marca; inativo em #5C6570 (era #5C6570, abaixo do
               // contraste mínimo sobre #0C0E14).
-              background: ativo ? "#C6A46B" : "transparent",
+              background: ativo ? "#6366F1" : "transparent",
               color: ativo ? "#fff" : "#5C6570",
             }}>{t.label}</button>
           );
@@ -1638,7 +1638,7 @@ export default function PradexFinancas() {
               {/* Quem está no teste precisa saber que ele acaba — descobrir pelo
                   silêncio no dia 15 é a pior versão disso. */}
               {trialAtivo(trial) && (
-                <p style={{ margin: "0.3rem 0 0", fontSize: "0.72rem", color: "#C6A46B", fontWeight: 600 }}>
+                <p style={{ margin: "0.3rem 0 0", fontSize: "0.72rem", color: "#6366F1", fontWeight: 600 }}>
                   Teste grátis · {diasRestantesTrial(trial)} {diasRestantesTrial(trial) === 1 ? "dia restante" : "dias restantes"}
                 </p>
               )}
@@ -1708,7 +1708,7 @@ export default function PradexFinancas() {
                       {mes.parcelas.map((parcela) => (
                         <div key={parcela.id} style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", marginTop: "0.3rem" }}>
                           <p style={{ margin: 0, fontSize: "0.72rem", color: "#8B93A1", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {limparDescricaoParcela(parcela.descricao)} <span style={{ color: "#C6A46B" }}>{parcela.parcela_atual}/{parcela.total_parcelas}x</span>
+                            {limparDescricaoParcela(parcela.descricao)} <span style={{ color: "#6366F1" }}>{parcela.parcela_atual}/{parcela.total_parcelas}x</span>
                           </p>
                           <p style={{ margin: 0, fontSize: "0.72rem", color: "#8B93A1", whiteSpace: "nowrap" }}>{formatBRL(parcela.valor)}</p>
                         </div>
@@ -1784,7 +1784,7 @@ export default function PradexFinancas() {
             )}
             {form.forma_pagamento === "Crédito" && (
               <div style={{ marginBottom: "0.75rem" }}>
-                <button onClick={() => setForm(f => ({ ...f, parcelado: !f.parcelado, parcela_atual: "1", total_parcelas: "", recorrente: false }))} className="pdx-tap" style={{ width: "100%", padding: "0.65rem 1rem", border: `1px solid ${form.parcelado ? "#C6A46B" : offBorda}`, borderRadius: "10px", background: form.parcelado ? "#C6A46B18" : "transparent", color: form.parcelado ? "#C6A46B" : offTexto, fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s" }}>
+                <button onClick={() => setForm(f => ({ ...f, parcelado: !f.parcelado, parcela_atual: "1", total_parcelas: "", recorrente: false }))} className="pdx-tap" style={{ width: "100%", padding: "0.65rem 1rem", border: `1px solid ${form.parcelado ? "#6366F1" : offBorda}`, borderRadius: "10px", background: form.parcelado ? "#6366F118" : "transparent", color: form.parcelado ? "#6366F1" : offTexto, fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s" }}>
                   {form.parcelado ? "Compra parcelada" : "+ Parcelar no crédito"}
                 </button>
                 {form.parcelado && (
@@ -1797,7 +1797,7 @@ export default function PradexFinancas() {
               </div>
             )}
             {tipo === "gasto" && !form.parcelado && (
-              <button onClick={() => setForm(f => ({ ...f, recorrente: !f.recorrente }))} className="pdx-tap" style={{ width: "100%", padding: "0.65rem 1rem", border: `1px solid ${form.recorrente ? "#C6A46B" : offBorda}`, borderRadius: "10px", background: form.recorrente ? "#C6A46B18" : "transparent", color: form.recorrente ? "#C6A46B" : offTexto, fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s", marginBottom: "0.75rem" }}>
+              <button onClick={() => setForm(f => ({ ...f, recorrente: !f.recorrente }))} className="pdx-tap" style={{ width: "100%", padding: "0.65rem 1rem", border: `1px solid ${form.recorrente ? "#6366F1" : offBorda}`, borderRadius: "10px", background: form.recorrente ? "#6366F118" : "transparent", color: form.recorrente ? "#6366F1" : offTexto, fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all 0.2s", marginBottom: "0.75rem" }}>
                 {form.recorrente ? `Recorrente ativa até Dez/${new Date().getFullYear()}` : "Marcar como recorrente"}
               </button>
             )}
@@ -1815,14 +1815,14 @@ export default function PradexFinancas() {
               <p style={{ margin: "0 0 1rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Nova categoria</p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginBottom: "0.75rem" }}>
                 {["gasto", "receita"].map(t => (
-                  <button key={t} onClick={() => setNovaCategoria(n => ({ ...n, tipo: t }))} style={{ padding: "0.5rem", border: `1px solid ${novaCategoria.tipo === t ? "#C6A46B" : "#1E2330"}`, borderRadius: "8px", background: novaCategoria.tipo === t ? "#C6A46B18" : "transparent", color: novaCategoria.tipo === t ? "#C6A46B" : "#5C6570", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                  <button key={t} onClick={() => setNovaCategoria(n => ({ ...n, tipo: t }))} style={{ padding: "0.5rem", border: `1px solid ${novaCategoria.tipo === t ? "#6366F1" : "#1E2330"}`, borderRadius: "8px", background: novaCategoria.tipo === t ? "#6366F118" : "transparent", color: novaCategoria.tipo === t ? "#6366F1" : "#5C6570", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
                     {t === "gasto" ? "Gasto" : "Receita"}
                   </button>
                 ))}
               </div>
               <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
                 <input type="text" placeholder="Nome da categoria" value={novaCategoria.nome} onChange={e => setNovaCategoria(n => ({ ...n, nome: e.target.value }))} onKeyDown={e => e.key === "Enter" && handleAddCategoria()} style={{ ...inputStyle, marginBottom: 0, flex: 1 }} />
-                <button onClick={handleAddCategoria} style={{ padding: "0.75rem 1rem", border: "none", borderRadius: "10px", background: "#C6A46B", color: "#0C0E14", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>Adicionar</button>
+                <button onClick={handleAddCategoria} style={{ padding: "0.75rem 1rem", border: "none", borderRadius: "10px", background: "#6366F1", color: "#fff", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>Adicionar</button>
               </div>
               <p style={{ margin: "0 0 0.5rem", fontSize: "0.7rem", color: "#5C6570", textTransform: "uppercase", letterSpacing: "0.1em" }}>Gastos</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginBottom: "1rem" }}>
@@ -1859,7 +1859,7 @@ export default function PradexFinancas() {
                 <input type="number" placeholder="Dia vencimento" min="1" max="31" value={formCartao.dia_vencimento} onChange={e => setFormCartao(f => ({ ...f, dia_vencimento: e.target.value }))} style={{ ...inputStyle, marginBottom: 0 }} />
               </div>
               {erroCartao && <p style={{ color: "#E06C65", fontSize: "0.8rem", marginBottom: "0.75rem", marginTop: "0.75rem" }}>{erroCartao}</p>}
-              <button onClick={handleSaveCartao} disabled={savingCartao} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", marginTop: "0.75rem", background: successCartao ? "#2FBF8A" : "#C6A46B", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: savingCartao ? "not-allowed" : "pointer", opacity: savingCartao ? 0.7 : 1, transition: "all 0.2s", fontFamily: "inherit" }}>{savingCartao ? "Salvando..." : successCartao ? "Salvo!" : "Adicionar cartão"}</button>
+              <button onClick={handleSaveCartao} disabled={savingCartao} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", marginTop: "0.75rem", background: successCartao ? "#2FBF8A" : "#6366F1", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: savingCartao ? "not-allowed" : "pointer", opacity: savingCartao ? 0.7 : 1, transition: "all 0.2s", fontFamily: "inherit" }}>{savingCartao ? "Salvando..." : successCartao ? "Salvo!" : "Adicionar cartão"}</button>
               {cartoes.length > 0 && (
                 <div style={{ marginTop: "1rem" }}>
                   {cartoes.map(c => (
@@ -1914,14 +1914,14 @@ export default function PradexFinancas() {
               if (l._compraParcelada) {
                 const cartaoNome = l.cartao_id ? (cartoes.find(c => Number(c.id) === Number(l.cartao_id))?.nome || "") : "";
                 return (
-                  <div key={`compra-${l._grupoParcelaId}`} onClick={() => setCompraDetalhe(l)} style={{ display: "flex", alignItems: "center", padding: "0.9rem 1rem", background: "#151821", borderRadius: "12px", marginBottom: "0.5rem", border: "1px solid #C6A46B40", gap: "0.75rem", cursor: "pointer" }}>
-                    <div style={{ width: "36px", height: "36px", borderRadius: "10px", flexShrink: 0, background: "#C6A46B18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem", color: "#C6A46B" }}>{l._nParcelas}x</div>
+                  <div key={`compra-${l._grupoParcelaId}`} onClick={() => setCompraDetalhe(l)} style={{ display: "flex", alignItems: "center", padding: "0.9rem 1rem", background: "#151821", borderRadius: "12px", marginBottom: "0.5rem", border: "1px solid #6366F140", gap: "0.75rem", cursor: "pointer" }}>
+                    <div style={{ width: "36px", height: "36px", borderRadius: "10px", flexShrink: 0, background: "#6366F118", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem", color: "#6366F1" }}>{l._nParcelas}x</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", fontWeight: 500, color: "#F1F2F4", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.25 }}>
                         {normalizeText(l.descricao)}
                       </p>
                       <p style={{ margin: 0, fontSize: "0.72rem", color: "#5C6570", lineHeight: 1.25 }}>
-                        <span style={{ marginRight: "6px", fontSize: "0.68rem", color: "#C6A46B", background: "#C6A46B15", padding: "1px 6px", borderRadius: "999px" }}>compra parcelada</span>
+                        <span style={{ marginRight: "6px", fontSize: "0.68rem", color: "#6366F1", background: "#6366F115", padding: "1px 6px", borderRadius: "999px" }}>compra parcelada</span>
                         {l._nParcelas}× {formatBRL(l._valorParcela)} · {cartaoNome ? normalizeText(cartaoNome) + " · " : ""}{normalizeText(l.categoria)} · {formatData(l._dataInicio)} → {formatData(l._dataFim)}
                       </p>
                     </div>
@@ -1935,7 +1935,7 @@ export default function PradexFinancas() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", fontWeight: 500, color: "#F1F2F4", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.25 }}>
                       {normalizeText(l.descricao)}
-                      {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#C6A46B", background: "#C6A46B15", padding: "1px 5px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
+                      {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#6366F1", background: "#6366F115", padding: "1px 5px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
                       {l._totalMeses && l._totalMeses > 1 && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#2FBF8A", background: "#2FBF8A15", padding: "1px 6px", borderRadius: "999px" }}>{l._totalMeses} meses</span>}
                     </p>
                     <p style={{ margin: 0, fontSize: "0.72rem", color: "#5C6570", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}</p>
@@ -1993,7 +1993,7 @@ export default function PradexFinancas() {
               <button onClick={() => navegarMes(-1)} style={{ background: "#151821", border: "1px solid #1E2330", borderRadius: "8px", color: "#8B93A1", cursor: "pointer", padding: "0.4rem 0.8rem", fontSize: "1rem", fontFamily: "inherit" }}>‹</button>
               <div style={{ textAlign: "center" }}>
                 <p style={{ margin: 0, fontSize: "1.1rem", fontWeight: 600, color: "#F1F2F4" }}>{monthNames[mes]} {ano}</p>
-                {ehMesAtual && <p style={{ margin: 0, fontSize: "0.7rem", color: "#C6A46B" }}>mês atual</p>}
+                {ehMesAtual && <p style={{ margin: 0, fontSize: "0.7rem", color: "#6366F1" }}>mês atual</p>}
               </div>
               <button onClick={() => navegarMes(1)} style={{ background: "#151821", border: "1px solid #1E2330", borderRadius: "8px", color: "#8B93A1", cursor: "pointer", padding: "0.4rem 0.8rem", fontSize: "1rem", fontFamily: "inherit" }}>›</button>
             </div>
@@ -2038,7 +2038,7 @@ export default function PradexFinancas() {
                           {l.poderia_ter_evitado && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#E8943A", background: "#E8943A15" }}>Evitável</span>}
                           {l.recorrente && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#2FBF8A", background: "#2FBF8A15" }}>Recorrente</span>}
                           {normalizeText(l.descricao)}
-                          {l.total_parcelas && <span style={{ marginLeft: "5px", fontSize: "0.65rem", color: "#C6A46B", background: "#C6A46B15", padding: "1px 4px", borderRadius: "3px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
+                          {l.total_parcelas && <span style={{ marginLeft: "5px", fontSize: "0.65rem", color: "#6366F1", background: "#6366F115", padding: "1px 4px", borderRadius: "3px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
                         </p>
                         <p style={{ margin: 0, fontSize: "0.7rem", color: "#5C6570", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}</p>
                       </div>
@@ -2096,8 +2096,8 @@ export default function PradexFinancas() {
                   {[{ label: "1 ano", valor: dadosComAporte[12], prog: progresso12 }, { label: "3 anos", valor: dadosComAporte[36], prog: progresso36 }, { label: "5 anos", valor: dadosComAporte[60], prog: progresso60 }].map(({ label, valor, prog }) => (
                     <div key={label} style={{ background: "#151821", borderRadius: "12px", padding: "1rem 0.75rem", border: "1px solid #1E2330" }}>
                       <p style={{ margin: "0 0 0.3rem", fontSize: "0.65rem", color: "#5C6570", textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</p>
-                      <p style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", fontWeight: 700, color: "#C6A46B" }}>{formatBRL(valor)}</p>
-                      {meta > 0 && (<><div style={{ background: "#0C0E14", borderRadius: "4px", height: "4px", overflow: "hidden" }}><div style={{ background: prog >= 100 ? "#2FBF8A" : "#C6A46B", height: "100%", width: `${prog}%`, borderRadius: "4px", transition: "width 0.5s" }} /></div><p style={{ margin: "0.25rem 0 0", fontSize: "0.65rem", color: prog >= 100 ? "#2FBF8A" : "#5C6570" }}>{Math.round(prog)}% da meta</p></>)}
+                      <p style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", fontWeight: 700, color: "#6366F1" }}>{formatBRL(valor)}</p>
+                      {meta > 0 && (<><div style={{ background: "#0C0E14", borderRadius: "4px", height: "4px", overflow: "hidden" }}><div style={{ background: prog >= 100 ? "#2FBF8A" : "#6366F1", height: "100%", width: `${prog}%`, borderRadius: "4px", transition: "width 0.5s" }} /></div><p style={{ margin: "0.25rem 0 0", fontSize: "0.65rem", color: prog >= 100 ? "#2FBF8A" : "#5C6570" }}>{Math.round(prog)}% da meta</p></>)}
                     </div>
                   ))}
                 </div>
@@ -2106,7 +2106,7 @@ export default function PradexFinancas() {
                 <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", border: "1px solid #1E2330" }}>
                   <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Projeção patrimonial</p>
                   <div style={{ display: "flex", gap: "1rem", marginBottom: "1rem", flexWrap: "wrap" }}>
-                    <span style={{ fontSize: "0.7rem", color: "#C6A46B" }}>Com aportes</span>
+                    <span style={{ fontSize: "0.7rem", color: "#6366F1" }}>Com aportes</span>
                     <span style={{ fontSize: "0.7rem", color: "#5C6570" }}>Só rendimento</span>
                     {meta > 0 && <span style={{ fontSize: "0.7rem", color: "#E8943A" }}>- - Meta</span>}
                   </div>

@@ -438,7 +438,7 @@ export default function BensFP({ session }) {
       <div style={st.resumoRow}>
         <div style={st.resumoCard}>
           <div style={st.resumoLabel}>Total de bens</div>
-          <div style={{ ...st.resumoValor, color: "#C6A46B" }}>{formatBRL(totalGeral)}</div>
+          <div style={{ ...st.resumoValor, color: "#6366F1" }}>{formatBRL(totalGeral)}</div>
         </div>
         {[
           { label: "Imóveis", total: totalImoveis },
@@ -592,7 +592,7 @@ const st = {
   cardTitulo: { fontWeight: 600, fontSize: 14, color: "#F1F2F4", marginBottom: 3 },
   cardSub: { fontSize: 12, color: "#5C6570" },
   cardRight: { textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 },
-  cardValor: { fontWeight: 700, fontSize: 16, color: "#C6A46B" },
+  cardValor: { fontWeight: 700, fontSize: 16, color: "#6366F1" },
   cardAcoes: { display: "flex", gap: 6 },
   btnAcao: { background: "none", border: "none", cursor: "pointer", fontSize: 14, padding: "2px 4px" },
   grid2: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14, marginBottom: 14 },
@@ -609,6 +609,6 @@ const st = {
   modalBody: { padding: "20px 24px", overflowY: "auto", flex: 1 },
   modalFooter: { display: "flex", justifyContent: "flex-end", gap: 10, padding: "16px 24px", borderTop: "1px solid var(--border, #2C3344)" },
   erro: { background: "rgba(239,68,68,.1)", color: "#E06C65", borderRadius: 6, padding: "8px 12px", fontSize: 13 },
-  btnPrimario: { background: "#C6A46B", color: "#0C0E14", border: "none", borderRadius: 8, padding: "9px 18px", fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "inherit" },
+  btnPrimario: { background: "#6366F1", color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "inherit" },
   btnCancelar: { background: "none", border: "none", color: "#5C6570", fontSize: 13, cursor: "pointer", padding: "9px 16px", fontFamily: "inherit" },
 };
