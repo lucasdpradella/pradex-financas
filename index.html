@@ -9,6 +9,35 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Pradex" />
+
+    <!-- O app inteiro pede 'DM Sans' (App.jsx e os componentes desktop), mas a fonte
+         nunca era carregada: sem @font-face, sem pacote, sem link. Todo texto caía
+         no fallback 'Helvetica Neue' — que não existe em Windows nem Android — e de
+         lá em Arial/Roboto. Os pesos são os que o código usa: 400/500/600/700. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap"
+    />
+
+    <style>
+      /* O <body> não tinha estilo nenhum: margem padrão do user-agent e fonte
+         herdada do navegador. A raiz do React define a sua própria fonte, mas o
+         fundo do body aparecia branco por baixo em overscroll no iOS. */
+      html, body { background: #0F1117; }
+      body {
+        margin: 0;
+        font-family: 'DM Sans', 'Helvetica Neue', system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      /* Acima do breakpoint do shell desktop (1024px) o app é claro — um body
+         escuro piscaria antes do React montar. Mesmo valor de desktopTheme.mainBg. */
+      @media (min-width: 1024px) {
+        html, body { background: #F1F3F9; }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
