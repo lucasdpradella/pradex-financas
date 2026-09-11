@@ -213,7 +213,7 @@ export default function InvestimentosFP({ session }) {
       <div style={st.resumoRow}>
         <div style={st.resumoCard}>
           <div style={st.resumoLabel}>Total investido</div>
-          <div style={{ ...st.resumoValor, color: "#6366F1" }}>{formatBRL(totalGeral)}</div>
+          <div style={{ ...st.resumoValor, color: "#6366f1" }}>{formatBRL(totalGeral)}</div>
         </div>
         {TIPOS.map((tipo) => {
           const total = investimentos.filter((i) => i.tipo === tipo).reduce((s, i) => s + Number(i.valor || 0), 0);
@@ -286,7 +286,7 @@ const st = {
   vazio: { textAlign: "center", padding: "40px 0", color: "#5C6570", fontSize: 14, background: "var(--surface, #151821)", borderRadius: 10, border: "1px dashed var(--border, #2C3344)" },
   resumoRow: { display: "flex", gap: 16, marginBottom: 28, flexWrap: "wrap" },
   resumoCard: { flex: 1, minWidth: 160, background: "var(--surface, #151821)", border: "1px solid var(--border, #2C3344)", borderRadius: 10, padding: "16px 20px" },
-  resumoLabel: { fontSize: 11, color: "#5C6570", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 },
+  resumoLabel: { fontSize: 11, color: "#8B93A1", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 },
   resumoValor: { fontSize: 22, fontWeight: 700 },
   resumoPct: { fontSize: 11, color: "#5C6570", marginTop: 4 },
   sectionHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
@@ -297,23 +297,23 @@ const st = {
   card: { display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--surface, #151821)", border: "1px solid var(--border, #2C3344)", borderRadius: 10, padding: "14px 18px", marginBottom: 8 },
   cardLeft: { flex: 1 },
   cardTitulo: { fontWeight: 600, fontSize: 14, color: "#F1F2F4", marginBottom: 3 },
-  cardSub: { fontSize: 12, color: "#5C6570" },
+  cardSub: { fontSize: 12, color: "#8B93A1" },
   cardRight: { textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 },
-  cardValor: { fontWeight: 700, fontSize: 16, color: "#6366F1" },
+  cardValor: { fontWeight: 700, fontSize: 16, color: "#6366f1" },
   cardAcoes: { display: "flex", gap: 6 },
   btnAcao: { background: "none", border: "none", cursor: "pointer", fontSize: 14, padding: "2px 4px", borderRadius: 4 },
   overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 },
   modal: { background: "var(--surface, #151821)", border: "1px solid var(--border, #2C3344)", borderRadius: 14, width: "100%", maxWidth: 480, maxHeight: "90vh", display: "flex", flexDirection: "column" },
   modalHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px 16px", borderBottom: "1px solid var(--border, #2C3344)" },
   modalTitulo: { fontSize: 16, fontWeight: 700, color: "#F1F2F4" },
-  btnFechar: { background: "none", border: "none", color: "#5C6570", fontSize: 22, cursor: "pointer", lineHeight: 1, padding: 0 },
+  btnFechar: { background: "none", border: "none", color: "#8B93A1", fontSize: 22, cursor: "pointer", lineHeight: 1, padding: 0 },
   modalBody: { padding: "20px 24px", overflowY: "auto", flex: 1 },
   modalFooter: { display: "flex", justifyContent: "flex-end", gap: 10, padding: "16px 24px", borderTop: "1px solid var(--border, #2C3344)" },
   campo: { marginBottom: 16 },
-  label: { display: "block", fontSize: 11, fontWeight: 600, color: "#5C6570", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 6 },
+  label: { display: "block", fontSize: 11, fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 6 },
   input: { width: "100%", background: "#0C0E14", border: "1px solid var(--border, #2C3344)", borderRadius: 8, padding: "9px 12px", color: "#F1F2F4", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" },
   select: { width: "100%", background: "#0C0E14", border: "1px solid var(--border, #2C3344)", borderRadius: 8, padding: "9px 12px", color: "#F1F2F4", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" },
   erro: { background: "rgba(239,68,68,.1)", color: "#E06C65", borderRadius: 6, padding: "8px 12px", fontSize: 13, marginTop: 8 },
-  btnPrimario: { background: "#6366F1", color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "inherit" },
-  btnCancelar: { background: "none", border: "none", color: "#5C6570", fontSize: 13, cursor: "pointer", padding: "9px 16px", fontFamily: "inherit" },
+  btnPrimario: { background: "#6366f1", color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "inherit" },
+  btnCancelar: { background: "none", border: "none", color: "#8B93A1", fontSize: 13, cursor: "pointer", padding: "9px 16px", fontFamily: "inherit" },
 };

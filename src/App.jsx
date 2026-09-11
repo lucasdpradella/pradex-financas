@@ -230,6 +230,13 @@ export default function PradexFinancas() {
 
   const inputStyle = { width: "100%", background: "#0C0E14", border: "1px solid #1E2330", borderRadius: "10px", padding: "0.75rem 1rem", color: "#F1F2F4", fontSize: "0.9rem", marginBottom: "0.75rem", outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
 
+  // input[type=date] no iOS não encolhe abaixo da largura do próprio conteúdo: o
+  // `width: 100%` não vence a largura intrínseca do widget nativo, e o campo vaza pra
+  // direita. Passou a aparecer quando a DM Sans entrou — ela é mais larga que a Arial
+  // em que o app renderizava antes, então o "dd/mm/aaaa" cresceu junto.
+  // `appearance: none` tira o widget nativo e `minWidth: 0` libera o encolhimento.
+  const dateInputStyle = { ...inputStyle, WebkitAppearance: "none", appearance: "none", minWidth: 0, maxWidth: "100%" };
+
   // Fix 4 — estado "off" dos toggles (parcelar / recorrente). No mobile o par
   // #1E2330/#5C6570 sobre #151821 ficava perto do invisível; #1E2330/#8B93A1 sobe o
   // contraste sem acender o botão como se estivesse ligado. O form também renderiza
@@ -1230,7 +1237,7 @@ export default function PradexFinancas() {
                 onChange={e => setCadastroDataNasc(e.target.value)}
                 min="1900-01-01"
                 max={today}
-                style={{ ...inputStyle, color: cadastroDataNasc ? "#F1F2F4" : "#5C6570" }}
+                style={{ ...dateInputStyle, color: cadastroDataNasc ? "#F1F2F4" : "#5C6570" }}
               />
               <input
                 type="tel"
@@ -1240,7 +1247,7 @@ export default function PradexFinancas() {
                 onChange={e => setCadastroTelefone(e.target.value)}
                 style={{ ...inputStyle, marginBottom: "0.4rem" }}
               />
-              <p style={{ margin: "0 0 0.9rem", fontSize: "0.7rem", color: "#5C6570", lineHeight: 1.45 }}>
+              <p style={{ margin: "0 0 0.9rem", fontSize: "0.7rem", color: "#8B93A1", lineHeight: 1.45 }}>
                 Ao cadastrar seu WhatsApp, você concorda em receber e enviar mensagens com o assistente IA do Pradex pra registrar seus lançamentos. Seus dados financeiros são protegidos conforme nossa Política de Privacidade.
               </p>
             </>
@@ -1353,7 +1360,7 @@ export default function PradexFinancas() {
                 )}
                 {editando._compraParcelada && (
                   <div style={{ marginTop: 0 }}>
-                    <p style={{ margin: "0 0 0.4rem", fontSize: "0.72rem", color: "#5C6570", textTransform: "uppercase", letterSpacing: "0.08em" }}>Total de parcelas</p>
+                    <p style={{ margin: "0 0 0.4rem", fontSize: "0.72rem", color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.08em" }}>Total de parcelas</p>
                     <input type="number" placeholder="Total de parcelas" min="2" max="48" value={editando.total_parcelas || ""} onChange={e => setEditando(ed => ({ ...ed, total_parcelas: e.target.value }))} style={{ ...inputStyle, marginBottom: 0 }} />
                   </div>
                 )}
@@ -1366,7 +1373,7 @@ export default function PradexFinancas() {
                 )}
               </div>
             )}
-            <input type="date" value={editando.data_lancamento} onChange={e => setEditando(ed => ({ ...ed, data_lancamento: e.target.value }))} style={inputStyle} />
+            <input type="date" value={editando.data_lancamento} onChange={e => setEditando(ed => ({ ...ed, data_lancamento: e.target.value }))} style={dateInputStyle} />
             {editando.tipo === "gasto" && !editando.parcelado && (
               <button onClick={() => setEditando(ed => ({ ...ed, recorrente: !ed.recorrente }))} style={{ width: "100%", padding: "0.75rem", border: `1px solid ${editando.recorrente ? "#6366F1" : "#1E2330"}`, borderRadius: "10px", background: editando.recorrente ? "#6366F118" : "transparent", color: editando.recorrente ? "#6366F1" : "#5C6570", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginBottom: "0.75rem", transition: "all 0.2s" }}>
                 {editando.recorrente ? "Recorrente ativa até Dez/" + new Date().getFullYear() : "Marcar como recorrente"}
@@ -1468,7 +1475,7 @@ export default function PradexFinancas() {
           </div>
           <button
             onClick={() => setBannerTelefoneFechado(true)}
-            style={{ background: "none", border: "none", color: "#5C6570", cursor: "pointer", fontSize: "1.1rem", lineHeight: 1, padding: "0 0.25rem" }}
+            style={{ background: "none", border: "none", color: "#8B93A1", cursor: "pointer", fontSize: "1.1rem", lineHeight: 1, padding: "0 0.25rem" }}
             aria-label="Fechar"
           >
             ×
@@ -1479,15 +1486,15 @@ export default function PradexFinancas() {
       {/* CARDS */}
       <div className="pdx-hide-desktop" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "0.75rem", marginBottom: "1.5rem", width: "100%" }}>
         <div style={{ background: "linear-gradient(180deg, #151821 0%, #151821 100%)", borderRadius: "14px", padding: "1rem 0.85rem", border: "1px solid #1E2330", minWidth: 0, boxSizing: "border-box" }}>
-          <p style={{ margin: "0 0 0.35rem", fontSize: "0.64rem", color: "#5C6570", textTransform: "uppercase", letterSpacing: "0.12em" }}>Ganhos</p>
+          <p style={{ margin: "0 0 0.35rem", fontSize: "0.64rem", color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.12em" }}>Ganhos</p>
           <p style={{ margin: 0, fontSize: "clamp(0.62rem, 2.6vw, 0.82rem)", fontWeight: 700, color: "#2FBF8A", whiteSpace: "normal", wordBreak: "keep-all", overflowWrap: "normal", fontVariantNumeric: "tabular-nums" }}>{formatBRL(totalReceitas).replace(new RegExp(String.fromCharCode(160), "g"), " ")}</p>
         </div>
         <div style={{ background: "linear-gradient(180deg, #151821 0%, #151821 100%)", borderRadius: "14px", padding: "1rem 0.85rem", border: "1px solid #1E2330", minWidth: 0, boxSizing: "border-box" }}>
-          <p style={{ margin: "0 0 0.35rem", fontSize: "0.64rem", color: "#5C6570", textTransform: "uppercase", letterSpacing: "0.12em" }}>Débito</p>
+          <p style={{ margin: "0 0 0.35rem", fontSize: "0.64rem", color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.12em" }}>Débito</p>
           <p style={{ margin: 0, fontSize: "clamp(0.62rem, 2.6vw, 0.82rem)", fontWeight: 700, color: "#E06C65", whiteSpace: "normal", wordBreak: "keep-all", overflowWrap: "normal", fontVariantNumeric: "tabular-nums" }}>{formatBRL(gastosDebito).replace(new RegExp(String.fromCharCode(160), "g"), " ")}</p>
         </div>
         <div style={{ background: "linear-gradient(180deg, #151821 0%, #151821 100%)", borderRadius: "14px", padding: "1rem 0.85rem", border: "1px solid #1E2330", minWidth: 0, boxSizing: "border-box" }}>
-          <p style={{ margin: "0 0 0.35rem", fontSize: "0.64rem", color: "#5C6570", textTransform: "uppercase", letterSpacing: "0.12em" }}>Cartões</p>
+          <p style={{ margin: "0 0 0.35rem", fontSize: "0.64rem", color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.12em" }}>Cartões</p>
           {/* Fix 2 — antes listava um bloco por cartão dentro de um card de 1/3 da
               largura: com 3+ cartões o texto vazava e desalinhava a fileira. Agora é
               o total somado + a contagem, no mesmo formato dos outros dois cards. */}
@@ -1523,10 +1530,10 @@ export default function PradexFinancas() {
               flex: 1, minWidth: 0, padding: "0.5rem 0.2rem", border: "none", borderRadius: "8px",
               cursor: "pointer", fontSize: "0.65rem", fontWeight: 600, letterSpacing: "-0.01em",
               whiteSpace: "nowrap", transition: "all 0.2s", fontFamily: "inherit",
-              // Fix 1 — ativo no indigo da marca; inativo em #5C6570 (era #5C6570, abaixo do
+              // Fix 1 — ativo no indigo da marca; inativo em #8B93A1 (era #5C6570, abaixo do
               // contraste mínimo sobre #0C0E14).
               background: ativo ? "#6366F1" : "transparent",
-              color: ativo ? "#fff" : "#5C6570",
+              color: ativo ? "#fff" : "#8B93A1",
             }}>{t.label}</button>
           );
         })}
@@ -1649,7 +1656,7 @@ export default function PradexFinancas() {
             <div style={{ textAlign: "center", padding: "3rem 0", color: "#5C6570" }}>
               <p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>•</p>
               <p style={{ fontSize: "0.95rem", color: "#8B93A1", margin: "0 0 0.4rem" }}>Seu painel ainda está vazio.</p>
-              <p style={{ fontSize: "0.82rem", color: "#5C6570", margin: 0 }}>Adicione os primeiros lançamentos para visualizar o resumo do mês.</p>
+              <p style={{ fontSize: "0.82rem", color: "#8B93A1", margin: 0 }}>Adicione os primeiros lançamentos para visualizar o resumo do mês.</p>
             </div>
           ) : (
             <>
@@ -1664,7 +1671,7 @@ export default function PradexFinancas() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", marginBottom: "1rem" }}>
                   <div>
                     <p style={{ margin: "0 0 0.25rem", fontSize: "0.75rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Resumo dos gastos</p>
-                    <p style={{ margin: 0, fontSize: "0.8rem", color: "#5C6570" }}>Separação entre débito e cartão no mês atual</p>
+                    <p style={{ margin: 0, fontSize: "0.8rem", color: "#8B93A1" }}>Separação entre débito e cartão no mês atual</p>
                   </div>
                   <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#F1F2F4" }}>{formatBRL(totalGastos)}</p>
                 </div>
@@ -1801,14 +1808,14 @@ export default function PradexFinancas() {
                 {form.recorrente ? `Recorrente ativa até Dez/${new Date().getFullYear()}` : "Marcar como recorrente"}
               </button>
             )}
-            <input type="date" value={form.data_lancamento} onChange={e => setForm(f => ({ ...f, data_lancamento: e.target.value }))} style={inputStyle} />
+            <input type="date" value={form.data_lancamento} onChange={e => setForm(f => ({ ...f, data_lancamento: e.target.value }))} style={dateInputStyle} />
             {erro && <p style={{ color: "#E06C65", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{erro}</p>}
             <button onClick={handleSubmit} disabled={saving} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", background: success ? "#2FBF8A" : tipo === "receita" ? "#2FBF8A" : "#E06C65", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, transition: "all 0.2s", fontFamily: "inherit" }}>{saving ? "Salvando..." : success ? "Salvo!" : form.parcelado && form.total_parcelas >= 2 ? `Parcelar em ${form.total_parcelas}x` : form.recorrente ? "Adicionar + criar recorrências" : "Adicionar"}</button>
           </div>
 
           <button onClick={() => setMostrarCategorias(!mostrarCategorias)} style={{ ...sectionToggleStyle, marginBottom: "0.75rem" }}>
             <span style={{ display: "block", fontSize: "0.84rem", color: "#F1F2F4" }}>{mostrarCategorias ? "Fechar categorias" : "Gerenciar categorias"}</span>
-            <span style={{ display: "block", fontSize: "0.72rem", color: "#5C6570", fontWeight: 500, marginTop: "0.2rem" }}>Organize as categorias de receitas e gastos do app.</span>
+            <span style={{ display: "block", fontSize: "0.72rem", color: "#8B93A1", fontWeight: 500, marginTop: "0.2rem" }}>Organize as categorias de receitas e gastos do app.</span>
           </button>
           {mostrarCategorias && (
             <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #1E2330" }}>
@@ -1847,7 +1854,7 @@ export default function PradexFinancas() {
 
           <button onClick={() => setMostrarFormCartao(!mostrarFormCartao)} style={{ ...sectionToggleStyle, marginBottom: "1rem" }}>
             <span style={{ display: "block", fontSize: "0.84rem", color: "#F1F2F4" }}>{mostrarFormCartao ? "Fechar cartões" : "Gerenciar cartões"}</span>
-            <span style={{ display: "block", fontSize: "0.72rem", color: "#5C6570", fontWeight: 500, marginTop: "0.2rem" }}>Cadastre os cartões para acompanhar compras e faturas.</span>
+            <span style={{ display: "block", fontSize: "0.72rem", color: "#8B93A1", fontWeight: 500, marginTop: "0.2rem" }}>Cadastre os cartões para acompanhar compras e faturas.</span>
           </button>
           {mostrarFormCartao && (
             <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #1E2330" }}>
@@ -1877,7 +1884,7 @@ export default function PradexFinancas() {
           )}
 
           <div>
-            <p style={{ margin: "0 0 1rem", fontSize: "0.7rem", color: "#5C6570", textTransform: "uppercase", letterSpacing: "0.15em" }}>Lançamentos {loading && "· carregando..."}</p>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.7rem", color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.15em" }}>Lançamentos {loading && "· carregando..."}</p>
             <div style={{ marginBottom: "1rem" }}>
               <select value={filtroLancamentos} onChange={e => setFiltroLancamentos(e.target.value)} style={{ ...inputStyle, marginBottom: 0, color: "#F1F2F4", appearance: "none" }}>
                 {opcoesFiltroLancamentos.map(opcao => <option key={opcao.value} value={opcao.value}>{opcao.label}</option>)}
@@ -1907,7 +1914,7 @@ export default function PradexFinancas() {
             {!loading && lancamentosFiltrados.length === 0 && (
               <div style={{ textAlign: "center", padding: "2.2rem 1rem", color: "#5C6570", background: "#151821", borderRadius: "14px", border: "1px solid #1E2330" }}>
                 <p style={{ margin: "0 0 0.35rem", fontSize: "0.92rem", color: "#8B93A1" }}>Nenhum lançamento encontrado nesse filtro.</p>
-                <p style={{ margin: 0, fontSize: "0.78rem", color: "#5C6570" }}>Tente trocar o filtro ou adicionar um novo lançamento.</p>
+                <p style={{ margin: 0, fontSize: "0.78rem", color: "#8B93A1" }}>Tente trocar o filtro ou adicionar um novo lançamento.</p>
               </div>
             )}
             {lancamentosFiltrados.map(l => {
@@ -2005,7 +2012,7 @@ export default function PradexFinancas() {
                 </div>
               ))}
             </div>
-            <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", color: "#5C6570" }}>Gasto total do mês: <span style={{ color: "#F1F2F4", fontWeight: 700 }}>{formatBRL(gastosMes)}</span></p>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", color: "#8B93A1" }}>Gasto total do mês: <span style={{ color: "#F1F2F4", fontWeight: 700 }}>{formatBRL(gastosMes)}</span></p>
             {lancMes.length === 0 ? (
               <div style={{ textAlign: "center", padding: "3rem 0", color: "#5C6570" }}>
                 <p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>•</p>

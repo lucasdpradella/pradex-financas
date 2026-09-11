@@ -59,7 +59,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
   const labelStyle = {
     display: "block",
     fontSize: "0.68rem",
-    color: "#5C6570",
+    color: "#8B93A1",
     textTransform: "uppercase",
     letterSpacing: "0.1em",
     marginBottom: "0.35rem",
@@ -693,7 +693,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
                   <div style={{ color: "#F1F2F4", fontSize: "0.9rem", fontWeight: 600 }}>{membro.nome}</div>
-                  <div style={{ color: "#5C6570", fontSize: "0.75rem", marginTop: "0.15rem" }}>
+                  <div style={{ color: "#8B93A1", fontSize: "0.75rem", marginTop: "0.15rem" }}>
                     {membro.parentesco}
                     {membro.data_nascimento ? ` - ${membro.data_nascimento}` : ""}
                   </div>
