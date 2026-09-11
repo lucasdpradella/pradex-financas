@@ -99,8 +99,13 @@ Deno.serve(async (req: Request) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  // Dry-run: varre e diz o que faria, sem reservar marco e sem mandar zap. Existe
+  // porque o smoke manual do runbook dispara mensagem real — sem isso, "testar" e
+  // "mandar pra base" são exatamente a mesma chamada.
+  const dry = new URL(req.url).searchParams.get("dry") === "1";
+
   const agora = new Date();
-  const resumo = { verificados: 0, enviados: 0, pulados: 0, erros: 0 };
+  const resumo = { dry, verificados: 0, enviados: 0, simulados: 0, pulados: 0, erros: 0 };
 
   try {
     // Só trial ainda vivo. Quem já expirou não recebe mais nada: o D14 é a última
@@ -132,6 +137,20 @@ Deno.serve(async (req: Request) => {
       const dia = diaDoTrial(new Date(p.trial_inicio), agora);
       const montar = MARCOS[dia];
       if (!montar) { resumo.pulados++; continue; }
+
+      // Dry-run para aqui: consulta se o marco já foi processado (em vez de reservar)
+      // e reporta. Nada é escrito, nada é enviado.
+      if (dry) {
+        const { data: jaProcessado } = await supabase
+          .from("trial_lembretes")
+          .select("dia")
+          .eq("user_id", p.user_id).eq("dia", dia)
+          .maybeSingle();
+        if (jaProcessado) { resumo.pulados++; continue; }
+        resumo.simulados++;
+        log("info", "lembrete_simulado", { user_id: p.user_id, dia });
+        continue;
+      }
 
       // Reserva o marco ANTES de enviar. Se duas execuções correrem juntas, a segunda
       // colide na unique e desiste — melhor não enviar do que enviar em dobro.
@@ -172,7 +191,14 @@ Deno.serve(async (req: Request) => {
 // 2) Deploy:
 //    supabase functions deploy trial-lembretes --project-ref sjvuhqqsjboncwpboclv
 //
-// 3) Smoke manual (não agenda nada; devolve o resumo do que faria):
+// 3) Smoke manual. ATENÇÃO: sem ?dry=1 isto MANDA MENSAGEM DE VERDADE pra quem
+//    estiver num marco hoje. Rodar o dry primeiro e conferir o campo `simulados`.
+//
+//    Dry-run (não escreve, não envia — só relata o que faria):
+//    curl -X POST "https://sjvuhqqsjboncwpboclv.supabase.co/functions/v1/trial-lembretes?dry=1" \
+//      -H "x-cron-secret: <valor>"
+//
+//    Pra valer:
 //    curl -X POST https://sjvuhqqsjboncwpboclv.supabase.co/functions/v1/trial-lembretes \
 //      -H "x-cron-secret: <valor>"
 //
