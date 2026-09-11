@@ -162,9 +162,12 @@ function formatYAxis(v) {
   return Number.isInteger(m) ? `R$ ${m}M` : `R$ ${m.toFixed(1)}M`;
 }
 
+// Card CLARO dentro de uma tela escura — a paleta do app escuro não se aplica aqui.
+// A migração de 11/09 mapeou #EFEFEF e #E2E2E2 pro mesmo tom e a borda do estado
+// destacado sumiu contra o próprio fundo. Valores originais restaurados.
 function ScenarioCard({ color, title, aporte, patrimonio, subtitle, highlighted = false }) {
   return (
-    <div style={{ ...styles.scenarioCard, background: highlighted ? "#F1F2F4" : "#FFFFFF", borderColor: highlighted ? "#F1F2F4" : "#E5E7EB" }}>
+    <div style={{ ...styles.scenarioCard, background: highlighted ? "#EFEFEF" : "#FFFFFF", borderColor: highlighted ? "#E2E2E2" : "#E5E7EB" }}>
       <div style={styles.scenarioHeader}>
         <div style={styles.scenarioTitleWrap}>
           <span style={{ ...styles.scenarioDot, background: color }} />
@@ -533,7 +536,9 @@ const styles = {
   tooltipAge: { margin: 0, fontSize: "0.78rem", opacity: 0.8 },
   tooltipAgeValue: { margin: "0.1rem 0 0", fontSize: "1rem", fontWeight: 700 },
   miniTrack: { height: "24px", background: "#151821", marginTop: "0.15rem", position: "relative", overflow: "hidden", borderRadius: "8px" },
-  miniTrackFill: { position: "absolute", left: "2%", right: "2%", top: "7px", height: "10px", borderRadius: "10px", background: "linear-gradient(90deg, #2C3344 0%, #2C3344 100%)" },
+  // Gradiente decorativo: os dois stops têm que ser DIFERENTES, senão vira cor chapada.
+  // A migração de 11/09 mapeou #2E3953 e #425071 pro mesmo tom e apagou o degradê.
+  miniTrackFill: { position: "absolute", left: "2%", right: "2%", top: "7px", height: "10px", borderRadius: "10px", background: "linear-gradient(90deg, #2C3344 0%, #425071 100%)" },
   legend: { display: "flex", justifyContent: "center", gap: "1rem", flexWrap: "wrap", marginTop: "0.5rem", background: "#F2F4F8", padding: "0.65rem 0.85rem", borderRadius: "10px" },
   legendItem: { display: "flex", alignItems: "center", gap: "0.45rem", fontSize: "0.75rem", color: "#5C6570", fontWeight: 600 },
   legendDot: { width: "11px", height: "11px", borderRadius: "999px", display: "inline-block", flexShrink: 0 },

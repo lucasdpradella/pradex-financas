@@ -238,10 +238,12 @@ export default function PradexFinancas() {
   const dateInputStyle = { ...inputStyle, WebkitAppearance: "none", appearance: "none", minWidth: 0, maxWidth: "100%" };
 
   // Fix 4 — estado "off" dos toggles (parcelar / recorrente). No mobile o par
-  // #1E2330/#5C6570 sobre #151821 ficava perto do invisível; #1E2330/#8B93A1 sobe o
+  // #1E2330/#5C6570 sobre #151821 ficava perto do invisível; #2C3344/#8B93A1 sobe o
   // contraste sem acender o botão como se estivesse ligado. O form também renderiza
   // no desktop (TopBar → "Novo lançamento"), e lá nada muda.
-  const offBorda = isDesktop ? "#1E2330" : "#1E2330";
+  // A borda do mobile PRECISA ser mais clara que a do desktop — a migração de paleta
+  // de 11/09 colapsou as duas no mesmo tom e desfez este fix sem ninguém notar.
+  const offBorda = isDesktop ? "#1E2330" : "#2C3344";
   const offTexto = isDesktop ? "#5C6570" : "#8B93A1";
 
   useEffect(() => {
@@ -1500,7 +1502,7 @@ export default function PradexFinancas() {
               o total somado + a contagem, no mesmo formato dos outros dois cards. */}
           {gastosPorCartao.length > 0 ? (
             <>
-              <p style={{ margin: 0, fontSize: "clamp(0.62rem, 2.6vw, 0.82rem)", fontWeight: 700, color: "#E06C65", whiteSpace: "normal", wordBreak: "keep-all", overflowWrap: "normal", fontVariantNumeric: "tabular-nums" }}>{formatBRL(gastosCredito).replace(new RegExp(String.fromCharCode(160), "g"), " ")}</p>
+              <p style={{ margin: 0, fontSize: "clamp(0.62rem, 2.6vw, 0.82rem)", fontWeight: 700, color: "#E8943A", whiteSpace: "normal", wordBreak: "keep-all", overflowWrap: "normal", fontVariantNumeric: "tabular-nums" }}>{formatBRL(gastosCredito).replace(new RegExp(String.fromCharCode(160), "g"), " ")}</p>
               <p style={{ margin: "0.2rem 0 0", fontSize: "0.6rem", color: "#8B93A1" }}>
                 {gastosPorCartao.length === 1 ? normalizeText(gastosPorCartao[0].cartao.nome) : `${gastosPorCartao.length} cartões`}
               </p>
@@ -2005,7 +2007,7 @@ export default function PradexFinancas() {
               <button onClick={() => navegarMes(1)} style={{ background: "#151821", border: "1px solid #1E2330", borderRadius: "8px", color: "#8B93A1", cursor: "pointer", padding: "0.4rem 0.8rem", fontSize: "1rem", fontFamily: "inherit" }}>›</button>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "0.75rem" }}>
-              {[{ label: "Receitas", value: receitasMes, color: "#2FBF8A" }, { label: "Débito", value: gastosDebitoMes, color: "#E06C65" }, { label: "Cartão", value: gastosCartaoMes, color: "#E8943A" }, { label: "Saldo", value: saldoMes, color: saldoMes >= 0 ? "#2FBF8A" : "#E06C65" }].map(card => (
+              {[{ label: "Receitas", value: receitasMes, color: "#6366F1" }, { label: "Débito", value: gastosDebitoMes, color: "#E06C65" }, { label: "Cartão", value: gastosCartaoMes, color: "#E8943A" }, { label: "Saldo", value: saldoMes, color: saldoMes >= 0 ? "#2FBF8A" : "#E06C65" }].map(card => (
                 <div key={card.label} style={{ background: "#151821", borderRadius: "12px", padding: "1rem 0.75rem", border: "1px solid #1E2330" }}>
                   <p style={{ margin: "0 0 0.4rem", fontSize: "0.65rem", color: "#5C6570", textTransform: "uppercase", letterSpacing: "0.1em" }}>{card.label}</p>
                   <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 700, color: card.color }}>{formatBRL(card.value)}</p>
