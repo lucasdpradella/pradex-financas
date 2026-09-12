@@ -10,6 +10,7 @@ const Icon = ({ name }) => {
     bancos: <><line x1="3" y1="21" x2="21" y2="21" /><line x1="4" y1="10" x2="4" y2="18" /><line x1="9" y1="10" x2="9" y2="18" /><line x1="15" y1="10" x2="15" y2="18" /><line x1="20" y1="10" x2="20" y2="18" /><polyline points="2 7 12 3 22 7" /></>,
     categorias: <><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></>,
     fp: <><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></>,
+    orcamento: <><path d="M3 20a9 9 0 1 1 18 0" /><line x1="12" y1="20" x2="16.5" y2="11.5" /><line x1="3" y1="20" x2="21" y2="20" /></>,
     relatorios: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></>,
   };
   return (
@@ -26,6 +27,9 @@ const ITEMS = [
   { key: "cartoes", label: "Cartões", icon: "cartoes", tela: "cartoes", activeFor: ["cartoes"] },
   { key: "categorias", label: "Categorias", icon: "categorias", tela: "categorias", activeFor: ["categorias"] },
   { key: "bancos", label: "Bancos", icon: "bancos", tela: "bancos", activeFor: ["bancos"] },
+  // Sem `recurso` DE PROPOSITO: o orcamento nao leva cadeado. A tela abre pra todo
+  // mundo e o paywall so aparece no save (ver lib/plano.js, paywallNoSave).
+  { key: "orcamento", label: "Orçamento", icon: "orcamento", tela: "orcamento", activeFor: ["orcamento"] },
   { key: "fp", label: "Planejamento", icon: "fp", tela: "fp", activeFor: ["fp"], recurso: "fp" },
   { key: "relatorios", label: "Relatórios", icon: "relatorios", tela: "relatorios", activeFor: ["relatorios"], recurso: "relatorios" },
 ];

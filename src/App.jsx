@@ -1617,6 +1617,18 @@ export default function PradexFinancas() {
 
       {/* DASHBOARD — desktop (Fase 2) */}
       {tela === "dashboard" && isDesktop && (
+        <>
+        {/* A nota vale pro app inteiro, nao so pro mobile. */}
+        <ScoreDisciplina
+          lancamentos={lancamentos}
+          ano={mesDashboard.ano}
+          mes={mesDashboard.mes}
+          plano={plano}
+          tetos={orcamentos}
+          onQueroTeto={() => setTela("orcamento")}
+          premioResgatadoEm={premioResgatadoEm}
+          onResgatarPremio={resgatarPremio}
+        />
         <DashboardDesktop
           lancamentos={lancamentos}
           ano={mesDashboard.ano}
@@ -1627,6 +1639,7 @@ export default function PradexFinancas() {
           onConfirmarRascunho={confirmarRascunho}
           onRejeitarRascunho={rejeitarRascunho}
         />
+        </>
       )}
 
       {/* CARTÕES — desktop (Fase A) */}
@@ -1681,13 +1694,15 @@ export default function PradexFinancas() {
           componente, no clique de salvar. Nada aqui pergunta pelo plano. */}
       {tela === "orcamento" && (
         <div>
-          <button
-            onClick={() => setTela("dashboard")}
-            className="pdx-tap"
-            style={{ background: "transparent", border: "none", color: "#8B93A1", fontSize: "0.8rem", cursor: "pointer", padding: "0 0 0.9rem", fontFamily: "inherit" }}
-          >
-            ← Dashboard
-          </button>
+          {!isDesktop && (
+            <button
+              onClick={() => setTela("dashboard")}
+              className="pdx-tap"
+              style={{ background: "transparent", border: "none", color: "#8B93A1", fontSize: "0.8rem", cursor: "pointer", padding: "0 0 0.9rem", fontFamily: "inherit" }}
+            >
+              ← Dashboard
+            </button>
+          )}
           <OrcamentoCategoria
             categorias={categories.gasto.map((nome) => ({ nome, tipo: "gasto" }))}
             tetos={orcamentos}

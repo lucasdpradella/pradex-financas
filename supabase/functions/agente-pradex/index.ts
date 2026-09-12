@@ -218,6 +218,8 @@ CONTEXTO:
 ${contexto.ultimosLancamentos.length === 0 ? "  (nenhum)" : contexto.ultimosLancamentos.map((l: any) => `  - ID ${l.id}: ${l.tipo} R$${Number(l.valor).toFixed(2)} | ${l.categoria} | ${l.descricao} | ${l.data}`).join("\n")}
 - Categorias disponíveis (use SEMPRE uma desta lista):
 ${contexto.categorias.map((c: any) => `  - "${c.nome}" (${c.tipo})`).join("\n")}
+- Tetos do mês (só mencione se for relevante pro que a pessoa acabou de lançar):
+${!contexto.tetos?.length ? "  (nenhum teto definido)" : contexto.tetos.map((t: any) => `  - "${t.categoria}": R$${t.gasto.toFixed(2)} de R$${t.limite.toFixed(2)} (${t.percentual}%)${t.percentual >= 100 ? " — ESTOUROU" : t.percentual >= 90 ? " — passou de 90%" : ""}`).join("\n")}
 - Cartões cadastrados:
 ${contexto.cartoes.length === 0 ? "  (nenhum)" : contexto.cartoes.map((c: any) => `  - ID ${c.id}: "${c.nome}"`).join("\n")}
 
@@ -305,11 +307,53 @@ const DEFAULT_CATEGORIAS: Record<string, string[]> = {
   receita: ["Salário", "Freelance", "Investimentos", "Aluguel recebido", "Outros"],
 };
 
+// Teto do mês corrente + quanto já foi gasto em cada categoria.
+//
+// É a peça que faltava pros dois gatilhos do modo caos que dependiam de orçamento
+// ("passou de 90% do teto" e "estourou o teto"): sem isto o agente não tinha como
+// saber que existe um limite, quanto dele já foi usado, nem o que dizer.
+//
+// Uma query de tetos + uma de gastos do mês. Se a tabela `orcamentos` ainda não
+// existir no banco (migration não aplicada), o erro é engolido e o agente segue
+// funcionando exatamente como antes — teto é enriquecimento, não requisito.
+async function getTetosDoMes(supabase: SupabaseClient, userId: string) {
+  try {
+    const hoje = new Date();
+    const primeiroDia = `${hoje.getUTCFullYear()}-${String(hoje.getUTCMonth() + 1).padStart(2, "0")}-01`;
+
+    const [orcRes, gastoRes] = await Promise.all([
+      supabase.from("orcamentos").select("categoria, limite").eq("user_id", userId).eq("mes", primeiroDia),
+      supabase.from("Lancamentos").select("valor, categoria").eq("user_id", userId).eq("tipo", "gasto").gte("data_lancamento", primeiroDia),
+    ]);
+    if (orcRes.error || !orcRes.data?.length) return [];
+
+    const gastoPorCat = new Map<string, number>();
+    for (const l of gastoRes.data ?? []) {
+      const k = String((l as any).categoria ?? "");
+      gastoPorCat.set(k, (gastoPorCat.get(k) ?? 0) + Number((l as any).valor ?? 0));
+    }
+
+    return (orcRes.data as Array<{ categoria: string; limite: number }>).map((o) => {
+      const gasto = gastoPorCat.get(o.categoria) ?? 0;
+      const limite = Number(o.limite);
+      return {
+        categoria: o.categoria,
+        limite,
+        gasto,
+        // Arredondado pra inteiro: "91%" é o que a copy usa, e mandar 90.7431 pro
+        // modelo só gasta token e convida ele a inventar precisão que não importa.
+        percentual: limite > 0 ? Math.round((gasto / limite) * 100) : 0,
+      };
+    });
+  } catch { return []; }
+}
+
 async function getContextoUsuario(supabase: SupabaseClient, userId: string) {
-  const [lancRes, catRes, cartRes] = await Promise.all([
+  const [lancRes, catRes, cartRes, tetos] = await Promise.all([
     supabase.from("Lancamentos").select("id, valor, categoria, descricao, data_lancamento, tipo").eq("user_id", userId).order("created_at", { ascending: false }).limit(5),
     supabase.from("categorias").select("nome, tipo, removida").eq("user_id", userId),
     supabase.from("cartoes").select("id, nome").eq("user_id", userId).order("nome"),
+    getTetosDoMes(supabase, userId),
   ]);
 
   const userCats = (catRes.data ?? []) as Array<{ nome: string; tipo: string; removida: boolean }>;
@@ -337,6 +381,7 @@ async function getContextoUsuario(supabase: SupabaseClient, userId: string) {
     ultimosLancamentos: (lancRes.data ?? []).map((l: any) => ({ id: l.id, valor: l.valor, categoria: l.categoria ?? "", descricao: l.descricao ?? "", data: l.data_lancamento ?? "", tipo: l.tipo ?? "gasto" })),
     categorias,
     cartoes: (cartRes.data ?? []).map((c: any) => ({ id: c.id, nome: c.nome ?? "" })),
+    tetos,
   };
 }
 
