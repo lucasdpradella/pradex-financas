@@ -22,6 +22,8 @@ import BensFP from "./components/fp/BensFP";
 import DiagnosticoFP from "./components/fp/DiagnosticoFP";
 import FabWhatsapp from "./components/FabWhatsapp";
 import UpgradePlano from "./components/UpgradePlano";
+import ScoreDisciplina from "./components/ScoreDisciplina";
+import OrcamentoCategoria from "./components/OrcamentoCategoria";
 import { normalizePlano, temAcesso, mostraCadeado, podeUsarWhatsapp, trialAtivo, diasRestantesTrial } from "./lib/plano";
 import { useIsDesktop } from "./components/desktop/useIsDesktop";
 import { desktopTheme, SIDEBAR_WIDTH } from "./components/desktop/theme";
@@ -188,6 +190,14 @@ export default function PradexFinancas() {
   const [cartoes, setCartoes] = useState([]);
   const [bancos, setBancos] = useState([]);
   const [dividas, setDividas] = useState([]);
+  const [orcamentos, setOrcamentos] = useState([]);
+
+  // Teto é por MÊS: trocar o mês no dashboard tem que puxar os tetos daquele mês,
+  // senão a nota do mês passado sairia calculada com o teto de hoje.
+  useEffect(() => {
+    if (session?.token) fetchOrcamentos(mesDashboard.ano, mesDashboard.mes);
+  }, [session?.token, mesDashboard.ano, mesDashboard.mes]);
+  const [salvandoOrcamento, setSalvandoOrcamento] = useState(false);
   // Linhas cruas da tabela `categorias` (id/nome/tipo/removida) — a tela desktop
   // precisa saber o que é custom, o que é default oculta e qual o id de cada uma.
   const [categoriasRows, setCategoriasRows] = useState([]);
@@ -407,6 +417,7 @@ export default function PradexFinancas() {
   useEffect(() => {
     if (session) {
       fetchLancamentos(); fetchCartoes(); fetchBancos(); fetchDividas(); fetchRascunhos(); fetchCategorias();
+      fetchOrcamentos(mesDashboard.ano, mesDashboard.mes);
       fetchTaxaFocus().then(t => setTaxaFocus(t));
       verificarTelefonePerfil();
     }
@@ -611,6 +622,36 @@ export default function PradexFinancas() {
       const data = await res.json();
       setBancos(Array.isArray(data) ? data : []);
     } catch (e) {}
+  };
+
+  // Tetos do mês em exibição. O `mes` é sempre o dia 1 — o trigger no banco
+  // (2026-09-12_orcamentos.sql) garante isso na escrita, e aqui a leitura combina.
+  const fetchOrcamentos = async (ano, mes) => {
+    try {
+      const primeiroDia = `${ano}-${String(mes + 1).padStart(2, "0")}-01`;
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/orcamentos?mes=eq.${primeiroDia}&order=categoria.asc`, { headers: api(session?.token) });
+      const data = await res.json();
+      setOrcamentos(Array.isArray(data) ? data : []);
+    } catch (e) {}
+  };
+
+  // Substitui os tetos do mês inteiro de uma vez: apaga os que saíram e regrava o
+  // resto. É a operação que a tela faz — ela manda o estado final, não um diff.
+  const salvarOrcamentos = async (linhas, ano, mes) => {
+    setSalvandoOrcamento(true);
+    try {
+      const primeiroDia = `${ano}-${String(mes + 1).padStart(2, "0")}-01`;
+      await fetch(`${SUPABASE_URL}/rest/v1/orcamentos?mes=eq.${primeiroDia}`, { method: "DELETE", headers: api(session?.token) });
+      if (linhas.length > 0) {
+        await fetch(`${SUPABASE_URL}/rest/v1/orcamentos`, {
+          method: "POST",
+          headers: { ...api(session?.token), "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify(linhas.map((l) => ({ user_id: session?.user?.id, categoria: l.categoria, limite: l.limite, mes: primeiroDia }))),
+        });
+      }
+      await fetchOrcamentos(ano, mes);
+    } catch (e) {
+    } finally { setSalvandoOrcamento(false); }
   };
 
   const fetchDividas = async () => {
@@ -1605,9 +1646,51 @@ export default function PradexFinancas() {
         />
       )}
 
+      {/* ORÇAMENTO — teto por categoria.
+          A tela abre pra TODO MUNDO, inclusive Free. O paywall mora dentro do
+          componente, no clique de salvar. Nada aqui pergunta pelo plano. */}
+      {tela === "orcamento" && (
+        <div>
+          <button
+            onClick={() => setTela("dashboard")}
+            className="pdx-tap"
+            style={{ background: "transparent", border: "none", color: "#8B93A1", fontSize: "0.8rem", cursor: "pointer", padding: "0 0 0.9rem", fontFamily: "inherit" }}
+          >
+            ← Dashboard
+          </button>
+          <OrcamentoCategoria
+            categorias={categories.gasto.map((nome) => ({ nome, tipo: "gasto" }))}
+            tetos={orcamentos}
+            plano={plano}
+            gastosPorCategoria={Object.fromEntries(
+              (() => {
+                const prefixo = `${mesDashboard.ano}-${String(mesDashboard.mes + 1).padStart(2, "0")}`;
+                const doMes = lancamentos.filter((l) => l.tipo === "gasto" && l.data_lancamento?.startsWith(prefixo));
+                return categories.gasto.map((cat) => [cat, doMes.filter((l) => l.categoria === cat).reduce((s, l) => s + Number(l.valor), 0)]);
+              })(),
+            )}
+            salvando={salvandoOrcamento}
+            onSalvar={(linhas) => salvarOrcamentos(linhas, mesDashboard.ano, mesDashboard.mes)}
+          />
+        </div>
+      )}
+
       {/* DASHBOARD — mobile */}
       {tela === "dashboard" && !isDesktop && (
         <div>
+          {/* Score de disciplina no topo, pra TODOS os planos (decisão 12/09). A nota
+              é grátis e o orçamento é pago: quem não tem o Essencial vê que o item de
+              maior peso está inativo, e o botão leva pro teto — que por sua vez abre o
+              paywall só no save. O placar é o vendedor. */}
+          <ScoreDisciplina
+            lancamentos={lancamentos}
+            ano={mesDashboard.ano}
+            mes={mesDashboard.mes}
+            plano={plano}
+            tetos={orcamentos}
+            onQueroTeto={() => setTela("orcamento")}
+          />
+
           {rascunhos.length > 0 && (
             <div style={{ marginBottom: "1.25rem" }}>
               <p style={{ margin: "0 0 0.75rem", fontSize: "0.75rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Pendentes do WhatsApp ({rascunhos.length})</p>
