@@ -23,8 +23,13 @@ import DiagnosticoFP from "./components/fp/DiagnosticoFP";
 import FabWhatsapp from "./components/FabWhatsapp";
 import UpgradePlano from "./components/UpgradePlano";
 import ScoreDisciplina from "./components/ScoreDisciplina";
+import PreviaBorrada from "./components/PreviaBorrada";
 import OrcamentoCategoria from "./components/OrcamentoCategoria";
-import { normalizePlano, temAcesso, mostraCadeado, podeUsarWhatsapp, trialAtivo, diasRestantesTrial } from "./lib/plano";
+import { normalizePlano, temAcesso, mostraCadeado, podeUsarWhatsapp, trialAtivo, diasRestantesTrial, CHECKOUT } from "./lib/plano";
+
+// Cupom de 20% do premio por disciplina. PRECISA ser criado na Cakto — enquanto for
+// vazio, o resgate cai no checkout normal e a pessoa paga cheio.
+const CHECKOUT_PREMIO = "";
 import { useIsDesktop } from "./components/desktop/useIsDesktop";
 import { desktopTheme, SIDEBAR_WIDTH } from "./components/desktop/theme";
 import SidebarDesktop from "./components/desktop/SidebarDesktop";
@@ -198,6 +203,7 @@ export default function PradexFinancas() {
     if (session?.token) fetchOrcamentos(mesDashboard.ano, mesDashboard.mes);
   }, [session?.token, mesDashboard.ano, mesDashboard.mes]);
   const [salvandoOrcamento, setSalvandoOrcamento] = useState(false);
+  const [premioResgatadoEm, setPremioResgatadoEm] = useState(null);
   // Linhas cruas da tabela `categorias` (id/nome/tipo/removida) — a tela desktop
   // precisa saber o que é custom, o que é default oculta e qual o id de cada uma.
   const [categoriasRows, setCategoriasRows] = useState([]);
@@ -411,7 +417,7 @@ export default function PradexFinancas() {
     setSession(null); setUserRole(null);
     setLancamentos([]); setCartoes([]); setBancos([]); setDividas([]);
     setPrecisaCadastrarTelefone(false); setBannerTelefoneFechado(false);
-    setPlano("none"); setTrial(null);
+    setPlano("none"); setTrial(null); setPremioResgatadoEm(null); setOrcamentos([]);
   };
 
   useEffect(() => {
@@ -460,13 +466,14 @@ export default function PradexFinancas() {
     if (!session?.user?.id) return;
     try {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/fp_perfil?user_id=eq.${session.user.id}&select=telefone,plano,trial_inicio,trial_ate&limit=1`,
+        `${SUPABASE_URL}/rest/v1/fp_perfil?user_id=eq.${session.user.id}&select=telefone,plano,trial_inicio,trial_ate,premio_disciplina_em&limit=1`,
         { headers: api(session.token) }
       );
       const rows = await res.json();
       const row = Array.isArray(rows) ? rows[0] : null;
       setPrecisaCadastrarTelefone(!row?.telefone);
       setPlano(normalizePlano(row?.plano));
+      setPremioResgatadoEm(row?.premio_disciplina_em ?? null);
       setTrial(row ? { trial_inicio: row.trial_inicio, trial_ate: row.trial_ate } : null);
     } catch (e) {}
   };
@@ -652,6 +659,29 @@ export default function PradexFinancas() {
       await fetchOrcamentos(ano, mes);
     } catch (e) {
     } finally { setSalvandoOrcamento(false); }
+  };
+
+  // Resgate do premio por disciplina. Grava a data (o trigger do banco torna o
+  // campo imutavel depois da primeira gravacao), liga o trial de 14 dias reusando a
+  // maquina do PR #30, e manda a pessoa pro checkout com o cupom.
+  //
+  // ⚠️ CUPOM_PREMIO precisa existir na Cakto. Enquanto nao existir, o link cai no
+  // checkout normal e a pessoa paga cheio — por isso o botao avisa antes de abrir.
+  const resgatarPremio = async () => {
+    try {
+      const agora = new Date().toISOString();
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/fp_perfil?user_id=eq.${session?.user?.id}`, {
+        method: "PATCH",
+        headers: { ...api(session?.token), "Content-Type": "application/json", Prefer: "return=representation" },
+        body: JSON.stringify({ premio_disciplina_em: agora }),
+      });
+      const data = await res.json();
+      const gravado = Array.isArray(data) ? data[0]?.premio_disciplina_em : null;
+      if (!gravado) return;            // trigger barrou (ja tinha resgatado): nao abre nada
+      setPremioResgatadoEm(gravado);
+      await iniciarTrial?.();
+      window.open(CHECKOUT_PREMIO || CHECKOUT.essencial, "_blank", "noopener,noreferrer");
+    } catch (e) {}
   };
 
   const fetchDividas = async () => {
@@ -1689,6 +1719,8 @@ export default function PradexFinancas() {
             plano={plano}
             tetos={orcamentos}
             onQueroTeto={() => setTela("orcamento")}
+            premioResgatadoEm={premioResgatadoEm}
+            onResgatarPremio={resgatarPremio}
           />
 
           {rascunhos.length > 0 && (
@@ -2216,6 +2248,7 @@ export default function PradexFinancas() {
       {tela === "relatorios" && !podeFp && (
         <div>
           <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Relatórios</p>
+          <div style={{ marginBottom: "1rem" }}><PreviaBorrada recurso="relatorios" /></div>
           <UpgradePlano plano={plano} recurso="relatorios" variant="tela" />
         </div>
       )}
@@ -2233,6 +2266,10 @@ export default function PradexFinancas() {
       {tela === "fp" && !podeFp && (
         <div>
           <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Planejamento Financeiro</p>
+          {/* Previa borrada ANTES do CTA: a curva da a curiosidade que a tela
+              vazia nao dava. O desenho e inventado — nenhum dado do usuario e
+              buscado aqui (ver PreviaBorrada.jsx). */}
+          <div style={{ marginBottom: "1rem" }}><PreviaBorrada recurso="fp" /></div>
           <UpgradePlano plano={plano} recurso="fp" variant="tela" />
         </div>
       )}

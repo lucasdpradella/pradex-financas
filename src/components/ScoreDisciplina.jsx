@@ -16,6 +16,7 @@ import React, { useMemo } from "react";
 import { calcularFechamento } from "../lib/fechamento";
 import { calcularDisciplina, PONTOS } from "../lib/disciplina";
 import { temAcesso } from "../lib/plano";
+import { avaliarPremio, oQueFalta } from "../lib/premio";
 
 const COR = {
   bg: "#151821",
@@ -33,13 +34,22 @@ const COR = {
 // também: isto pontua comportamento, não dinheiro.
 const corDaFaixa = (score) => (score >= 85 ? COR.bom : score >= 60 ? COR.acento : score >= 30 ? COR.medio_ : COR.ruim);
 
-export default function ScoreDisciplina({ lancamentos, ano, mes, plano, tetos = [], onQueroTeto }) {
+export default function ScoreDisciplina({ lancamentos, ano, mes, plano, tetos = [], onQueroTeto, premioResgatadoEm = null, onResgatarPremio }) {
   const temTeto = temAcesso(plano, "orcamento");
 
-  const d = useMemo(() => {
+  const { d, premio } = useMemo(() => {
     const f = calcularFechamento(lancamentos || [], ano, mes);
-    return calcularDisciplina(f, { tetos });
-  }, [lancamentos, ano, mes, tetos]);
+    const disc = calcularDisciplina(f, { tetos });
+    return {
+      d: disc,
+      premio: avaliarPremio({
+        score: disc.score,
+        diasDistintos: f.diasComLancamento,
+        resgatadoEm: premioResgatadoEm,
+        plano,
+      }),
+    };
+  }, [lancamentos, ano, mes, tetos, premioResgatadoEm, plano]);
 
   if (d.vazio) return null;
 
@@ -86,6 +96,37 @@ export default function ScoreDisciplina({ lancamentos, ano, mes, plano, tetos = 
           </li>
         ))}
       </ul>
+
+      {/* PRÊMIO. Só aparece pra quem pode ganhar. Quem já resgatou e quem já assina
+          não veem nada — `avaliarPremio` devolve motivo e `oQueFalta` cala nesses
+          dois casos, de propósito: lembrar alguém de um prêmio que ele nunca mais
+          pode ter é cobrança, não incentivo. */}
+      {premio.elegivel && (
+        <div style={{ marginTop: "0.8rem", background: "#2FBF8A18", border: "1px solid #2FBF8A40", borderRadius: "10px", padding: "0.8rem" }}>
+          <p style={{ margin: "0 0 0.3rem", fontSize: "0.82rem", fontWeight: 600, color: COR.bom }}>
+            Você fechou o mês com {d.score}. Isso vale prêmio.
+          </p>
+          <p style={{ margin: "0 0 0.7rem", fontSize: "0.76rem", color: COR.medio, lineHeight: 1.45 }}>
+            {premio.percentual}% no primeiro mês do Essencial e mais {premio.diasTrial} dias de teste antes de qualquer cobrança. Uma vez só.
+          </p>
+          <button
+            type="button"
+            onClick={onResgatarPremio}
+            className="pdx-tap"
+            style={{ width: "100%", padding: "0.7rem", border: "none", borderRadius: "8px", background: COR.bom, color: "#0C0E14", fontSize: "0.82rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
+          >
+            Resgatar
+          </button>
+        </div>
+      )}
+
+      {/* O que falta, pra quem ainda está no caminho. Nunca vira número em reais —
+          é dia e ponto, que é o que a pessoa controla. */}
+      {!premio.elegivel && oQueFalta(premio) && d.score > 0 && (
+        <p style={{ margin: "0.8rem 0 0", fontSize: "0.72rem", color: COR.fraco }}>
+          🎁 {oQueFalta(premio)} Fechando o mês em {80} você ganha {premio.percentual}% no primeiro mês + {premio.diasTrial} dias de teste.
+        </p>
+      )}
 
       {/* A chamada só existe pra quem não tem o teto. Quem já tem não precisa de
           anúncio — e anúncio pra quem já pagou é o jeito mais rápido de irritar. */}
