@@ -9,13 +9,20 @@
 
 import { formatarBRL } from "./fechamento";
 
-// Pesos ajustáveis. Somam 100 quando tudo é aplicável; o score é normalizado sobre
-// os aplicáveis, então mudar um número aqui não quebra a escala.
+// Pesos ajustáveis. O score é normalizado sobre os componentes APLICÁVEIS, então
+// mudar um número aqui não quebra a escala — só muda o que o produto premia.
+//
+// Repesados em 2026-09-12 (decisão do PRADELLA). O teto passou de 25 pro maior peso
+// de todos porque é o comportamento que o produto quer causar: lançar é meio, gastar
+// dentro do que se prometeu é o fim. O evitável desceu de 30 pra 10 por ser o mais
+// frágil dos quatro — depende de o usuário lembrar de marcar cada gasto.
+//
+// Antes: constancia 40, mesPreenchido 30, evitavel 30, teto 25.
 export const PONTOS = {
-  constancia: 40,
-  mesPreenchido: 30,
-  evitavel: 30,
-  teto: 25,
+  teto: 45,
+  constancia: 25,
+  mesPreenchido: 20,
+  evitavel: 10,
 };
 
 // "Mês preenchido" em mês fechado. No mês corrente vira proporcional aos dias já
