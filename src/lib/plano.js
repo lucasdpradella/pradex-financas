@@ -20,6 +20,10 @@ export const CHECKOUT = {
 // bancos, categorias) é livre pros três planos e nunca passa por temAcesso.
 export const RECURSOS = {
   whatsapp: "essencial",
+  // Teto por categoria. No Essencial (e não no Assistente) porque o modo caos é do
+  // Essencial: sem teto, o assinante não teria o que estourar e o agente ficaria sem
+  // gatilho. Ver Chave Mestre, Projetos/PRADEX/orcamento-e-disciplina.md.
+  orcamento: "essencial",
   fp: "assistente",
   relatorios: "assistente",
 };
@@ -36,7 +40,34 @@ export const temAcesso = (plano, recurso) =>
 
 // O item continua no menu, com cadeado — parar de esconder recurso sem contexto é o
 // ponto inteiro do paywall.
+//
+// ⚠️ APOSENTADO em 2026-09-12, mantido só pelos usos antigos. O padrão novo é "deixa
+// tentar e cobra no save": a tela abre, a pessoa preenche, e o paywall só aparece
+// quando ela TENTA salvar — porque aí a intenção já está formada. Cadeado ainda é
+// porta fechada, e porta fechada faz desistir antes de tocar. Recurso novo usa
+// `paywallNoSave()`; nenhum recurso novo deve ganhar cadeado.
 export const mostraCadeado = (plano, recurso) => !temAcesso(plano, recurso);
+
+// ===== PAYWALL NO SAVE (padrão novo, 2026-09-12) =====
+//
+// Responde à única pergunta que a tela precisa fazer na hora de salvar: "deixo passar,
+// ou abro o paywall?". A tela em si nunca pergunta se pode RENDERIZAR — ela sempre
+// renderiza. É isso que separa este padrão do cadeado.
+//
+// Devolve null quando pode salvar; quando não, devolve o que o paywall precisa saber.
+export function paywallNoSave(plano, recurso) {
+  if (temAcesso(plano, recurso)) return null;
+  const exigido = planoNecessario(recurso);
+  return { recurso, planoAtual: normalizePlano(plano), planoExigido: exigido, checkout: CHECKOUT[exigido] || null };
+}
+
+// Prévia borrada: telas de gráfico (Planejamento, Relatórios) não seguram ninguém
+// vazias — o gancho é ver que existe uma forma e não conseguir ler.
+//
+// ⚠️ Quem chama isto NUNCA pode borrar o gráfico real com `filter: blur()`. Os números
+// continuariam no DOM e qualquer um os lê no DevTools — é dado financeiro. A prévia
+// tem que ser desenhada com dado falso plausível.
+export const mostraPreviaBorrada = (plano, recurso) => !temAcesso(plano, recurso);
 
 // ===== TRIAL DO WHATSAPP =====
 // O trial libera SÓ o agente do WhatsApp, e sem tocar em `plano`: quem manda no plano

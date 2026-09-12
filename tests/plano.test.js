@@ -7,6 +7,8 @@ import {
   planoNecessario,
   temAcesso,
   mostraCadeado,
+  paywallNoSave,
+  mostraPreviaBorrada,
   checkoutPara,
   conteudoUpgrade,
 } from "../src/lib/plano";
@@ -128,5 +130,67 @@ describe("conteudoUpgrade", () => {
     const r = conteudoUpgrade("none", "inexistente");
     expect(r.titulo).toBeTruthy();
     expect(r.href).toBe(CHECKOUT.assistente);
+  });
+});
+
+// ===== Padrão novo de paywall (2026-09-12) =====
+
+describe("orcamento é recurso do Essencial", () => {
+  // O gate é no Essencial e não no Assistente de propósito: o modo caos é do
+  // Essencial, e sem teto o assinante não teria o que estourar.
+  it("exige essencial, não assistente", () => {
+    expect(RECURSOS.orcamento).toBe("essencial");
+    expect(planoNecessario("orcamento")).toBe("essencial");
+  });
+
+  it("Free não tem, Essencial e Assistente têm", () => {
+    expect(temAcesso("none", "orcamento")).toBe(false);
+    expect(temAcesso("essencial", "orcamento")).toBe(true);
+    expect(temAcesso("assistente", "orcamento")).toBe(true);
+  });
+});
+
+describe("paywallNoSave", () => {
+  it("devolve null quando pode salvar — o caminho feliz não carrega objeto", () => {
+    expect(paywallNoSave("essencial", "orcamento")).toBeNull();
+    expect(paywallNoSave("assistente", "orcamento")).toBeNull();
+    expect(paywallNoSave("assistente", "fp")).toBeNull();
+  });
+
+  it("descreve o bloqueio com o plano exigido e o checkout certo", () => {
+    const r = paywallNoSave("none", "orcamento");
+    expect(r).not.toBeNull();
+    expect(r.recurso).toBe("orcamento");
+    expect(r.planoAtual).toBe("none");
+    expect(r.planoExigido).toBe("essencial");
+    expect(r.checkout).toBe(CHECKOUT.essencial);
+  });
+
+  // Quem já paga o Essencial e esbarra no FP precisa ver o checkout do Assistente,
+  // não o do plano que ele já tem.
+  it("aponta pro plano ACIMA, não pro plano atual", () => {
+    const r = paywallNoSave("essencial", "fp");
+    expect(r.planoExigido).toBe("assistente");
+    expect(r.checkout).toBe(CHECKOUT.assistente);
+  });
+
+  // Mesma regra do resto do arquivo: errar o nome de um recurso não pode liberar nada.
+  it("recurso desconhecido falha fechado", () => {
+    const r = paywallNoSave("essencial", "inexistente");
+    expect(r).not.toBeNull();
+    expect(r.planoExigido).toBe("assistente");
+  });
+
+  it("plano inválido é tratado como none", () => {
+    const r = paywallNoSave("premium", "orcamento");
+    expect(r.planoAtual).toBe("none");
+  });
+});
+
+describe("mostraPreviaBorrada", () => {
+  it("borra pra quem não tem acesso e libera pra quem tem", () => {
+    expect(mostraPreviaBorrada("none", "fp")).toBe(true);
+    expect(mostraPreviaBorrada("essencial", "fp")).toBe(true);
+    expect(mostraPreviaBorrada("assistente", "fp")).toBe(false);
   });
 });

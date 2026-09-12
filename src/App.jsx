@@ -22,7 +22,14 @@ import BensFP from "./components/fp/BensFP";
 import DiagnosticoFP from "./components/fp/DiagnosticoFP";
 import FabWhatsapp from "./components/FabWhatsapp";
 import UpgradePlano from "./components/UpgradePlano";
-import { normalizePlano, temAcesso, mostraCadeado, podeUsarWhatsapp, trialAtivo, diasRestantesTrial } from "./lib/plano";
+import ScoreDisciplina from "./components/ScoreDisciplina";
+import PreviaBorrada from "./components/PreviaBorrada";
+import OrcamentoCategoria from "./components/OrcamentoCategoria";
+import { normalizePlano, temAcesso, mostraCadeado, podeUsarWhatsapp, trialAtivo, diasRestantesTrial, CHECKOUT } from "./lib/plano";
+
+// Cupom de 20% do premio por disciplina. PRECISA ser criado na Cakto — enquanto for
+// vazio, o resgate cai no checkout normal e a pessoa paga cheio.
+const CHECKOUT_PREMIO = "";
 import { useIsDesktop } from "./components/desktop/useIsDesktop";
 import { desktopTheme, SIDEBAR_WIDTH } from "./components/desktop/theme";
 import SidebarDesktop from "./components/desktop/SidebarDesktop";
@@ -188,6 +195,15 @@ export default function PradexFinancas() {
   const [cartoes, setCartoes] = useState([]);
   const [bancos, setBancos] = useState([]);
   const [dividas, setDividas] = useState([]);
+  const [orcamentos, setOrcamentos] = useState([]);
+
+  // Teto é por MÊS: trocar o mês no dashboard tem que puxar os tetos daquele mês,
+  // senão a nota do mês passado sairia calculada com o teto de hoje.
+  useEffect(() => {
+    if (session?.token) fetchOrcamentos(mesDashboard.ano, mesDashboard.mes);
+  }, [session?.token, mesDashboard.ano, mesDashboard.mes]);
+  const [salvandoOrcamento, setSalvandoOrcamento] = useState(false);
+  const [premioResgatadoEm, setPremioResgatadoEm] = useState(null);
   // Linhas cruas da tabela `categorias` (id/nome/tipo/removida) — a tela desktop
   // precisa saber o que é custom, o que é default oculta e qual o id de cada uma.
   const [categoriasRows, setCategoriasRows] = useState([]);
@@ -401,12 +417,13 @@ export default function PradexFinancas() {
     setSession(null); setUserRole(null);
     setLancamentos([]); setCartoes([]); setBancos([]); setDividas([]);
     setPrecisaCadastrarTelefone(false); setBannerTelefoneFechado(false);
-    setPlano("none"); setTrial(null);
+    setPlano("none"); setTrial(null); setPremioResgatadoEm(null); setOrcamentos([]);
   };
 
   useEffect(() => {
     if (session) {
       fetchLancamentos(); fetchCartoes(); fetchBancos(); fetchDividas(); fetchRascunhos(); fetchCategorias();
+      fetchOrcamentos(mesDashboard.ano, mesDashboard.mes);
       fetchTaxaFocus().then(t => setTaxaFocus(t));
       verificarTelefonePerfil();
     }
@@ -449,13 +466,14 @@ export default function PradexFinancas() {
     if (!session?.user?.id) return;
     try {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/fp_perfil?user_id=eq.${session.user.id}&select=telefone,plano,trial_inicio,trial_ate&limit=1`,
+        `${SUPABASE_URL}/rest/v1/fp_perfil?user_id=eq.${session.user.id}&select=telefone,plano,trial_inicio,trial_ate,premio_disciplina_em&limit=1`,
         { headers: api(session.token) }
       );
       const rows = await res.json();
       const row = Array.isArray(rows) ? rows[0] : null;
       setPrecisaCadastrarTelefone(!row?.telefone);
       setPlano(normalizePlano(row?.plano));
+      setPremioResgatadoEm(row?.premio_disciplina_em ?? null);
       setTrial(row ? { trial_inicio: row.trial_inicio, trial_ate: row.trial_ate } : null);
     } catch (e) {}
   };
@@ -610,6 +628,59 @@ export default function PradexFinancas() {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/bancos?removido=is.false&order=nome.asc`, { headers: api(session?.token) });
       const data = await res.json();
       setBancos(Array.isArray(data) ? data : []);
+    } catch (e) {}
+  };
+
+  // Tetos do mês em exibição. O `mes` é sempre o dia 1 — o trigger no banco
+  // (2026-09-12_orcamentos.sql) garante isso na escrita, e aqui a leitura combina.
+  const fetchOrcamentos = async (ano, mes) => {
+    try {
+      const primeiroDia = `${ano}-${String(mes + 1).padStart(2, "0")}-01`;
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/orcamentos?mes=eq.${primeiroDia}&order=categoria.asc`, { headers: api(session?.token) });
+      const data = await res.json();
+      setOrcamentos(Array.isArray(data) ? data : []);
+    } catch (e) {}
+  };
+
+  // Substitui os tetos do mês inteiro de uma vez: apaga os que saíram e regrava o
+  // resto. É a operação que a tela faz — ela manda o estado final, não um diff.
+  const salvarOrcamentos = async (linhas, ano, mes) => {
+    setSalvandoOrcamento(true);
+    try {
+      const primeiroDia = `${ano}-${String(mes + 1).padStart(2, "0")}-01`;
+      await fetch(`${SUPABASE_URL}/rest/v1/orcamentos?mes=eq.${primeiroDia}`, { method: "DELETE", headers: api(session?.token) });
+      if (linhas.length > 0) {
+        await fetch(`${SUPABASE_URL}/rest/v1/orcamentos`, {
+          method: "POST",
+          headers: { ...api(session?.token), "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify(linhas.map((l) => ({ user_id: session?.user?.id, categoria: l.categoria, limite: l.limite, mes: primeiroDia }))),
+        });
+      }
+      await fetchOrcamentos(ano, mes);
+    } catch (e) {
+    } finally { setSalvandoOrcamento(false); }
+  };
+
+  // Resgate do premio por disciplina. Grava a data (o trigger do banco torna o
+  // campo imutavel depois da primeira gravacao), liga o trial de 14 dias reusando a
+  // maquina do PR #30, e manda a pessoa pro checkout com o cupom.
+  //
+  // ⚠️ CUPOM_PREMIO precisa existir na Cakto. Enquanto nao existir, o link cai no
+  // checkout normal e a pessoa paga cheio — por isso o botao avisa antes de abrir.
+  const resgatarPremio = async () => {
+    try {
+      const agora = new Date().toISOString();
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/fp_perfil?user_id=eq.${session?.user?.id}`, {
+        method: "PATCH",
+        headers: { ...api(session?.token), "Content-Type": "application/json", Prefer: "return=representation" },
+        body: JSON.stringify({ premio_disciplina_em: agora }),
+      });
+      const data = await res.json();
+      const gravado = Array.isArray(data) ? data[0]?.premio_disciplina_em : null;
+      if (!gravado) return;            // trigger barrou (ja tinha resgatado): nao abre nada
+      setPremioResgatadoEm(gravado);
+      await iniciarTrial?.();
+      window.open(CHECKOUT_PREMIO || CHECKOUT.essencial, "_blank", "noopener,noreferrer");
     } catch (e) {}
   };
 
@@ -1605,9 +1676,53 @@ export default function PradexFinancas() {
         />
       )}
 
+      {/* ORÇAMENTO — teto por categoria.
+          A tela abre pra TODO MUNDO, inclusive Free. O paywall mora dentro do
+          componente, no clique de salvar. Nada aqui pergunta pelo plano. */}
+      {tela === "orcamento" && (
+        <div>
+          <button
+            onClick={() => setTela("dashboard")}
+            className="pdx-tap"
+            style={{ background: "transparent", border: "none", color: "#8B93A1", fontSize: "0.8rem", cursor: "pointer", padding: "0 0 0.9rem", fontFamily: "inherit" }}
+          >
+            ← Dashboard
+          </button>
+          <OrcamentoCategoria
+            categorias={categories.gasto.map((nome) => ({ nome, tipo: "gasto" }))}
+            tetos={orcamentos}
+            plano={plano}
+            gastosPorCategoria={Object.fromEntries(
+              (() => {
+                const prefixo = `${mesDashboard.ano}-${String(mesDashboard.mes + 1).padStart(2, "0")}`;
+                const doMes = lancamentos.filter((l) => l.tipo === "gasto" && l.data_lancamento?.startsWith(prefixo));
+                return categories.gasto.map((cat) => [cat, doMes.filter((l) => l.categoria === cat).reduce((s, l) => s + Number(l.valor), 0)]);
+              })(),
+            )}
+            salvando={salvandoOrcamento}
+            onSalvar={(linhas) => salvarOrcamentos(linhas, mesDashboard.ano, mesDashboard.mes)}
+          />
+        </div>
+      )}
+
       {/* DASHBOARD — mobile */}
       {tela === "dashboard" && !isDesktop && (
         <div>
+          {/* Score de disciplina no topo, pra TODOS os planos (decisão 12/09). A nota
+              é grátis e o orçamento é pago: quem não tem o Essencial vê que o item de
+              maior peso está inativo, e o botão leva pro teto — que por sua vez abre o
+              paywall só no save. O placar é o vendedor. */}
+          <ScoreDisciplina
+            lancamentos={lancamentos}
+            ano={mesDashboard.ano}
+            mes={mesDashboard.mes}
+            plano={plano}
+            tetos={orcamentos}
+            onQueroTeto={() => setTela("orcamento")}
+            premioResgatadoEm={premioResgatadoEm}
+            onResgatarPremio={resgatarPremio}
+          />
+
           {rascunhos.length > 0 && (
             <div style={{ marginBottom: "1.25rem" }}>
               <p style={{ margin: "0 0 0.75rem", fontSize: "0.75rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Pendentes do WhatsApp ({rascunhos.length})</p>
@@ -2133,6 +2248,7 @@ export default function PradexFinancas() {
       {tela === "relatorios" && !podeFp && (
         <div>
           <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Relatórios</p>
+          <div style={{ marginBottom: "1rem" }}><PreviaBorrada recurso="relatorios" /></div>
           <UpgradePlano plano={plano} recurso="relatorios" variant="tela" />
         </div>
       )}
@@ -2150,6 +2266,10 @@ export default function PradexFinancas() {
       {tela === "fp" && !podeFp && (
         <div>
           <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Planejamento Financeiro</p>
+          {/* Previa borrada ANTES do CTA: a curva da a curiosidade que a tela
+              vazia nao dava. O desenho e inventado — nenhum dado do usuario e
+              buscado aqui (ver PreviaBorrada.jsx). */}
+          <div style={{ marginBottom: "1rem" }}><PreviaBorrada recurso="fp" /></div>
           <UpgradePlano plano={plano} recurso="fp" variant="tela" />
         </div>
       )}
