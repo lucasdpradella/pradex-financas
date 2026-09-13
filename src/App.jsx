@@ -1630,6 +1630,7 @@ export default function PradexFinancas() {
           mes={mesDashboard.mes}
           plano={plano}
           trial={trial}
+          isDesktop={isDesktop}
           tetos={orcamentos}
           onQueroTeto={() => setTela("orcamento")}
           premioResgatadoEm={premioResgatadoEm}
@@ -1740,6 +1741,7 @@ export default function PradexFinancas() {
             mes={mesDashboard.mes}
             plano={plano}
             trial={trial}
+            isDesktop={isDesktop}
             tetos={orcamentos}
             onQueroTeto={() => setTela("orcamento")}
             premioResgatadoEm={premioResgatadoEm}
@@ -1768,7 +1770,13 @@ export default function PradexFinancas() {
               ))}
             </div>
           )}
-          {podeZap ? <a
+          {/* Card do Zap, TRES casos distintos — cuidado ao mexer:
+              - assina  -> NADA. Ja achou o agente; o card viraria lembrete do obvio
+                ocupando o topo do dashboard. (E um "&&" simples aqui jogaria o
+                assinante no else, que e o CTA de upgrade — pior ainda.)
+              - trial    -> o card com o link, porque pode nao ter comecado a conversa
+              - sem nada -> UpgradePlano, que e o convite */}
+          {temAcesso(plano, "whatsapp") ? null : podeZap ? <a
             href="https://wa.me/5511924568633?text=Oi%21%20Quero%20come%C3%A7ar%20a%20usar%20o%20Pradex%20pelo%20WhatsApp."
             target="_blank"
             rel="noopener noreferrer"

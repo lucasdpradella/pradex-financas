@@ -466,13 +466,13 @@ export default function RendasDespesasFP({ session }) {
   return (
     <div style={styles.container}>
       <div style={styles.resumoRow}>
-        <div style={{ ...styles.resumoCard, borderColor: "#2FBF8A" }}>
+        <div style={{ ...styles.resumoCard, borderColor: "#4caf50" }}>
           <div style={styles.resumoLabel}>RECEITA DO MES ATUAL</div>
-          <div style={{ ...styles.resumoValor, color: "#2FBF8A" }}>{formatBRL(resumoLancamentos.receitasMesAtual)}</div>
+          <div style={{ ...styles.resumoValor, color: "#4caf50" }}>{formatBRL(resumoLancamentos.receitasMesAtual)}</div>
         </div>
-        <div style={{ ...styles.resumoCard, borderColor: "#E06C65" }}>
+        <div style={{ ...styles.resumoCard, borderColor: "#f44336" }}>
           <div style={styles.resumoLabel}>DESPESA DO MES ATUAL</div>
-          <div style={{ ...styles.resumoValor, color: "#E06C65" }}>{formatBRL(resumoLancamentos.despesasMesAtual)}</div>
+          <div style={{ ...styles.resumoValor, color: "#f44336" }}>{formatBRL(resumoLancamentos.despesasMesAtual)}</div>
         </div>
       </div>
 
@@ -549,13 +549,18 @@ export default function RendasDespesasFP({ session }) {
   );
 }
 
-// ⚠️ ILHA CLARA. Esta tela e CLARA (cards brancos, cinzas de fundo claro) dentro de
-// um app escuro. A paleta de src/theme.js NAO se aplica aqui: #F1F2F4 e "texto
-// primario no escuro" e, sobre branco, some.
+// ⚠️ ILHA CLARA — NAO APLICAR A PALETA DE src/theme.js AQUI.
 //
-// A migracao de paleta de 11/09 achatou 12 bordas e fundos daqui no mesmo tom e a
-// tela ficou sem moldura — foi o "cards desenquadrados" que o PRADELLA viu. Valores
-// originais restaurados em 13/09. Se for mexer em cor aqui, pense em fundo BRANCO.
+// Esta tela e CLARA (cards brancos, cinzas claros) dentro de um app escuro. Os
+// tokens do tema escuro invertem o sentido aqui: #F1F2F4 e "texto primario" no
+// escuro e, sobre branco, SOME. #8B93A1 e "texto secundario" no escuro e vira
+// cinza fraco demais sobre branco.
+//
+// A migracao de paleta de 11/09 passou por cima deste arquivo e apagou bordas,
+// fundos E textos — a tela ficou sem moldura e com texto invisivel. Em 13/09 o
+// arquivo foi restaurado INTEIRO pro estado anterior a migracao.
+//
+// Se for mexer em cor aqui: pense em fundo BRANCO, nao no app escuro.
 const styles = {
   container: {
     padding: "24px",
@@ -566,11 +571,11 @@ const styles = {
   loading: {
     padding: 40,
     textAlign: "center",
-    color: "#8B93A1",
+    color: "#888",
   },
   aviso: {
     background: "#fff8e1",
-    border: "1px solid #E8943A",
+    border: "1px solid #ffe082",
     borderRadius: 8,
     padding: "12px 16px",
     marginBottom: 24,
@@ -592,7 +597,7 @@ const styles = {
   },
   resumoLabel: {
     fontSize: 12,
-    color: "#8B93A1",
+    color: "#777",
     marginBottom: 6,
     textTransform: "uppercase",
     letterSpacing: 0.5,
@@ -614,11 +619,11 @@ const styles = {
     fontSize: 18,
     fontWeight: 700,
     margin: 0,
-    color: "#F1F2F4",
+    color: "#E8E8E8",
   },
   vazio: {
     padding: "24px 0",
-    color: "#8B93A1",
+    color: "#aaa",
     fontSize: 14,
     textAlign: "center",
     background: "#fafafa",
@@ -642,17 +647,17 @@ const styles = {
   cardTitulo: {
     fontWeight: 600,
     fontSize: 15,
-    color: "#0C0E14",
+    color: "#1a1a1a",
     marginBottom: 3,
   },
   cardSub: {
     fontSize: 12,
-    color: "#8B93A1",
+    color: "#777",
     marginBottom: 3,
   },
   cardDatas: {
     fontSize: 12,
-    color: "#8B93A1",
+    color: "#aaa",
   },
   cardRight: {
     textAlign: "right",
@@ -664,7 +669,7 @@ const styles = {
   cardValor: {
     fontWeight: 700,
     fontSize: 16,
-    color: "#0C0E14",
+    color: "#1a1a1a",
   },
   cardAcoes: {
     display: "flex",
@@ -711,7 +716,7 @@ const styles = {
   modalTitulo: {
     fontSize: 20,
     fontWeight: 700,
-    color: "#0C0E14",
+    color: "#1a1a1a",
     textTransform: "capitalize",
   },
   btnFechar: {
@@ -719,7 +724,7 @@ const styles = {
     border: "none",
     fontSize: 24,
     cursor: "pointer",
-    color: "#8B93A1",
+    color: "#888",
     lineHeight: 1,
     padding: 0,
   },
@@ -741,7 +746,7 @@ const styles = {
   label: {
     display: "block",
     fontSize: 12,
-    color: "#8B93A1",
+    color: "#888",
     marginBottom: 6,
   },
   input: {
@@ -751,7 +756,7 @@ const styles = {
     borderBottom: "1.5px solid #ddd",
     borderRadius: 0,
     fontSize: 15,
-    color: "#0C0E14",
+    color: "#1a1a1a",
     background: "#fafafa",
     outline: "none",
     boxSizing: "border-box",
@@ -763,7 +768,7 @@ const styles = {
     borderBottom: "1.5px solid #ddd",
     background: "#fafafa",
     fontSize: 15,
-    color: "#0C0E14",
+    color: "#1a1a1a",
     outline: "none",
     cursor: "pointer",
     appearance: "none",
@@ -786,35 +791,35 @@ const styles = {
     borderBottom: "1.5px solid #ddd",
     background: "#fafafa",
     fontSize: 13,
-    color: "#0C0E14",
+    color: "#1a1a1a",
     outline: "none",
     cursor: "pointer",
     boxSizing: "border-box",
   },
   tagFamiliar: {
     fontSize: 12,
-    color: "#8B93A1",
+    color: "#888",
     marginBottom: 14,
   },
   radioLabel: {
     display: "flex",
     alignItems: "center",
     fontSize: 14,
-    color: "#5C6570",
+    color: "#333",
     marginBottom: 8,
     cursor: "pointer",
   },
   erro: {
     background: "#ffebee",
-    color: "#E06C65",
+    color: "#c62828",
     borderRadius: 6,
     padding: "8px 12px",
     fontSize: 13,
     marginTop: 8,
   },
   btnAdicionar: {
-    background: "#E8943A",
-    color: "#0C0E14",
+    background: "#f5c800",
+    color: "#1a1a1a",
     border: "none",
     borderRadius: 6,
     padding: "10px 20px",
@@ -825,7 +830,7 @@ const styles = {
   btnCancelar: {
     background: "none",
     border: "none",
-    color: "#5C6570",
+    color: "#555",
     fontSize: 14,
     cursor: "pointer",
     padding: "10px 16px",
@@ -844,7 +849,7 @@ const styles = {
   cardLancTitulo: {
     fontWeight: 700,
     fontSize: 14,
-    color: "#F1F2F4",
+    color: "#E8E8E8",
     marginBottom: 3,
   },
   cardLancSub: {
@@ -854,7 +859,7 @@ const styles = {
   cardLancValor: {
     fontWeight: 700,
     fontSize: 18,
-    color: "#E06C65",
+    color: "#f44336",
     marginBottom: 6,
   },
   btnUsarTotal: {
