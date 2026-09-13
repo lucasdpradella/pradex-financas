@@ -466,11 +466,11 @@ export default function RendasDespesasFP({ session }) {
   return (
     <div style={styles.container}>
       <div style={styles.resumoRow}>
-        <div style={{ ...styles.resumoCard, borderColor: "#4caf50" }}>
+        <div style={{ ...styles.resumoCard, borderLeftColor: "#4caf50" }}>
           <div style={styles.resumoLabel}>RECEITA DO MES ATUAL</div>
           <div style={{ ...styles.resumoValor, color: "#4caf50" }}>{formatBRL(resumoLancamentos.receitasMesAtual)}</div>
         </div>
-        <div style={{ ...styles.resumoCard, borderColor: "#f44336" }}>
+        <div style={{ ...styles.resumoCard, borderLeftColor: "#f44336" }}>
           <div style={styles.resumoLabel}>DESPESA DO MES ATUAL</div>
           <div style={{ ...styles.resumoValor, color: "#f44336" }}>{formatBRL(resumoLancamentos.despesasMesAtual)}</div>
         </div>
@@ -562,11 +562,13 @@ export default function RendasDespesasFP({ session }) {
 //
 // Se for mexer em cor aqui: pense em fundo BRANCO, nao no app escuro.
 const styles = {
+  // O shell (mobile e desktop) ja define padding e largura. Este bloco tinha
+  // padding proprio de 24px + maxWidth 820 + margin auto: em 390px sobrava ~294px
+  // de miolo, e no desktop o conteudo flutuava a 820 dentro de 1120 — a margem que
+  // "gruda numa borda e sobra na outra". Agora acompanha o pai.
   container: {
-    padding: "24px",
-    maxWidth: 820,
-    margin: "0 auto",
-    fontFamily: "sans-serif",
+    width: "100%",
+    boxSizing: "border-box",
   },
   loading: {
     padding: 40,
@@ -576,7 +578,7 @@ const styles = {
   aviso: {
     background: "#fff8e1",
     border: "1px solid #ffe082",
-    borderRadius: 8,
+    borderRadius: 10,
     padding: "12px 16px",
     marginBottom: 24,
     fontSize: 14,
@@ -588,12 +590,17 @@ const styles = {
     gap: 16,
     marginBottom: 32,
   },
+  // MOLDURA UNICA. Antes havia 6 raios (10/10/8/10/8/6), 5 estilos de borda e 4
+  // paddings diferentes pro mesmo papel — era o "cards desconfigurados de tamanho".
+  // Borda colorida vira faixa a esquerda, que diferencia sem mudar a geometria.
   resumoCard: {
     background: "#fff",
-    border: "2px solid",
+    border: "1px solid #e8e8e8",
+    borderLeftWidth: 3,
     borderRadius: 10,
-    padding: "16px 20px",
-    boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
+    padding: "14px 18px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+    boxSizing: "border-box",
   },
   resumoLabel: {
     fontSize: 12,
@@ -610,6 +617,8 @@ const styles = {
     marginBottom: 40,
   },
   sectionHeader: {
+    flexWrap: "wrap",
+    gap: 8,
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
@@ -639,9 +648,12 @@ const styles = {
     borderRadius: 10,
     padding: "14px 18px",
     marginBottom: 10,
+    boxSizing: "border-box",
     boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
   },
   cardLeft: {
+    minWidth: 0,
+    overflow: "hidden",
     flex: 1,
   },
   cardTitulo: {
@@ -821,6 +833,8 @@ const styles = {
     // Era #f5c800 (amarelo): unico botao amarelo do app inteiro, destoava de tudo.
     background: "#6366F1",
     color: "#fff",
+    borderRadius: 10,
+    flexShrink: 0,
     border: "none",
     borderRadius: 6,
     padding: "10px 20px",
