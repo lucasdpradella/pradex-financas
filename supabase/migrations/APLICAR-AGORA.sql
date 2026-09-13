@@ -1,12 +1,18 @@
 -- ============================================================
--- COLE ISTO NO SQL EDITOR DO SUPABASE E RODE DE UMA VEZ SO.
+-- COLE NO SQL EDITOR DO SUPABASE E RODE DE UMA VEZ SO.
 -- Gerado em 2026-09-13. Projeto sjvuhqqsjboncwpboclv.
 --
--- Sao as 3 migrations pendentes, NA ORDEM CERTA. A ordem importa:
--- a de premio recria o trigger SEM acesso_pago, entao o drop vem antes.
+-- 4 migrations pendentes, NA ORDEM CERTA. A ordem importa: a de premio
+-- recria o trigger SEM acesso_pago, entao o drop vem antes.
 --
--- Tudo e idempotente (if exists / if not exists / create or replace),
--- entao rodar duas vezes nao quebra nada.
+-- Tudo idempotente (if exists / if not exists / create or replace):
+-- rodar duas vezes nao quebra nada.
+--
+-- !! DEPOIS de rodar, e SO depois, rode tambem:
+--      npx supabase functions deploy agente-pradex --project-ref sjvuhqqsjboncwpboclv
+--      npx supabase functions deploy cakto-webhook  --project-ref sjvuhqqsjboncwpboclv
+--    O agente novo exige a coluna email_verificado_em. Deployar antes de rodar
+--    isto aqui QUEBRA o onboarding do WhatsApp pra todo mundo.
 -- ============================================================
 
 
@@ -304,4 +310,48 @@ create trigger trg_fp_perfil_sync_plano
 --
 --   -- devolver o prêmio pra alguém (suporte; roda como postgres, o trigger não barra):
 --   update public.fp_perfil set premio_disciplina_em = null where telefone = '55...';
+
+
+-- ▼▼▼ 2026-09-13_onboarding_email_verificado.sql ▼▼▼
+
+-- 2026-09-13 — Onboarding do WhatsApp passa a exigir posse do e-mail
+--
+-- Achado 4 da auditoria de 2026-09-12 (briefs/2026-09-12_auditoria-seguranca.md).
+--
+-- O FURO. Até aqui, SABER o e-mail bastava pra vincular um WhatsApp a uma conta.
+-- Se existisse conta sem `telefone` preenchido — conta antiga, ou cadastro que parou
+-- no meio — qualquer um que soubesse o endereço respondia o desafio no próprio
+-- WhatsApp e ligava o número dele àquela conta. Não promovia plano, mas passava a
+-- usar o agente por ela e a ver os lançamentos nas respostas.
+--
+-- O CONSERTO. O agente manda um código de 6 dígitos pro e-mail (OTP do Supabase Auth,
+-- sem serviço novo) e só vincula depois de conferir. Esta coluna guarda quando isso
+-- aconteceu, e a etapa de LGPD recusa avançar sem ela.
+--
+-- ⚠️ Esta migration acompanha o código da Edge Function. Aplicar as duas juntas: sem
+-- a coluna, o `setOnboardingState` do estado "aguardando_codigo" falha e ninguém
+-- consegue mais vincular WhatsApp nenhum.
+
+alter table public.agente_onboarding_estado
+  add column if not exists email_verificado_em timestamptz;
+
+comment on column public.agente_onboarding_estado.email_verificado_em is
+  'Quando o dono do e-mail provou posse pelo código OTP. Nulo = não verificado; a etapa de LGPD recusa avançar sem isto.';
+
+-- ============================================================================
+-- Limpeza dos estados em trânsito
+-- ============================================================================
+-- Quem estava no meio do onboarding antigo está no estado "aguardando_lgpd" SEM
+-- verificação — exatamente a situação que o guard novo recusa. Em vez de deixar essa
+-- gente travada numa mensagem de erro, o estado é apagado e ela recomeça do e-mail.
+-- É uma mensagem a mais pra pouca gente, contra um vínculo sem prova pra sempre.
+delete from public.agente_onboarding_estado
+ where estado_atual = 'aguardando_lgpd'
+   and email_verificado_em is null;
+
+-- ============================================================================
+-- Conferir
+-- ============================================================================
+--   select telefone, estado_atual, email_candidato, email_verificado_em, tentativas
+--     from public.agente_onboarding_estado order by updated_at desc;
 
