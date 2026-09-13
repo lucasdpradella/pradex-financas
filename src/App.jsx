@@ -2343,7 +2343,23 @@ export default function PradexFinancas() {
 
       {/* FP */}
       {tela === "fp" && podeFp && (
-        <div>
+        <div style={isDesktop ? {
+          "--fp-text": "#111827", "--text-primary": "#111827", "--text-secondary": "#4B5563", "--text-muted": "#6B7280",
+          "--surface": "#FFFFFF", "--surface2": "#F1F3F9", "--card-bg": "#FFFFFF", "--input-bg": "#FFFFFF",
+          "--border": "#E4E7F0", "--accent": "#6366F1",
+        } : {
+          "--fp-text": "#F1F2F4", "--text-primary": "#F1F2F4", "--text-secondary": "#8B93A1", "--text-muted": "#5C6570",
+          "--surface": "#151821", "--surface2": "#1E2330", "--card-bg": "#151821", "--input-bg": "#0C0E14",
+          "--border": "#2C3344", "--accent": "#6366F1",
+        }}>
+          {/* Tokens do Planejamento, por CANVAS.
+               Os componentes de fp/ ja usam var(--surface), var(--border), var(--text-*)
+               em 31 lugares — mas NINGUEM definia essas variaveis, entao todas caiam no
+               fallback ESCURO. Por isso o Planejamento aparecia como um bloco escuro
+               dentro do desktop claro, e as abas discordavam entre si (Perfil escura,
+               Rendas clara).
+               Definindo aqui, os 31 usos passam a acompanhar o canvas de graca. O que
+               ainda tem hex fixo migra pra var() aos poucos. */}
           <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Planejamento Financeiro</p>
 
           {/* Subabas */}
