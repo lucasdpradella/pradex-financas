@@ -434,10 +434,68 @@ async function processarOnboarding(supabase: SupabaseClient, telefone: string, t
     const userId = lookup[0].user_id;
     const telefoneExistente = lookup[0].telefone_existente;
     if (telefoneExistente && telefoneExistente !== telefone) return { mensagem: `Encontrei sua conta, mas ela já tem outro WhatsApp cadastrado. Pra trocar, entra no app (aba Perfil) e atualiza o telefone primeiro.`, concluido: false };
-    await setOnboardingState(supabase, telefone, { estado_atual: "aguardando_lgpd", email_candidato: email, user_id_candidato: userId });
-    return { mensagem: `Achei sua conta ✅\n\nAntes de começar, preciso que você concorde:\n\n_"Os dados financeiros que você enviar aqui (gastos, receitas, áudios) serão registrados na sua conta do Pradex e processados por IA. Seus dados são protegidos conforme nossa Política de Privacidade."_\n\nResponde *OK* pra confirmar 👊`, concluido: false };
+    // VERIFICAÇÃO DE POSSE DO E-MAIL (achado 4 da auditoria de 12/09).
+    //
+    // Até aqui, SABER o e-mail bastava pra vincular o WhatsApp à conta. Se existisse
+    // uma conta antiga sem telefone, qualquer um que soubesse o endereço ligava o
+    // próprio número nela — e passava a usar o agente e a ver os lançamentos.
+    //
+    // Agora o Supabase manda um código pro e-mail e ele é exigido antes do vínculo.
+    // Usa o OTP que já existe no Auth, sem contratar serviço de e-mail novo.
+    // `shouldCreateUser: false` é essencial: sem isso, um e-mail inexistente criaria
+    // conta em vez de falhar.
+    const { error: erroOtp } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+    if (erroOtp) {
+      logErro(cid, "onboarding_otp_falhou", erroOtp);
+      return { mensagem: "Não consegui enviar o código de confirmação agora. Tenta de novo em alguns minutos 👊", concluido: false };
+    }
+    logInfo(cid, "onboarding_otp_enviado", { telefone });
+    await setOnboardingState(supabase, telefone, { estado_atual: "aguardando_codigo", email_candidato: email, user_id_candidato: userId, tentativas: 0 });
+    return { mensagem: `Achei sua conta ✅\n\nMandei um *código de 6 dígitos* pro seu e-mail (${email}). Me manda ele aqui pra eu confirmar que a conta é sua.\n\n_Se não chegar em 2 minutos, olha o spam._`, concluido: false };
+  }
+  if (estado.estado_atual === "aguardando_codigo") {
+    const codigo = (texto.match(/\b\d{6}\b/) || [])[0];
+    const tentativas = (estado.tentativas ?? 0) + 1;
+
+    // Teto de tentativas: 6 dígitos são 1 milhão de combinações, mas sem limite um
+    // script tenta todas. Estourou, o onboarding recomeça do zero — e o código antigo
+    // morre junto.
+    if (tentativas > 5) {
+      await supabase.from("agente_onboarding_estado").delete().eq("telefone", telefone);
+      return { mensagem: "Errou o código vezes demais. Vamos começar de novo: me manda o e-mail da sua conta 👊", concluido: false };
+    }
+    if (!codigo) {
+      await setOnboardingState(supabase, telefone, { tentativas });
+      return { mensagem: "Preciso do código de 6 dígitos que chegou no seu e-mail 👊", concluido: false };
+    }
+
+    const { data: verif, error: erroVerif } = await supabase.auth.verifyOtp({ email: estado.email_candidato, token: codigo, type: "email" });
+    if (erroVerif || !verif?.user) {
+      await setOnboardingState(supabase, telefone, { tentativas });
+      logInfo(cid, "onboarding_codigo_invalido", { tentativas });
+      return { mensagem: `Código não confere. Tenta de novo — te restam ${5 - tentativas} tentativas.`, concluido: false };
+    }
+
+    // Trava final: o código verificado tem que ser da MESMA conta que o e-mail achou.
+    // Sem isto, um código válido de outra conta ainda vincularia o telefone errado.
+    if (verif.user.id !== estado.user_id_candidato) {
+      logErro(cid, "onboarding_user_divergente", { esperado: estado.user_id_candidato, veio: verif.user.id });
+      await supabase.from("agente_onboarding_estado").delete().eq("telefone", telefone);
+      return { mensagem: "Algo não bateu na confirmação. Vamos começar de novo: me manda o e-mail da sua conta 👊", concluido: false };
+    }
+
+    await setOnboardingState(supabase, telefone, { estado_atual: "aguardando_lgpd", email_verificado_em: new Date().toISOString() });
+    return { mensagem: `E-mail confirmado ✅\n\nAntes de começar, preciso que você concorde:\n\n_"Os dados financeiros que você enviar aqui (gastos, receitas, áudios) serão registrados na sua conta do Pradex e processados por IA. Seus dados são protegidos conforme nossa Política de Privacidade."_\n\nResponde *OK* pra confirmar 👊`, concluido: false };
   }
   if (estado.estado_atual === "aguardando_lgpd") {
+    // Defesa em profundidade: o vínculo só acontece depois do e-mail confirmado.
+    // Se alguém pular pro estado de LGPD por caminho torto (linha antiga na tabela,
+    // escrita direta), aqui a porta continua fechada.
+    if (!estado.email_verificado_em) {
+      logErro(cid, "onboarding_lgpd_sem_verificacao", { telefone });
+      await supabase.from("agente_onboarding_estado").delete().eq("telefone", telefone);
+      return { mensagem: "Preciso confirmar seu e-mail antes. Me manda o e-mail da sua conta 👊", concluido: false };
+    }
     const r = texto.trim().toUpperCase();
     if (r !== "OK" && r !== "CONCORDO" && r !== "SIM") return { mensagem: "Pra liberar o uso, responde *OK* confirmando o termo 👊", concluido: false };
     const { error } = await supabase.from("fp_perfil").update({ telefone }).eq("user_id", estado.user_id_candidato);
