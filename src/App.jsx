@@ -1624,6 +1624,7 @@ export default function PradexFinancas() {
           ano={mesDashboard.ano}
           mes={mesDashboard.mes}
           plano={plano}
+          trial={trial}
           tetos={orcamentos}
           onQueroTeto={() => setTela("orcamento")}
           premioResgatadoEm={premioResgatadoEm}
@@ -1707,6 +1708,7 @@ export default function PradexFinancas() {
             categorias={categories.gasto.map((nome) => ({ nome, tipo: "gasto" }))}
             tetos={orcamentos}
             plano={plano}
+            trial={trial}
             gastosPorCategoria={Object.fromEntries(
               (() => {
                 const prefixo = `${mesDashboard.ano}-${String(mesDashboard.mes + 1).padStart(2, "0")}`;
@@ -1732,6 +1734,7 @@ export default function PradexFinancas() {
             ano={mesDashboard.ano}
             mes={mesDashboard.mes}
             plano={plano}
+            trial={trial}
             tetos={orcamentos}
             onQueroTeto={() => setTela("orcamento")}
             premioResgatadoEm={premioResgatadoEm}
