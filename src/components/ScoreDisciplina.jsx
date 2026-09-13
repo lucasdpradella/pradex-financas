@@ -15,7 +15,7 @@
 import React, { useMemo } from "react";
 import { calcularFechamento } from "../lib/fechamento";
 import { calcularDisciplina, PONTOS } from "../lib/disciplina";
-import { temAcesso } from "../lib/plano";
+import { podeUsarRecurso } from "../lib/plano";
 import { avaliarPremio, oQueFalta } from "../lib/premio";
 
 const COR = {
@@ -34,8 +34,10 @@ const COR = {
 // também: isto pontua comportamento, não dinheiro.
 const corDaFaixa = (score) => (score >= 85 ? COR.bom : score >= 60 ? COR.acento : score >= 30 ? COR.medio_ : COR.ruim);
 
-export default function ScoreDisciplina({ lancamentos, ano, mes, plano, tetos = [], onQueroTeto, premioResgatadoEm = null, onResgatarPremio }) {
-  const temTeto = temAcesso(plano, "orcamento");
+export default function ScoreDisciplina({ lancamentos, ano, mes, plano, trial = null, tetos = [], onQueroTeto, premioResgatadoEm = null, onResgatarPremio }) {
+  // Quem está no trial já tem o teto: mostrar a chamada de upgrade seria vender o que
+  // a pessoa acabou de ganhar.
+  const temTeto = podeUsarRecurso(plano, "orcamento", trial);
 
   const { d, premio } = useMemo(() => {
     const f = calcularFechamento(lancamentos || [], ano, mes);

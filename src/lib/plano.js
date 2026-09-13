@@ -55,8 +55,12 @@ export const mostraCadeado = (plano, recurso) => !temAcesso(plano, recurso);
 // renderiza. É isso que separa este padrão do cadeado.
 //
 // Devolve null quando pode salvar; quando não, devolve o que o paywall precisa saber.
-export function paywallNoSave(plano, recurso) {
-  if (temAcesso(plano, recurso)) return null;
+//
+// `trial` é opcional pra não quebrar call site antigo, mas quem gateia recurso do
+// trial PRECISA passar — sem ele, quem está testando levaria paywall no save de uma
+// coisa que o trial deveria ter liberado.
+export function paywallNoSave(plano, recurso, trial = null) {
+  if (podeUsarRecurso(plano, recurso, trial)) return null;
   const exigido = planoNecessario(recurso);
   return { recurso, planoAtual: normalizePlano(plano), planoExigido: exigido, checkout: CHECKOUT[exigido] || null };
 }
@@ -114,6 +118,22 @@ export function diasRestantesTrial(trial, hoje = new Date()) {
 // O gate do Zap. Pago ignora o trial; o trial não expira pra quem paga.
 export const podeUsarWhatsapp = (plano, trial, hoje = new Date()) =>
   temAcesso(plano, "whatsapp") || trialAtivo(trial, hoje);
+
+// Recursos que o trial libera junto com o agente.
+//
+// Decisão do PRADELLA em 2026-09-13. O trial existe pra demonstrar o agente, e agente
+// sem teto não tem o que comentar: dois dos cinco gatilhos do modo caos dependem de
+// orçamento. Liberar só o Zap entregava meia experiência — a pessoa conversava com um
+// agente mudo justamente sobre a parte que mais vende.
+//
+// Continua valendo o limite da regra original: FP e Relatórios NÃO entram. Trial de 14
+// dias não é upgrade disfarçado — é o Essencial inteiro por 14 dias, não o Assistente.
+const RECURSOS_DO_TRIAL = new Set(["whatsapp", "orcamento"]);
+
+// O gate que as telas devem usar quando existir trial em jogo. `temAcesso` sozinho
+// continua certo pra decisão puramente de plano (menu, rótulo, checkout).
+export const podeUsarRecurso = (plano, recurso, trial, hoje = new Date()) =>
+  temAcesso(plano, recurso) || (RECURSOS_DO_TRIAL.has(recurso) && trialAtivo(trial, hoje));
 
 export const checkoutPara = (recurso) => CHECKOUT[planoNecessario(recurso)];
 

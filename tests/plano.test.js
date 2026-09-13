@@ -8,6 +8,7 @@ import {
   temAcesso,
   mostraCadeado,
   paywallNoSave,
+  podeUsarRecurso,
   mostraPreviaBorrada,
   checkoutPara,
   conteudoUpgrade,
@@ -192,5 +193,55 @@ describe("mostraPreviaBorrada", () => {
     expect(mostraPreviaBorrada("none", "fp")).toBe(true);
     expect(mostraPreviaBorrada("essencial", "fp")).toBe(true);
     expect(mostraPreviaBorrada("assistente", "fp")).toBe(false);
+  });
+});
+
+// ===== Trial libera o orçamento (2026-09-13) =====
+
+describe("podeUsarRecurso — trial", () => {
+  const ativo = { trial_inicio: "2026-09-01T00:00:00Z", trial_ate: "2030-01-01T00:00:00Z" };
+  const expirado = { trial_inicio: "2026-01-01T00:00:00Z", trial_ate: "2026-01-15T00:00:00Z" };
+
+  it("trial ativo libera whatsapp E orçamento pra quem está no Free", () => {
+    expect(podeUsarRecurso("none", "whatsapp", ativo)).toBe(true);
+    expect(podeUsarRecurso("none", "orcamento", ativo)).toBe(true);
+  });
+
+  // O limite da regra: trial de 14 dias é o Essencial inteiro, não o Assistente.
+  it("trial NÃO libera Planejamento nem Relatórios", () => {
+    expect(podeUsarRecurso("none", "fp", ativo)).toBe(false);
+    expect(podeUsarRecurso("none", "relatorios", ativo)).toBe(false);
+  });
+
+  it("trial expirado não libera nada", () => {
+    expect(podeUsarRecurso("none", "orcamento", expirado)).toBe(false);
+    expect(podeUsarRecurso("none", "whatsapp", expirado)).toBe(false);
+  });
+
+  it("sem trial cai no plano puro", () => {
+    expect(podeUsarRecurso("none", "orcamento", null)).toBe(false);
+    expect(podeUsarRecurso("essencial", "orcamento", null)).toBe(true);
+    expect(podeUsarRecurso("assistente", "fp", null)).toBe(true);
+  });
+
+  // Recurso desconhecido não pode virar liberação de graça nem pelo trial.
+  it("recurso desconhecido falha fechado mesmo com trial ativo", () => {
+    expect(podeUsarRecurso("essencial", "inexistente", ativo)).toBe(false);
+  });
+});
+
+describe("paywallNoSave respeita o trial", () => {
+  const ativo = { trial_inicio: "2026-09-01T00:00:00Z", trial_ate: "2030-01-01T00:00:00Z" };
+
+  it("quem está no trial salva teto sem ver paywall", () => {
+    expect(paywallNoSave("none", "orcamento", ativo)).toBeNull();
+  });
+
+  it("sem trial passado, o Free segue bloqueado", () => {
+    expect(paywallNoSave("none", "orcamento")).not.toBeNull();
+  });
+
+  it("trial não abre o Planejamento", () => {
+    expect(paywallNoSave("none", "fp", ativo)).not.toBeNull();
   });
 });

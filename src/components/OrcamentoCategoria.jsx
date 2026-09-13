@@ -46,7 +46,7 @@ export function parseValor(bruto) {
   return Number.isFinite(n) ? n : NaN;
 }
 
-export default function OrcamentoCategoria({ categorias = [], tetos = [], plano, gastosPorCategoria = {}, onSalvar, salvando = false }) {
+export default function OrcamentoCategoria({ categorias = [], tetos = [], plano, trial = null, gastosPorCategoria = {}, onSalvar, salvando = false }) {
   const doGasto = useMemo(
     () => categorias.filter((c) => (c.tipo ?? "gasto") === "gasto").map((c) => c.nome).filter(Boolean),
     [categorias],
@@ -76,7 +76,7 @@ export default function OrcamentoCategoria({ categorias = [], tetos = [], plano,
 
     // ⚠️ A checagem de plano acontece AQUI e só aqui. Nada acima desta linha pergunta
     // se a pessoa pode — ela pode olhar e preencher sempre.
-    const bloqueio = paywallNoSave(plano, "orcamento");
+    const bloqueio = paywallNoSave(plano, "orcamento", trial);
     if (bloqueio) { setPaywall(bloqueio); return; }
 
     onSalvar?.(linhas);
