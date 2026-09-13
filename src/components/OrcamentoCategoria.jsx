@@ -46,7 +46,7 @@ export function parseValor(bruto) {
   return Number.isFinite(n) ? n : NaN;
 }
 
-export default function OrcamentoCategoria({ categorias = [], tetos = [], plano, trial = null, gastosPorCategoria = {}, onSalvar, salvando = false }) {
+export default function OrcamentoCategoria({ categorias = [], tetos = [], plano, trial = null, gastosPorCategoria = {}, onSalvar, salvando = false, erroExterno = "" }) {
   const doGasto = useMemo(
     () => categorias.filter((c) => (c.tipo ?? "gasto") === "gasto").map((c) => c.nome).filter(Boolean),
     [categorias],
@@ -141,7 +141,8 @@ export default function OrcamentoCategoria({ categorias = [], tetos = [], plano,
         })}
       </div>
 
-      {erro && <p style={{ margin: "0.7rem 0 0", fontSize: "0.78rem", color: COR.ruim }}>{erro}</p>}
+      {/* Erro do servidor tem prioridade: e o que explica "salvei e nao ficou". */}
+      {(erroExterno || erro) && <p style={{ margin: "0.7rem 0 0", fontSize: "0.78rem", color: COR.ruim, lineHeight: 1.4 }}>{erroExterno || erro}</p>}
 
       <button
         type="button"
