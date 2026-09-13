@@ -24,6 +24,10 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const CAKTO_WEBHOOK_SECRET = Deno.env.get("CAKTO_WEBHOOK_SECRET") ?? "";
+// Quando "true", recusa webhook sem assinatura HMAC. Fica desligado ate os logs
+// confirmarem que todo evento real da Cakto chega assinado — ligar as cegas derruba
+// processamento de pagamento.
+const CAKTO_EXIGIR_HMAC = (Deno.env.get("CAKTO_EXIGIR_HMAC") ?? "").toLowerCase() === "true";
 const CAKTO_OFFER_ESSENCIAL = Deno.env.get("CAKTO_OFFER_ESSENCIAL") ?? "";
 const CAKTO_OFFER_ASSISTENTE = Deno.env.get("CAKTO_OFFER_ASSISTENTE") ?? "";
 // Fallback: se a Cakto mandar um id de oferta diferente do mapeado (order bump,
@@ -126,7 +130,31 @@ async function origemValida(
   }
 
   if (secretNoCorpo) {
+    // Achado 5 da auditoria de 2026-09-12: este caminho é mais fraco que o HMAC.
+    //
+    // O secret no corpo é a MESMA senha em toda requisição — quem interceptar um
+    // webhook consegue forjar infinitos. A assinatura HMAC muda com o conteúdo, então
+    // interceptar "fulano comprou" não permite gerar "sicrano comprou". E o corpo vaza
+    // mais fácil que header: vai parar em log, em proxy, em print de debug.
+    //
+    // Por que ele não foi simplesmente removido: se a Cakto estiver mandando eventos
+    // reais sem o header, cortar aqui derruba o processamento de PAGAMENTO. Então o
+    // caminho é medir antes de fechar — o log abaixo grita toda vez que o fallback é
+    // usado. Confirmado nos logs que todo evento real chega com HMAC, basta setar:
+    //
+    //   supabase secrets set CAKTO_EXIGIR_HMAC=true --project-ref sjvuhqqsjboncwpboclv
+    //
+    // e o caminho fraco morre sem tocar em código.
+    if (CAKTO_EXIGIR_HMAC) {
+      return { ok: false, via: "secret_corpo", motivo: "CAKTO_EXIGIR_HMAC ligado e webhook veio sem assinatura" };
+    }
     if (!constantTimeEquals(secretNoCorpo, CAKTO_WEBHOOK_SECRET)) return { ok: false, via: "secret_corpo", motivo: "secret nao confere" };
+    console.warn(JSON.stringify({
+      level: "warn",
+      evento: "cakto_sem_hmac",
+      detalhe: "webhook aceito pelo secret do corpo, sem assinatura. Caminho fraco — ver CAKTO_EXIGIR_HMAC.",
+      ts: new Date().toISOString(),
+    }));
     return { ok: true, via: "secret_corpo" };
   }
 

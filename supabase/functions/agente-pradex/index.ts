@@ -386,6 +386,31 @@ async function getContextoUsuario(supabase: SupabaseClient, userId: string) {
 }
 
 // ===== IDEMPOTÊNCIA =====
+// Teto de mensagens por telefone por hora. Configuravel sem redeploy:
+//   supabase secrets set AGENTE_LIMITE_HORA=40 --project-ref sjvuhqqsjboncwpboclv
+// 0 ou vazio desliga o limite.
+const LIMITE_HORA = Number(Deno.env.get("AGENTE_LIMITE_HORA") ?? "40") || 0;
+
+async function excedeuLimite(supabase: SupabaseClient, telefone: string, cid: string): Promise<boolean> {
+  if (LIMITE_HORA <= 0) return false;
+  try {
+    const desde = new Date(Date.now() - 3600_000).toISOString();
+    const { count, error } = await supabase
+      .from("agente_msgs_processadas")
+      .select("message_id", { count: "exact", head: true })
+      .eq("telefone", telefone)
+      .gte("created_at", desde);
+    if (error) { logErro(cid, "rate_limit_consulta_falhou", error); return false; }
+    if ((count ?? 0) < LIMITE_HORA) return false;
+
+    // Silencioso de proposito: avisar "voce atingiu o limite" confirma pro atacante
+    // que ele achou o caminho certo, e ainda gasta uma mensagem do Z-API por tentativa.
+    // Quem legitimamente encostar no teto e caso pra olhar no log, nao pra automatizar.
+    logErro(cid, "rate_limit_estourado", { telefone, contagem: count, limite: LIMITE_HORA });
+    return true;
+  } catch (e) { logErro(cid, "rate_limit_excecao", e); return false; }
+}
+
 async function tryClaimMessage(supabase: SupabaseClient, messageId: string, telefone: string): Promise<boolean> {
   const { error } = await supabase.from("agente_msgs_processadas").insert({ message_id: messageId, telefone, status: "processing", locked_at: new Date().toISOString() });
   if (error?.code === "23505") return false;
@@ -585,6 +610,24 @@ Deno.serve(async (req: Request) => {
     // Roteamento SDR: se telefone é prospect ativo no CRM Pradella, encaminha pro n8n e para.
     // Não claimamos a mensagem (agente_msgs_processadas é da idempotência do Pradex, não do SDR).
     if (await checkAndForwardToSdr(telefone, payload, cid)) {
+      return new Response("ok", { status: 200, headers: { "Content-Type": "text/plain" } });
+    }
+
+    // RATE LIMIT por telefone (achado 3 da auditoria de 2026-09-12).
+    //
+    // Este webhook é público e cada mensagem processada dispara Claude (~US$0,02-0,06)
+    // e, se for áudio, Whisper por cima. O token no header impede "qualquer um com a
+    // URL", mas não há HMAC — a doc da Z-API não oferece assinatura de webhook, só
+    // token estático (developer.z-api.io/security/client-token). Token estático vaza
+    // uma vez e vale pra sempre; sem teto, quem vazar varia messageId e queima o saldo.
+    //
+    // Fica DEPOIS do roteamento SDR de propósito: prospect encaminhado pro n8n não
+    // consome IA aqui, então não deve contar. E antes do claim, pra nem registrar a
+    // tentativa excedente como mensagem em processamento.
+    //
+    // Conta em cima de agente_msgs_processadas, que já existe e já é escrita no claim —
+    // tabela nova só pra isso seria peso sem ganho.
+    if (await excedeuLimite(supabase, telefone, cid)) {
       return new Response("ok", { status: 200, headers: { "Content-Type": "text/plain" } });
     }
 
