@@ -197,11 +197,6 @@ export default function PradexFinancas() {
   const [dividas, setDividas] = useState([]);
   const [orcamentos, setOrcamentos] = useState([]);
 
-  // Teto é por MÊS: trocar o mês no dashboard tem que puxar os tetos daquele mês,
-  // senão a nota do mês passado sairia calculada com o teto de hoje.
-  useEffect(() => {
-    if (session?.token) fetchOrcamentos(mesDashboard.ano, mesDashboard.mes);
-  }, [session?.token, mesDashboard.ano, mesDashboard.mes]);
   const [salvandoOrcamento, setSalvandoOrcamento] = useState(false);
   const [premioResgatadoEm, setPremioResgatadoEm] = useState(null);
   // Linhas cruas da tabela `categorias` (id/nome/tipo/removida) — a tela desktop
@@ -227,6 +222,12 @@ export default function PradexFinancas() {
   // Mês do Dashboard desktop, dirigido pelo seletor da top-bar (independente do
   // mesHistorico, que é do Histórico mobile).
   const [mesDashboard, setMesDashboard] = useState({ ano: new Date().getFullYear(), mes: new Date().getMonth() });
+
+  // Teto é por MÊS: trocar o mês no dashboard tem que puxar os tetos daquele mês,
+  // senão a nota do mês passado sairia calculada com o teto de hoje.
+  useEffect(() => {
+    if (session?.token) fetchOrcamentos(mesDashboard.ano, mesDashboard.mes);
+  }, [session?.token, mesDashboard.ano, mesDashboard.mes]);
   const navegarMesDashboard = (dir) => setMesDashboard(prev => {
     const total = prev.ano * 12 + prev.mes + dir;
     return { ano: Math.floor(total / 12), mes: ((total % 12) + 12) % 12 };
