@@ -65,6 +65,7 @@ const soma = (arr) => arr.reduce((s, l) => s + Number(l.valor || 0), 0);
 export default function DashboardDesktop({
   lancamentos, ano, mes, formatBRL,
   rascunhos = [], onConfirmarRascunho, onRejeitarRascunho, normalizeText = (x) => x,
+  tetos = [],
 }) {
   const dados = useMemo(() => {
     const doMes = (a, m) => {
@@ -208,23 +209,34 @@ export default function DashboardDesktop({
           {dados.categorias.length === 0 ? (
             <p className="pdx-panel__empty">Sem gastos neste mês.</p>
           ) : (
-            dados.categorias.map((item, i) => (
+            dados.categorias.map((item, i) => {
+              // Com teto, a barra mede contra o que a pessoa PROMETEU e o rotulo vira
+              // "gasto / teto · N% usado". Sem teto, segue medindo contra a maior
+              // categoria do mes, que e so leitura relativa.
+              const teto = tetos.find((t) => t.categoria === item.cat);
+              const limite = teto ? Number(teto.limite) : 0;
+              const pctTeto = limite > 0 ? (item.total / limite) * 100 : 0;
+              const estourou = limite > 0 && item.total > limite;
+              const perto = limite > 0 && !estourou && pctTeto >= 90;
+              const corBarra = estourou ? "#DC2626" : perto ? "#B45309" : BAR_COLORS[i % BAR_COLORS.length];
+              const largura = limite > 0 ? Math.min(100, pctTeto) : (item.total / dados.maxCat) * 100;
+              return (
               <div className="pdx-cat" key={item.cat}>
                 <div className="pdx-cat__row">
                   <span className="pdx-cat__nome" title={item.cat}>{item.cat}</span>
                   <span className="pdx-cat__val">
                     {formatBRL(item.total)}
-                    <span>{dados.gastoTotal > 0 ? `${((item.total / dados.gastoTotal) * 100).toFixed(0)}%` : "—"}</span>
+                    {limite > 0
+                      ? <span style={{ color: corBarra }}>{" / "}{formatBRL(limite)} · {Math.round(pctTeto)}% usado</span>
+                      : <span>{dados.gastoTotal > 0 ? `${((item.total / dados.gastoTotal) * 100).toFixed(0)}%` : "—"}</span>}
                   </span>
                 </div>
                 <div className="pdx-cat__track">
-                  <div
-                    className="pdx-cat__fill"
-                    style={{ width: `${(item.total / dados.maxCat) * 100}%`, background: BAR_COLORS[i % BAR_COLORS.length] }}
-                  />
+                  <div className="pdx-cat__fill" style={{ width: `${largura}%`, background: corBarra }} />
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
 

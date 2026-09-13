@@ -1646,6 +1646,7 @@ export default function PradexFinancas() {
           onResgatarPremio={resgatarPremio}
         />
         <DashboardDesktop
+          tetos={orcamentos}
           lancamentos={lancamentos}
           ano={mesDashboard.ano}
           mes={mesDashboard.mes}
@@ -1876,11 +1877,16 @@ export default function PradexFinancas() {
                           {formatBRL(item.total)}{limite > 0 && <span style={{ color: "#5C6570", fontWeight: 500 }}> / {formatBRL(limite)}</span>}
                         </span>
                       </div>
-                      <div style={{ background: "#0C0E14", borderRadius: "4px", height: "6px", overflow: "hidden" }}>
-                        <div style={{ background: corBarra, width: `${pct}%`, height: "100%", borderRadius: "4px", transition: "width .3s" }} />
+                      <div style={{ background: "#0C0E14", borderRadius: "999px", height: "8px", overflow: "hidden" }}>
+                        <div style={{ background: corBarra, width: `${pct}%`, height: "100%", borderRadius: "999px", transition: "width .3s" }} />
                       </div>
-                      {estourou && <p style={{ margin: "0.2rem 0 0", fontSize: "0.66rem", color: "#E06C65" }}>estourou {formatBRL(item.total - limite)}</p>}
-                      {perto && <p style={{ margin: "0.2rem 0 0", fontSize: "0.66rem", color: "#E8943A" }}>falta {formatBRL(limite - item.total)} pro teto</p>}
+                      {limite > 0 && (
+                        <p style={{ margin: "0.25rem 0 0", fontSize: "0.66rem", color: corBarra, fontVariantNumeric: "tabular-nums" }}>
+                          {Math.round((item.total / limite) * 100)}% usado
+                          {estourou && ` · estourou ${formatBRL(item.total - limite)}`}
+                          {perto && ` · falta ${formatBRL(limite - item.total)}`}
+                        </p>
+                      )}
                     </div>
                     );
                   }) : <p style={{ margin: 0, fontSize: "0.85rem", color: "#5C6570" }}>Sem gastos neste mês.</p>}
