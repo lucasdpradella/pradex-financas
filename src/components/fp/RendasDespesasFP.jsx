@@ -619,7 +619,7 @@ const styles = {
     fontSize: 18,
     fontWeight: 700,
     margin: 0,
-    color: "#E8E8E8",
+    color: "var(--fp-text, #E8E8E8)",
   },
   vazio: {
     padding: "24px 0",
@@ -818,8 +818,9 @@ const styles = {
     marginTop: 8,
   },
   btnAdicionar: {
-    background: "#f5c800",
-    color: "#1a1a1a",
+    // Era #f5c800 (amarelo): unico botao amarelo do app inteiro, destoava de tudo.
+    background: "#6366F1",
+    color: "#fff",
     border: "none",
     borderRadius: 6,
     padding: "10px 20px",
