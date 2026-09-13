@@ -198,6 +198,7 @@ export default function PradexFinancas() {
   const [orcamentos, setOrcamentos] = useState([]);
 
   const [salvandoOrcamento, setSalvandoOrcamento] = useState(false);
+  const [erroOrcamento, setErroOrcamento] = useState("");
   const [premioResgatadoEm, setPremioResgatadoEm] = useState(null);
   // Linhas cruas da tabela `categorias` (id/nome/tipo/removida) — a tela desktop
   // precisa saber o que é custom, o que é default oculta e qual o id de cada uma.
@@ -645,20 +646,54 @@ export default function PradexFinancas() {
 
   // Substitui os tetos do mês inteiro de uma vez: apaga os que saíram e regrava o
   // resto. É a operação que a tela faz — ela manda o estado final, não um diff.
+  // Salvar teto. NAO E MAIS "apaga tudo e reinsere".
+  //
+  // A versao anterior fazia DELETE do mes inteiro e depois POST — com o erro engolido
+  // por um catch vazio. Se o POST falhasse por qualquer motivo, o DELETE ja tinha
+  // acontecido: o teto nao so deixava de salvar, ele SUMIA. Era o "teto de gasto ainda
+  // ta sumindo" que o PRADELLA viu.
+  //
+  // Agora: primeiro grava o que existe, depois apaga so o que saiu, e qualquer falha
+  // vira mensagem na tela em vez de silencio.
   const salvarOrcamentos = async (linhas, ano, mes) => {
     setSalvandoOrcamento(true);
+    setErroOrcamento("");
     try {
       const primeiroDia = `${ano}-${String(mes + 1).padStart(2, "0")}-01`;
-      await fetch(`${SUPABASE_URL}/rest/v1/orcamentos?mes=eq.${primeiroDia}`, { method: "DELETE", headers: api(session?.token) });
-      if (linhas.length > 0) {
-        await fetch(`${SUPABASE_URL}/rest/v1/orcamentos`, {
-          method: "POST",
-          headers: { ...api(session?.token), "Content-Type": "application/json", Prefer: "return=minimal" },
-          body: JSON.stringify(linhas.map((l) => ({ user_id: session?.user?.id, categoria: l.categoria, limite: l.limite, mes: primeiroDia }))),
-        });
+      const atuais = orcamentos || [];
+      const porCat = new Map(atuais.map((o) => [String(o.categoria).toLowerCase(), o]));
+      const novasCats = new Set(linhas.map((l) => l.categoria.toLowerCase()));
+
+      // 1. Atualiza o que ja existe e cria o que e novo. Nada e apagado antes disto.
+      for (const l of linhas) {
+        const existente = porCat.get(l.categoria.toLowerCase());
+        const res = existente
+          ? await fetch(`${SUPABASE_URL}/rest/v1/orcamentos?id=eq.${existente.id}`, {
+              method: "PATCH",
+              headers: { ...api(session?.token), "Content-Type": "application/json", Prefer: "return=minimal" },
+              body: JSON.stringify({ limite: l.limite }),
+            })
+          : await fetch(`${SUPABASE_URL}/rest/v1/orcamentos`, {
+              method: "POST",
+              headers: { ...api(session?.token), "Content-Type": "application/json", Prefer: "return=minimal" },
+              body: JSON.stringify({ user_id: session?.user?.id, categoria: l.categoria, limite: l.limite, mes: primeiroDia }),
+            });
+        if (!res.ok) {
+          const detalhe = await res.text().catch(() => "");
+          setErroOrcamento(`Não consegui salvar "${l.categoria}". ${detalhe.slice(0, 160)}`);
+          return;                    // para aqui: nada foi apagado
+        }
       }
+
+      // 2. So agora apaga o que a pessoa esvaziou. Um a um, pelo id.
+      for (const o of atuais) {
+        if (novasCats.has(String(o.categoria).toLowerCase())) continue;
+        await fetch(`${SUPABASE_URL}/rest/v1/orcamentos?id=eq.${o.id}`, { method: "DELETE", headers: api(session?.token) });
+      }
+
       await fetchOrcamentos(ano, mes);
     } catch (e) {
+      setErroOrcamento("Falha de rede ao salvar os tetos. Tenta de novo.");
     } finally { setSalvandoOrcamento(false); }
   };
 
@@ -1737,6 +1772,7 @@ export default function PradexFinancas() {
               })(),
             )}
             salvando={salvandoOrcamento}
+            erroExterno={erroOrcamento}
             onSalvar={(linhas) => salvarOrcamentos(linhas, mesDashboard.ano, mesDashboard.mes)}
           />
         </div>
