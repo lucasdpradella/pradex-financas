@@ -8,6 +8,24 @@
 // O shell desktop (>=1024px) continua em components/desktop/theme.js — é um tema CLARO,
 // e migrá-lo é decisão à parte. Não misturar os dois.
 
+// ===== REGRA DE FRONTEIRA (auditoria de tema, 2026-09-13) =====
+//
+// Hex nao tem significado fora do canvas. #F1F2F4 e texto SO sobre #0C0E14/#151821;
+// sobre branco ele some (~1.1:1). Quatro bugs de UI em dois dias sairam de ignorar
+// isto, entao:
+//
+// 1. Arquivo em components/desktop/ importa desktopTheme. So.
+// 2. Arquivo do mobile e components/fp/ importa este arquivo. So.
+// 3. Componente que monta nos DOIS canvas (Score, Upgrade, Orcamento, Previa, FP)
+//    RAMIFICA superficie E texto por isDesktop. Sem ramo, e bug — ver
+//    ScoreDisciplina.jsx, que faz isso.
+// 4. Ilha consciente (card branco dentro do escuro, ou o contrario) declara a paleta
+//    local no topo do arquivo e NAO recebe migracao do outro tema — ver
+//    RendasDespesasFP.jsx.
+// 5. Antes de trocar um cinza: escreva o par texto/borda x fundo e recuse abaixo de
+//    3:1. isDesktop nao e licenca pra empurrar token escuro "mais fraco": e troca
+//    de tema.
+
 export const theme = {
   // Superfícies, do fundo pra cima
   bg: "#0C0E14",

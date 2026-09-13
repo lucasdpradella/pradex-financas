@@ -31,7 +31,12 @@ const BOTAO = {
   padding: "0.6rem 1.1rem",
 };
 
-export default function UpgradePlano({ plano, recurso, variant = "card", trial = null, onIniciarTrial, carregando = false }) {
+// ⚠️ Este card renderiza nos DOIS canvas: no mobile sobre #0C0E14 (escuro) e no
+// desktop sobre #F1F3F9 (claro). Sem isso, #F1F2F4 de titulo sobre fundo claro da
+// ~1.1:1 — texto branco em fundo branco. Achado da auditoria de tema de 13/09.
+export default function UpgradePlano({ plano, recurso, variant = "card", trial = null, onIniciarTrial, carregando = false, isDesktop = false }) {
+  const cTitulo = isDesktop ? "#111827" : "#F1F2F4";
+  const cCorpo  = isDesktop ? "#4B5563" : "#8B93A1";
   const { titulo, descricao, nota, cta, href, modo } = conteudoUpgrade(plano, recurso, { trial });
   const tela = variant === "tela";
   // Modo "trial" é ação no próprio app (RPC), não link externo de checkout — por isso
@@ -67,8 +72,8 @@ export default function UpgradePlano({ plano, recurso, variant = "card", trial =
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ margin: "0 0 0.15rem", fontSize: tela ? "1.05rem" : "0.92rem", fontWeight: 700, color: "#F1F2F4" }}>{titulo}</p>
-          <p style={{ margin: "0 0 0.35rem", fontSize: "0.76rem", color: "#8B93A1", lineHeight: 1.4 }}>{descricao}</p>
+          <p style={{ margin: "0 0 0.15rem", fontSize: tela ? "1.05rem" : "0.92rem", fontWeight: 700, color: cTitulo }}>{titulo}</p>
+          <p style={{ margin: "0 0 0.35rem", fontSize: "0.76rem", color: cCorpo, lineHeight: 1.4 }}>{descricao}</p>
           <p style={{ margin: 0, fontSize: "0.72rem", color: "#6366F1", fontWeight: 600 }}>{nota}</p>
 
           {acaoTrial ? (

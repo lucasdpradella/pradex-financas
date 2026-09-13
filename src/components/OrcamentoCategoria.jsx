@@ -10,7 +10,7 @@
 //
 // Copy: briefs/2026-09-12_copy-paywall.md (variação "caos leve").
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { paywallNoSave } from "../lib/plano";
 
 const COR = {
@@ -61,8 +61,22 @@ export default function OrcamentoCategoria({ categorias = [], tetos = [], plano,
   const [valores, setValores] = useState(inicial);
   const [erro, setErro] = useState("");
   const [paywall, setPaywall] = useState(null);
+  // Se a pessoa já digitou, um fetch que chega atrasado não pode apagar o que ela
+  // escreveu. Antes disso, o que vier do banco manda.
+  const [editado, setEditado] = useState(false);
 
-  const setValor = (cat, v) => { setValores((a) => ({ ...a, [cat]: v })); setErro(""); };
+  // ⚠️ SEM ISTO O SALVAR APAGA TETO. `useState(inicial)` só roda no primeiro mount,
+  // então se a tela montar antes de `fetchOrcamentos` responder, `valores` congela
+  // vazio. A pessoa digita UM teto, salva — e como `salvarOrcamentos` apaga o mês
+  // inteiro antes de reinserir, todos os outros tetos daquele mês somem.
+  //
+  // Vale também pra troca de mês: `orcamentos` é recarregado e a tela precisa
+  // acompanhar, senão mostra o teto do mês anterior.
+  useEffect(() => {
+    if (!editado) setValores(inicial);
+  }, [inicial, editado]);
+
+  const setValor = (cat, v) => { setValores((a) => ({ ...a, [cat]: v })); setEditado(true); setErro(""); };
 
   function handleSalvar() {
     const linhas = [];
