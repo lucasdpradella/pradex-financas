@@ -635,12 +635,29 @@ export default function PradexFinancas() {
 
   // Tetos do mês em exibição. O `mes` é sempre o dia 1 — o trigger no banco
   // (2026-09-12_orcamentos.sql) garante isso na escrita, e aqui a leitura combina.
+  // Teto VALE PROS MESES SEGUINTES ate ser mudado (decisao do PRADELLA, 13/09).
+  //
+  // Antes cada mes precisava do proprio cadastro: quem definisse teto em setembro
+  // abria outubro sem teto nenhum. Isso contradiz o proprio produto — o score mede
+  // CONSTANCIA, e obrigar a recadastrar todo mes e o oposto disso.
+  //
+  // Nao virou "teto global sem mes" porque isso apagaria o historico: sem a coluna
+  // mes nao da pra saber qual era o teto em marco. O desenho e herança: busca tudo
+  // ate o mes pedido, mais recente primeiro, e o primeiro que aparecer de cada
+  // categoria vence. O que vem de mes anterior fica marcado com `herdado`, porque
+  // a hora de salvar precisa saber disso.
   const fetchOrcamentos = async (ano, mes) => {
     try {
       const primeiroDia = `${ano}-${String(mes + 1).padStart(2, "0")}-01`;
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/orcamentos?mes=eq.${primeiroDia}&order=categoria.asc`, { headers: api(session?.token) });
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/orcamentos?mes=lte.${primeiroDia}&order=mes.desc,categoria.asc`, { headers: api(session?.token) });
       const data = await res.json();
-      setOrcamentos(Array.isArray(data) ? data : []);
+      const porCat = new Map();
+      for (const o of Array.isArray(data) ? data : []) {
+        const k = String(o.categoria ?? "").toLowerCase();
+        if (!k || porCat.has(k)) continue;          // mes.desc garante que o 1o e o mais recente
+        porCat.set(k, { ...o, herdado: o.mes !== primeiroDia });
+      }
+      setOrcamentos([...porCat.values()].sort((a, b) => String(a.categoria).localeCompare(String(b.categoria), "pt-BR")));
     } catch (e) {}
   };
 
@@ -666,7 +683,10 @@ export default function PradexFinancas() {
 
       // 1. Atualiza o que ja existe e cria o que e novo. Nada e apagado antes disto.
       for (const l of linhas) {
-        const existente = porCat.get(l.categoria.toLowerCase());
+        const achado = porCat.get(l.categoria.toLowerCase());
+        // ⚠️ Linha herdada tem id de OUTRO mes. PATCH nela mudaria o teto do mes
+        // passado em vez de criar o deste. Herdado conta como inexistente.
+        const existente = achado && !achado.herdado ? achado : null;
         const res = existente
           ? await fetch(`${SUPABASE_URL}/rest/v1/orcamentos?id=eq.${existente.id}`, {
               method: "PATCH",
@@ -687,6 +707,7 @@ export default function PradexFinancas() {
 
       // 2. So agora apaga o que a pessoa esvaziou. Um a um, pelo id.
       for (const o of atuais) {
+        if (o.herdado) continue;                    // nao apaga teto de mes passado
         if (novasCats.has(String(o.categoria).toLowerCase())) continue;
         await fetch(`${SUPABASE_URL}/rest/v1/orcamentos?id=eq.${o.id}`, { method: "DELETE", headers: api(session?.token) });
       }

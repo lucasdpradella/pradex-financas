@@ -322,7 +322,10 @@ async function getTetosDoMes(supabase: SupabaseClient, userId: string) {
     const primeiroDia = `${hoje.getUTCFullYear()}-${String(hoje.getUTCMonth() + 1).padStart(2, "0")}-01`;
 
     const [orcRes, gastoRes] = await Promise.all([
-      supabase.from("orcamentos").select("categoria, limite").eq("user_id", userId).eq("mes", primeiroDia),
+      // mes <= atual, mais recente primeiro: teto vale pros meses seguintes ate ser
+      // mudado (mesma regra do app). Filtrar por mes exato faria o agente nao ver o
+      // teto de quem cadastrou mes passado — e ai tela e agente discordariam.
+      supabase.from("orcamentos").select("categoria, limite, mes").eq("user_id", userId).lte("mes", primeiroDia).order("mes", { ascending: false }),
       supabase.from("Lancamentos").select("valor, categoria").eq("user_id", userId).eq("tipo", "gasto").gte("data_lancamento", primeiroDia),
     ]);
     if (orcRes.error || !orcRes.data?.length) return [];
@@ -333,7 +336,16 @@ async function getTetosDoMes(supabase: SupabaseClient, userId: string) {
       gastoPorCat.set(k, (gastoPorCat.get(k) ?? 0) + Number((l as any).valor ?? 0));
     }
 
-    return (orcRes.data as Array<{ categoria: string; limite: number }>).map((o) => {
+    // O mais recente de cada categoria vence; o resto e historico.
+    const vistos = new Set();
+    const vigentes = (orcRes.data as Array<{ categoria: string; limite: number }>).filter((o) => {
+      const k = String(o.categoria ?? "").toLowerCase();
+      if (!k || vistos.has(k)) return false;
+      vistos.add(k);
+      return true;
+    });
+
+    return vigentes.map((o) => {
       const gasto = gastoPorCat.get(o.categoria) ?? 0;
       const limite = Number(o.limite);
       return {

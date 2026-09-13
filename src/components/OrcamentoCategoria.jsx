@@ -102,12 +102,13 @@ export default function OrcamentoCategoria({ categorias = [], tetos = [], plano,
         Teto por categoria
       </p>
       <p style={{ margin: "0 0 0.9rem", fontSize: "0.78rem", color: COR.medio }}>
-        Quanto você quer gastar no máximo em cada uma neste mês. Deixe em branco pra não ter teto.
+        Quanto você quer gastar no máximo em cada uma. O teto continua valendo nos meses seguintes até você mudar. Deixe em branco pra não ter teto.
       </p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
         {doGasto.map((cat) => {
           const gasto = Number(gastosPorCategoria[cat] || 0);
+          const herdado = tetos.find((t) => String(t.categoria).toLowerCase() === cat.toLowerCase())?.herdado;
           const limite = parseValor(valores[cat]);
           const estourou = limite && !Number.isNaN(limite) && gasto > limite;
           return (
@@ -117,6 +118,7 @@ export default function OrcamentoCategoria({ categorias = [], tetos = [], plano,
                 {gasto > 0 && (
                   <p style={{ margin: "1px 0 0", fontSize: "0.66rem", color: estourou ? COR.ruim : COR.fraco, fontVariantNumeric: "tabular-nums" }}>
                     já gastou R$ {gasto.toFixed(2).replace(".", ",")}
+                    {herdado && <span style={{ color: COR.fraco }}> · teto do mês anterior</span>}
                   </p>
                 )}
               </div>
