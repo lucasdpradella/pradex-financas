@@ -2367,7 +2367,14 @@ export default function PradexFinancas() {
 
       </div>
 
-      {podeZap && <FabWhatsapp />}
+      {/* O FAB é ferramenta de DESCOBERTA, não de uso. Quem assinou já achou o
+          agente — deixar o botão flutuando ocupa canto de tela e cobre conteúdo pra
+          lembrar de algo que a pessoa já faz. Some pra Essencial e Assistente.
+
+          Fica pra quem está no TRIAL: ali o botão ainda tem trabalho a fazer, porque
+          a pessoa pode não ter começado a conversa. O caminho pro agente continua
+          existindo pra todo mundo no card do dashboard — o que sai é só o flutuante. */}
+      {podeZap && !temAcesso(plano, "whatsapp") && <FabWhatsapp />}
     </div>
   );
 }
