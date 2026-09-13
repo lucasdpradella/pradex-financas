@@ -1231,13 +1231,22 @@ export default function PradexFinancas() {
   const gastosCredito = gastos.filter(l => l.forma_pagamento === "Crédito").reduce((s, l) => s + Number(l.valor), 0);
   const percentualDebito = totalGastos > 0 ? (gastosDebito / totalGastos) * 100 : 0;
   const percentualCredito = totalGastos > 0 ? (gastosCredito / totalGastos) * 100 : 0;
+  // Compromissos ja assumidos pros proximos 3 meses.
+  //
+  // ANTES so contava parcela de CREDITO (forma_pagamento === "Credito" && total_parcelas).
+  // Recorrente ficava de fora: o PRADELLA viu "nenhuma parcela futura" no dashboard
+  // enquanto o Historico, rolando pra frente, mostrava a VIVO de R$330 em out/nov/dez.
+  //
+  // Os dois sao a mesma coisa do ponto de vista de quem planeja: dinheiro que JA esta
+  // comprometido. Entao o filtro passa a ser "gasto com data em mes futuro", o que
+  // pega parcela, recorrente e qualquer lancamento agendado.
   const projecaoParcelas = Array.from({ length: 3 }, (_, offset) => {
     const dataBase = new Date();
     dataBase.setDate(1);
     dataBase.setMonth(dataBase.getMonth() + offset + 1);
     const monthKey = getMonthKey(dataBase);
     const parcelasMes = lancamentos
-      .filter(l => l.tipo === "gasto" && l.forma_pagamento === "Crédito" && l.total_parcelas && l.data_lancamento?.startsWith(monthKey))
+      .filter(l => l.tipo === "gasto" && l.data_lancamento?.startsWith(monthKey))
       .sort((a, b) => Number(b.valor) - Number(a.valor));
     const total = parcelasMes.reduce((s, l) => s + Number(l.valor), 0);
     const comprasAtivas = new Set(parcelasMes.map(l => l.parcela_grupo_id || `${limparDescricaoParcela(l.descricao)}-${l.cartao_id || "sem-cartao"}`)).size;
@@ -1848,37 +1857,55 @@ export default function PradexFinancas() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1rem", marginBottom: "1rem" }}>
                 <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", border: "1px solid #1E2330" }}>
                   <p style={{ margin: "0 0 1.25rem", fontSize: "0.75rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Gastos por categoria</p>
-                  {gastosPorCategoria.length > 0 ? gastosPorCategoria.map((item, i) => (
+                  {gastosPorCategoria.length > 0 ? gastosPorCategoria.map((item, i) => {
+                    // Se a categoria tem teto, a barra mede contra o TETO — o que a
+                    // pessoa prometeu. Sem teto, mede contra a maior categoria do mês,
+                    // que e so leitura relativa. A diferenca importa: "2.167 de 3.000"
+                    // e um compromisso; "a maior barra" e so um ranking.
+                    const teto = orcamentos.find(t => t.categoria === item.cat);
+                    const limite = teto ? Number(teto.limite) : 0;
+                    const pct = limite > 0 ? Math.min(100, (item.total / limite) * 100) : (item.total / maxGasto) * 100;
+                    const estourou = limite > 0 && item.total > limite;
+                    const perto = limite > 0 && !estourou && item.total >= limite * 0.9;
+                    const corBarra = estourou ? "#E06C65" : perto ? "#E8943A" : COLORS[i % COLORS.length];
+                    return (
                     <div key={item.cat} style={{ marginBottom: "0.85rem" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.3rem", gap: "0.75rem" }}>
                         <span style={{ fontSize: "0.82rem", color: "#8B93A1" }}>{item.cat}</span>
-                        <span style={{ fontSize: "0.82rem", fontWeight: 600, color: COLORS[i % COLORS.length], whiteSpace: "nowrap" }}>{formatBRL(item.total)}</span>
+                        <span style={{ fontSize: "0.82rem", fontWeight: 600, color: corBarra, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+                          {formatBRL(item.total)}{limite > 0 && <span style={{ color: "#5C6570", fontWeight: 500 }}> / {formatBRL(limite)}</span>}
+                        </span>
                       </div>
-                      <div style={{ background: "#0C0E14", borderRadius: "4px", height: "6px", overflow: "hidden" }}><div style={{ background: COLORS[i % COLORS.length], height: "100%", width: `${(item.total / maxGasto) * 100}%`, borderRadius: "4px" }} /></div>
+                      <div style={{ background: "#0C0E14", borderRadius: "4px", height: "6px", overflow: "hidden" }}>
+                        <div style={{ background: corBarra, width: `${pct}%`, height: "100%", borderRadius: "4px", transition: "width .3s" }} />
+                      </div>
+                      {estourou && <p style={{ margin: "0.2rem 0 0", fontSize: "0.66rem", color: "#E06C65" }}>estourou {formatBRL(item.total - limite)}</p>}
+                      {perto && <p style={{ margin: "0.2rem 0 0", fontSize: "0.66rem", color: "#E8943A" }}>falta {formatBRL(limite - item.total)} pro teto</p>}
                     </div>
-                  )) : <p style={{ margin: 0, fontSize: "0.85rem", color: "#5C6570" }}>Sem gastos neste mês.</p>}
+                    );
+                  }) : <p style={{ margin: 0, fontSize: "0.85rem", color: "#5C6570" }}>Sem gastos neste mês.</p>}
                 </div>
                 <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", border: "1px solid #1E2330" }}>
-                  <p style={{ margin: "0 0 1.25rem", fontSize: "0.75rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Próximas parcelas</p>
+                  <p style={{ margin: "0 0 1.25rem", fontSize: "0.75rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Próximos compromissos</p>
                   {projecaoParcelas.some(m => m.total > 0) ? projecaoParcelas.map((mes) => (
                     <div key={mes.key} style={{ padding: "0.85rem 0", borderBottom: "1px solid #1E2330" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.75rem", marginBottom: mes.parcelas.length > 0 ? "0.45rem" : 0 }}>
                         <div>
                           <p style={{ margin: "0 0 0.15rem", fontSize: "0.82rem", color: "#F1F2F4", fontWeight: 600 }}>{mes.label}</p>
-                          <p style={{ margin: 0, fontSize: "0.7rem", color: "#5C6570" }}>{mes.comprasAtivas > 0 ? `${mes.comprasAtivas} compra${mes.comprasAtivas > 1 ? "s" : ""} parcelada${mes.comprasAtivas > 1 ? "s" : ""}` : "Sem parcelas"}</p>
+                          <p style={{ margin: 0, fontSize: "0.7rem", color: "#5C6570" }}>{mes.comprasAtivas > 0 ? `${mes.comprasAtivas} lançamento${mes.comprasAtivas > 1 ? "s" : ""} parcelada${mes.comprasAtivas > 1 ? "s" : ""}` : "Sem parcelas"}</p>
                         </div>
                         <p style={{ margin: 0, fontSize: "0.88rem", fontWeight: 700, color: mes.total > 0 ? "#E06C65" : "#5C6570", whiteSpace: "nowrap" }}>{formatBRL(mes.total)}</p>
                       </div>
                       {mes.parcelas.map((parcela) => (
                         <div key={parcela.id} style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", marginTop: "0.3rem" }}>
                           <p style={{ margin: 0, fontSize: "0.72rem", color: "#8B93A1", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {limparDescricaoParcela(parcela.descricao)} <span style={{ color: "#6366F1" }}>{parcela.parcela_atual}/{parcela.total_parcelas}x</span>
+                            {limparDescricaoParcela(parcela.descricao)} {parcela.total_parcelas ? <span style={{ color: "#6366F1" }}>{parcela.parcela_atual}/{parcela.total_parcelas}x</span> : parcela.recorrente ? <span style={{ color: "#8B93A1" }}>recorrente</span> : null}
                           </p>
                           <p style={{ margin: 0, fontSize: "0.72rem", color: "#8B93A1", whiteSpace: "nowrap" }}>{formatBRL(parcela.valor)}</p>
                         </div>
                       ))}
                     </div>
-                  )) : <p style={{ margin: 0, fontSize: "0.85rem", color: "#5C6570" }}>Nenhuma parcela futura prevista nos próximos 3 meses.</p>}
+                  )) : <p style={{ margin: 0, fontSize: "0.85rem", color: "#5C6570" }}>Nada comprometido nos próximos 3 meses.</p>}
                 </div>
               </div>
               {gastosPorCartao.length > 0 && (
