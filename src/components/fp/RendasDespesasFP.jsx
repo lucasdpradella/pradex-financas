@@ -549,6 +549,13 @@ export default function RendasDespesasFP({ session }) {
   );
 }
 
+// ⚠️ ILHA CLARA. Esta tela e CLARA (cards brancos, cinzas de fundo claro) dentro de
+// um app escuro. A paleta de src/theme.js NAO se aplica aqui: #F1F2F4 e "texto
+// primario no escuro" e, sobre branco, some.
+//
+// A migracao de paleta de 11/09 achatou 12 bordas e fundos daqui no mesmo tom e a
+// tela ficou sem moldura — foi o "cards desenquadrados" que o PRADELLA viu. Valores
+// originais restaurados em 13/09. Se for mexer em cor aqui, pense em fundo BRANCO.
 const styles = {
   container: {
     padding: "24px",
@@ -614,16 +621,16 @@ const styles = {
     color: "#8B93A1",
     fontSize: 14,
     textAlign: "center",
-    background: "#F1F2F4",
+    background: "#fafafa",
     borderRadius: 8,
-    border: "1px dashed #F1F2F4",
+    border: "1px dashed #e0e0e0",
   },
   card: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
     background: "#fff",
-    border: "1px solid #F1F2F4",
+    border: "1px solid #e8e8e8",
     borderRadius: 10,
     padding: "14px 18px",
     marginBottom: 10,
@@ -666,7 +673,7 @@ const styles = {
   },
   btnAcao: {
     background: "none",
-    border: "1px solid #F1F2F4",
+    border: "1px solid #d9d9d9",
     cursor: "pointer",
     fontSize: 12,
     padding: "4px 8px",
@@ -699,7 +706,7 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     padding: "20px 24px 16px",
-    borderBottom: "1px solid #F1F2F4",
+    borderBottom: "1px solid #f0f0f0",
   },
   modalTitulo: {
     fontSize: 20,
@@ -726,7 +733,7 @@ const styles = {
     justifyContent: "flex-end",
     gap: 12,
     padding: "16px 24px",
-    borderTop: "1px solid #F1F2F4",
+    borderTop: "1px solid #f0f0f0",
   },
   campo: {
     marginBottom: 16,
@@ -741,11 +748,11 @@ const styles = {
     width: "100%",
     padding: "10px 12px",
     border: "none",
-    borderBottom: "1.5px solid #8B93A1",
+    borderBottom: "1.5px solid #ddd",
     borderRadius: 0,
     fontSize: 15,
     color: "#0C0E14",
-    background: "#F1F2F4",
+    background: "#fafafa",
     outline: "none",
     boxSizing: "border-box",
   },
@@ -753,8 +760,8 @@ const styles = {
     width: "100%",
     padding: "10px 12px",
     border: "none",
-    borderBottom: "1.5px solid #8B93A1",
-    background: "#F1F2F4",
+    borderBottom: "1.5px solid #ddd",
+    background: "#fafafa",
     fontSize: 15,
     color: "#0C0E14",
     outline: "none",
@@ -776,8 +783,8 @@ const styles = {
     flex: 1,
     padding: "8px 10px",
     border: "none",
-    borderBottom: "1.5px solid #8B93A1",
-    background: "#F1F2F4",
+    borderBottom: "1.5px solid #ddd",
+    background: "#fafafa",
     fontSize: 13,
     color: "#0C0E14",
     outline: "none",

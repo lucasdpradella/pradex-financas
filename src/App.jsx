@@ -1273,6 +1273,10 @@ export default function PradexFinancas() {
     { key: "dashboard", label: "Dashboard" },
     { key: "lancamentos", label: "Lançar" },
     { key: "historico", label: "Histórico" },
+    // Sem cadeado: a tela do teto abre pra todo mundo e o paywall e no save.
+    // Faltava aqui — no mobile, quem JA tinha acesso nao tinha caminho nenhum pra
+    // chegar na tela, porque a chamada do score so aparece pra quem NAO tem.
+    { key: "orcamento", label: "Teto" },
     // FP fica sempre no menu: sem Assistente, abre o CTA de upgrade em vez de sumir.
     { key: "fp", label: mostraCadeado(plano, "fp") ? "Plan. 🔒" : "Plan." },
   ];
@@ -1779,7 +1783,12 @@ export default function PradexFinancas() {
               <p style={{ margin: 0, fontSize: "0.76rem", color: "#8B93A1", lineHeight: 1.4 }}>Manda texto ou áudio — "gastei 50 no mercado" — e o Pradex registra sozinho.</p>
               {/* Quem está no teste precisa saber que ele acaba — descobrir pelo
                   silêncio no dia 15 é a pior versão disso. */}
-              {trialAtivo(trial) && (
+              {/* Só pra quem ainda NÃO paga. Quem assinou continua com trial_ate
+                  preenchido no banco (o plano não apaga o trial), e mostrar
+                  "teste grátis · N dias restantes" pra assinante sugere que o
+                  acesso dele vence — foi o que o PRADELLA viu depois de virar
+                  assistente. */}
+              {trialAtivo(trial) && !temAcesso(plano, "whatsapp") && (
                 <p style={{ margin: "0.3rem 0 0", fontSize: "0.72rem", color: "#6366F1", fontWeight: 600 }}>
                   Teste grátis · {diasRestantesTrial(trial)} {diasRestantesTrial(trial) === 1 ? "dia restante" : "dias restantes"}
                 </p>
