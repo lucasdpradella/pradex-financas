@@ -1540,8 +1540,8 @@ export default function PradexFinancas() {
       {podeZap && precisaCadastrarTelefone && !bannerTelefoneFechado && (
         <div style={{ background: "#6366F112", border: "1px solid #6366F140", borderRadius: "14px", padding: "1rem 1.1rem", marginBottom: "1.25rem", display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
           <div style={{ flex: 1 }}>
-            <p style={{ margin: "0 0 0.25rem", fontSize: "0.85rem", fontWeight: 700, color: "#F1F2F4" }}>Complete seu cadastro</p>
-            <p style={{ margin: "0 0 0.7rem", fontSize: "0.78rem", color: "#8B93A1", lineHeight: 1.45 }}>
+            <p style={{ margin: "0 0 0.25rem", fontSize: "0.85rem", fontWeight: 700, color: isDesktop ? "#111827" : "#F1F2F4" }}>Complete seu cadastro</p>
+            <p style={{ margin: "0 0 0.7rem", fontSize: "0.78rem", color: isDesktop ? "#4B5563" : "#8B93A1", lineHeight: 1.45 }}>
               Cadastre seu WhatsApp pra usar o agente Pradex e registrar lançamentos por mensagem.
             </p>
             <button
@@ -1710,7 +1710,11 @@ export default function PradexFinancas() {
               ← Dashboard
             </button>
           )}
+          {/* key por mês: trocar o mês REMONTA a tela. Sem isso, o flag de "já
+              editei" do componente sobreviveria à troca e seguraria os tetos do
+              mês novo fora da tela. */}
           <OrcamentoCategoria
+            key={`${mesDashboard.ano}-${mesDashboard.mes}`}
             categorias={categories.gasto.map((nome) => ({ nome, tipo: "gasto" }))}
             tetos={orcamentos}
             plano={plano}
@@ -1804,7 +1808,7 @@ export default function PradexFinancas() {
               )}
             </div>
             <span style={{ fontSize: "1.1rem", color: "#25D366", flexShrink: 0 }}>›</span>
-          </a> : <UpgradePlano plano={plano} recurso="whatsapp" variant="card" trial={trial} onIniciarTrial={iniciarTrial} carregando={iniciandoTrial} />}
+          </a> : <UpgradePlano isDesktop={isDesktop} plano={plano} recurso="whatsapp" variant="card" trial={trial} onIniciarTrial={iniciarTrial} carregando={iniciandoTrial} />}
           {lancamentos.length === 0 ? (
             <div style={{ textAlign: "center", padding: "3rem 0", color: "#5C6570" }}>
               <p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>•</p>
@@ -2285,7 +2289,7 @@ export default function PradexFinancas() {
         <div>
           <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Relatórios</p>
           <div style={{ marginBottom: "1rem" }}><PreviaBorrada recurso="relatorios" /></div>
-          <UpgradePlano plano={plano} recurso="relatorios" variant="tela" />
+          <UpgradePlano isDesktop={isDesktop} plano={plano} recurso="relatorios" variant="tela" />
         </div>
       )}
 
@@ -2306,7 +2310,7 @@ export default function PradexFinancas() {
               vazia nao dava. O desenho e inventado — nenhum dado do usuario e
               buscado aqui (ver PreviaBorrada.jsx). */}
           <div style={{ marginBottom: "1rem" }}><PreviaBorrada recurso="fp" /></div>
-          <UpgradePlano plano={plano} recurso="fp" variant="tela" />
+          <UpgradePlano isDesktop={isDesktop} plano={plano} recurso="fp" variant="tela" />
         </div>
       )}
 

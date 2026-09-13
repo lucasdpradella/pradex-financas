@@ -849,7 +849,7 @@ const styles = {
   cardLancTitulo: {
     fontWeight: 700,
     fontSize: 14,
-    color: "#E8E8E8",
+    color: "#1a1a1a",
     marginBottom: 3,
   },
   cardLancSub: {
