@@ -167,7 +167,7 @@ function formatYAxis(v) {
 // destacado sumiu contra o próprio fundo. Valores originais restaurados.
 function ScenarioCard({ color, title, aporte, patrimonio, subtitle, highlighted = false }) {
   return (
-    <div style={{ ...styles.scenarioCard, background: highlighted ? "#EFEFEF" : "#FFFFFF", borderColor: highlighted ? "#E2E2E2" : "#E5E7EB" }}>
+    <div style={{ ...styles.scenarioCard, background: highlighted ? "#1E2330" : "#151821", borderColor: highlighted ? "#3A4258" : "#2C3344" }}>
       <div style={styles.scenarioHeader}>
         <div style={styles.scenarioTitleWrap}>
           <span style={{ ...styles.scenarioDot, background: color }} />
@@ -416,7 +416,7 @@ export default function DiagnosticoFP({ session }) {
                 <line
                   x1={getX(hoverIdx)} y1={chart.marginTop}
                   x2={getX(hoverIdx)} y2={chart.height - chart.marginBottom}
-                  stroke="#0C0E14" strokeOpacity="0.3" strokeWidth="1" strokeDasharray="2 2"
+                  stroke="#8B93A1" strokeOpacity="0.3" strokeWidth="1" strokeDasharray="2 2"
                 />
               )}
 
@@ -502,29 +502,32 @@ const styles = {
   },
   toggleButtonActive: { background: "#FFFFFF", color: "#0C0E14" },
   filterButton: { border: "none", borderRadius: "999px", background: "#0C0E14", color: "#FFFFFF", padding: "0.55rem 0.9rem", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
+  // O grafico e o coracao da tela e vinha DEPOIS de status, descricao, seis premissas
+  // e tres cards de cenario. `order` inverte a leitura sem mexer no JSX.
   board: { background: "#151821", borderRadius: "18px", border: "1px solid #1E2330", padding: "1.2rem 1.1rem", display: "grid", gridTemplateColumns: "1fr", gap: "1rem" },
-  leftPanel: { display: "grid", alignContent: "start", gap: "1rem" },
+  leftPanel: { display: "grid", alignContent: "start", gap: "1rem", order: 2 },
   statusRow: { display: "flex", alignItems: "center", gap: "0.7rem" },
   statusDot: { width: "12px", height: "12px", borderRadius: "999px", background: "#2FBF8A", flexShrink: 0 },
-  statusTitle: { margin: 0, fontSize: "1.05rem", fontWeight: 500, color: "#F1F2F4" },
+  statusTitle: { margin: 0, fontSize: "1.35rem", fontWeight: 600, letterSpacing: "-0.02em", color: "#F1F2F4" },
   separator: { width: "100%", height: "1px", background: "#1E2330" },
   description: { margin: 0, fontSize: "0.92rem", color: "#8B93A1", lineHeight: 1.55 },
   assumptions: { display: "grid", gap: "0.45rem" },
   assumptionRow: { display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "center" },
   assumptionLabel: { fontSize: "0.8rem", color: "#8B93A1" },
-  assumptionValue: { fontSize: "0.82rem", color: "#D49A4F", fontWeight: 700, textAlign: "right" },
+  assumptionValue: { fontSize: "0.8rem", color: "#F1F2F4", fontWeight: 500, textAlign: "right", fontVariantNumeric: "tabular-nums" },
   scenarioList: { display: "grid", gap: "0.85rem" },
   scenarioCard: { border: "1px solid #1E2330", borderRadius: "12px", padding: "0.95rem 1rem", boxShadow: "0 1px 2px rgba(0,0,0,0.16)" },
   scenarioHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.75rem", marginBottom: "0.9rem" },
   scenarioTitleWrap: { display: "flex", alignItems: "center", gap: "0.7rem" },
   scenarioDot: { width: "12px", height: "12px", borderRadius: "999px", flexShrink: 0 },
-  scenarioTitle: { fontSize: "0.92rem", color: "#0F172A", fontWeight: 500 },
-  infoIcon: { width: "18px", height: "18px", borderRadius: "999px", border: "1px solid #8B93A1", color: "#C9CFDA", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "0.72rem", fontWeight: 700, flexShrink: 0 },
+  scenarioTitle: { fontSize: "0.92rem", color: "#F1F2F4", fontWeight: 500 },
+  infoIcon: { width: "18px", height: "18px", borderRadius: "999px", border: "1px solid #8B93A1", color: "#8B93A1", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "0.72rem", fontWeight: 700, flexShrink: 0 },
   metricRow: { display: "flex", justifyContent: "space-between", gap: "0.75rem", marginBottom: "0.55rem", alignItems: "center" },
-  metricLabel: { fontSize: "0.77rem", color: "#5C6570" },
-  metricValue: { fontSize: "0.8rem", color: "#111827", fontWeight: 700, textAlign: "right" },
-  rightPanel: { minWidth: 0, display: "grid", gap: "0.55rem" },
+  metricLabel: { fontSize: "0.77rem", color: "#8B93A1" },
+  metricValue: { fontSize: "0.8rem", color: "#F1F2F4", fontWeight: 700, textAlign: "right" },
+  rightPanel: { order: 1, minWidth: 0, display: "grid", gap: "0.55rem" },
   chartActions: { display: "flex", justifyContent: "flex-end", marginBottom: "0.15rem" },
+  // Acao secundaria: nao pode ter mais peso que o grafico que ela controla.
   resetButton: { border: "none", background: "#E8943A", color: "#0C0E14", padding: "0.75rem 1.35rem", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
   chartWrapper: { position: "relative", overflowX: "auto", background: "#F2F4F8", border: "1px solid #E2E5EB", borderRadius: "14px", padding: "0.45rem" },
   svg: { width: "100%", minWidth: "640px", height: "auto", display: "block" },
