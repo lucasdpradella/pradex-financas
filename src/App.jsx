@@ -170,6 +170,16 @@ export default function PradexFinancas() {
   const [senha, setSenha] = useState("");
   const [authErro, setAuthErro] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
+
+  // Recuperacao de senha. Tres telas, nao duas: pedir o link, o aviso de enviado, e a
+  // de definir a senha nova — esta ultima chega por um caminho diferente (o link do
+  // e-mail), nao por clique.
+  const [telaRecuperar, setTelaRecuperar] = useState(false);
+  const [recuperarEnviado, setRecuperarEnviado] = useState(false);
+  const [definindoSenha, setDefinindoSenha] = useState(false);
+  const [novaSenha, setNovaSenha] = useState("");
+  const [novaSenhaRepetida, setNovaSenhaRepetida] = useState("");
+  const [senhaTrocadaOk, setSenhaTrocadaOk] = useState(false);
   const [cadastroNome, setCadastroNome] = useState("");
   const [cadastroDataNasc, setCadastroDataNasc] = useState("");
   const [cadastroTelefone, setCadastroTelefone] = useState("");
@@ -267,6 +277,15 @@ export default function PradexFinancas() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      // O link de recuperacao ABRE SESSAO. Sem este desvio o usuario cairia direto no
+      // app, com a senha velha intacta, e nunca definiria a nova — o fluxo terminaria
+      // sem fazer o que prometeu. `detectSessionInUrl` ja consumiu o hash da URL aqui.
+      if (event === "PASSWORD_RECOVERY") {
+        setDefinindoSenha(true);
+        setTelaRecuperar(false);
+        setAuthErro("");
+      }
+
       if (event === "SIGNED_OUT" || !currentSession) {
         clearSessionTokens();
         setSession(null);
@@ -410,6 +429,44 @@ export default function PradexFinancas() {
     setAuthLoading(false);
   };
 
+  // Pedir o link. A resposta e SEMPRE a mesma, exista o e-mail ou nao: responder
+  // "e-mail nao cadastrado" transforma a tela num verificador de quem tem conta aqui.
+  // Mesma escolha do rate limit do agente (PR #41) — negar sem confirmar nada.
+  const handlePedirRecuperacao = async () => {
+    const alvo = email.trim();
+    if (!alvo || !alvo.includes("@")) { setAuthErro("Informe o e-mail da sua conta."); return; }
+    setAuthLoading(true); setAuthErro("");
+    try {
+      // O redirect volta pra raiz — a MESMA URL que serve a landing e o app (#64). O
+      // Supabase so aceita destinos da lista de redirect do projeto; a raiz e a Site URL.
+      await supabase.auth.resetPasswordForEmail(alvo, { redirectTo: window.location.origin + "/" });
+    } catch (e) {}
+    setRecuperarEnviado(true);
+    setAuthLoading(false);
+  };
+
+  const handleDefinirNovaSenha = async () => {
+    if (novaSenha.length < 6) { setAuthErro("A senha precisa ter pelo menos 6 caracteres."); return; }
+    if (novaSenha !== novaSenhaRepetida) { setAuthErro("As duas senhas não são iguais."); return; }
+    setAuthLoading(true); setAuthErro("");
+    try {
+      const { error } = await supabase.auth.updateUser({ password: novaSenha });
+      if (error) {
+        // O link de recuperacao expira (1h no padrao do Supabase) e e de uso unico.
+        setAuthErro("Não foi possível alterar. O link pode ter expirado — peça outro.");
+        setAuthLoading(false);
+        return;
+      }
+      // Confirma na tela em vez de jogar direto no app: a pessoa acabou de escolher
+      // uma senha e precisa ver que pegou, senao fica na duvida se anotou a certa.
+      setSenhaTrocadaOk(true);
+      setNovaSenha(""); setNovaSenhaRepetida("");
+    } catch (e) {
+      setAuthErro("Erro de conexão.");
+    }
+    setAuthLoading(false);
+  };
+
   const handleLogout = () => {
     supabase.auth.signOut().catch(() => {});
     clearSessionTokens();
@@ -417,6 +474,8 @@ export default function PradexFinancas() {
     setLancamentos([]); setCartoes([]); setBancos([]); setDividas([]);
     setPrecisaCadastrarTelefone(false); setBannerTelefoneFechado(false);
     setPlano("none"); setTrial(null); setPremioResgatadoEm(null); setOrcamentos([]);
+    setTelaRecuperar(false); setRecuperarEnviado(false); setDefinindoSenha(false);
+    setNovaSenha(""); setNovaSenhaRepetida(""); setSenhaTrocadaOk(false);
   };
 
   useEffect(() => {
@@ -1356,10 +1415,109 @@ export default function PradexFinancas() {
 
   if (loadingAuth) return <div style={{ minHeight: "100vh", background: "#0C0E14", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "#5C6570", fontFamily: "'DM Sans', sans-serif" }}>Carregando...</p></div>;
 
+  // Definir senha nova. VEM ANTES do teste de sessao de proposito: quem chega pelo
+  // link do e-mail JA esta autenticado, entao a ordem inversa entregaria o app e a
+  // troca de senha nunca aconteceria.
+  if (definindoSenha) return (
+    <Landing>
+      <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", border: "1px solid #1E2330" }}>
+        {senhaTrocadaOk ? (
+          <>
+            <h2 style={{ margin: "0 0 0.4rem", fontSize: "1.05rem", fontWeight: 700, color: "#F1F2F4" }}>Senha alterada</h2>
+            <p style={{ margin: "0 0 1.25rem", fontSize: "0.85rem", color: "#8B93A1", lineHeight: 1.5 }}>
+              Pronto. Da próxima vez, entre com a senha nova.
+            </p>
+            <button
+              onClick={() => { setSenhaTrocadaOk(false); setDefinindoSenha(false); }}
+              style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", background: "#6366F1", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
+            >
+              Ir para o app
+            </button>
+          </>
+        ) : (
+        <>
+        <h2 style={{ margin: "0 0 0.4rem", fontSize: "1.05rem", fontWeight: 700, color: "#F1F2F4" }}>Defina uma senha nova</h2>
+        <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", color: "#8B93A1", lineHeight: 1.5 }}>
+          Você chegou pelo link de recuperação. Escolha a senha que vai usar daqui pra frente.
+        </p>
+        <input
+          type="password"
+          placeholder="Nova senha"
+          autoComplete="new-password"
+          value={novaSenha}
+          onChange={e => setNovaSenha(e.target.value)}
+          style={inputStyle}
+        />
+        <input
+          type="password"
+          placeholder="Repita a nova senha"
+          autoComplete="new-password"
+          value={novaSenhaRepetida}
+          onChange={e => setNovaSenhaRepetida(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && handleDefinirNovaSenha()}
+          style={inputStyle}
+        />
+        {authErro && <p style={{ color: "#E06C65", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{authErro}</p>}
+        <button onClick={handleDefinirNovaSenha} disabled={authLoading} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", background: "#6366F1", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: authLoading ? "not-allowed" : "pointer", opacity: authLoading ? 0.7 : 1, fontFamily: "inherit" }}>
+          {authLoading ? "Aguarde..." : "Salvar senha"}
+        </button>
+        </>
+        )}
+      </div>
+    </Landing>
+  );
+
   // Sem sessao: pagina de vendas com o formulario dentro (decisao "B", 14/09).
   // A MESMA URL serve os dois publicos — o `start_url: "/"` do PWA continua valido e
   // nenhuma instalacao existente quebra. O formulario nao foi reescrito: a logica de
   // auth segue aqui e entra na Landing como children.
+  // Pedir o link de recuperacao. Tela propria em vez de campo extra no login: o
+  // formulario de login ja carrega cinco campos no modo cadastro.
+  if (telaRecuperar) return (
+    <Landing>
+      <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", border: "1px solid #1E2330" }}>
+        {recuperarEnviado ? (
+          <>
+            <h2 style={{ margin: "0 0 0.4rem", fontSize: "1.05rem", fontWeight: 700, color: "#F1F2F4" }}>Confira seu e-mail</h2>
+            <p style={{ margin: "0 0 1.25rem", fontSize: "0.85rem", color: "#8B93A1", lineHeight: 1.5 }}>
+              Se existir uma conta com <strong style={{ color: "#F1F2F4" }}>{email.trim()}</strong>, o link de
+              recuperação chega em instantes. Ele vale por 1 hora e só pode ser usado uma vez.
+            </p>
+            <p style={{ margin: "0 0 1.25rem", fontSize: "0.75rem", color: "#5C6570", lineHeight: 1.5 }}>
+              Não chegou? Olhe no spam antes de pedir outro.
+            </p>
+          </>
+        ) : (
+          <>
+            <h2 style={{ margin: "0 0 0.4rem", fontSize: "1.05rem", fontWeight: 700, color: "#F1F2F4" }}>Esqueceu a senha?</h2>
+            <p style={{ margin: "0 0 1.25rem", fontSize: "0.85rem", color: "#8B93A1", lineHeight: 1.5 }}>
+              Informe o e-mail da sua conta que mandamos um link pra você criar uma nova.
+            </p>
+            <input
+              type="email"
+              placeholder="Email"
+              autoComplete="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handlePedirRecuperacao()}
+              style={inputStyle}
+            />
+            {authErro && <p style={{ color: "#E06C65", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{authErro}</p>}
+            <button onClick={handlePedirRecuperacao} disabled={authLoading} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", background: "#6366F1", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: authLoading ? "not-allowed" : "pointer", opacity: authLoading ? 0.7 : 1, fontFamily: "inherit", marginBottom: "0.9rem" }}>
+              {authLoading ? "Enviando..." : "Enviar link de recuperação"}
+            </button>
+          </>
+        )}
+        <button
+          onClick={() => { setTelaRecuperar(false); setRecuperarEnviado(false); setAuthErro(""); }}
+          style={{ width: "100%", padding: "0.6rem", border: "none", borderRadius: "10px", background: "transparent", color: "#8B93A1", fontSize: "0.82rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+        >
+          Voltar para o login
+        </button>
+      </div>
+    </Landing>
+  );
+
   if (!session) return (
     <Landing>
         <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", border: "1px solid #1E2330" }}>
@@ -1403,6 +1561,14 @@ export default function PradexFinancas() {
           )}
           {authErro && <p style={{ color: "#E06C65", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{authErro}</p>}
           <button onClick={handleAuth} disabled={authLoading} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", background: "#6366F1", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: authLoading ? "not-allowed" : "pointer", opacity: authLoading ? 0.7 : 1, fontFamily: "inherit" }}>{authLoading ? "Aguarde..." : authMode === "login" ? "Entrar" : "Criar conta"}</button>
+          {authMode === "login" && (
+            <button
+              onClick={() => { setTelaRecuperar(true); setRecuperarEnviado(false); setAuthErro(""); }}
+              style={{ width: "100%", marginTop: "0.75rem", padding: "0.4rem", border: "none", background: "transparent", color: "#8B93A1", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textDecoration: "underline" }}
+            >
+              Esqueci minha senha
+            </button>
+          )}
         </div>
 
     </Landing>
