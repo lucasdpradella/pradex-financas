@@ -38,7 +38,31 @@ const CATEGORIAS_DESPESA = [
 
 const FREQUENCIAS = ["Mensal", "Quinzenal", "Semanal", "Anual", "Unica"];
 const PREVISOES_TERMINO = ["Sem previsao", "Apos algumas ocorrencias", "Ao se aposentar"];
-const MESES = ["Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+// Seguro acentuar: o que vai pro banco é `data_inicio`/`data_fim` (date), e a volta
+// é `MESES.indexOf(mes)` no MESMO array. O nome do mês só vive no estado do form.
+const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+
+// Acento SÓ no rótulo — o valor gravado continua o de sempre.
+//
+// As listas acima não são enfeite de tela: o texto delas vai pra
+// `fp_rendas.categoria`, `.frequencia` e `.previsao_termino`. Acentuar a constante
+// faria toda linha já salva ("Pro-labore", "Alimentacao") parar de casar com o
+// select, e o campo apareceria vazio pra quem já tinha preenchido. Migrar banco de
+// usuário real por causa de cedilha não se paga; trocar só o que o olho vê, sim.
+const ACENTO = {
+  "Pensao": "Pensão",
+  "Renda variavel": "Renda variável",
+  "Pro-labore": "Pró-labore",
+  "Aposentadoria/Previdencia": "Aposentadoria/Previdência",
+  "Alimentacao": "Alimentação",
+  "Educacao": "Educação",
+  "Saude": "Saúde",
+  "Vestuario": "Vestuário",
+  "Unica": "Única",
+  "Sem previsao": "Sem previsão",
+  "Apos algumas ocorrencias": "Após algumas ocorrências",
+};
+const rotulo = (v) => ACENTO[v] || v;
 const ANO_ATUAL = new Date().getFullYear();
 const ANOS = Array.from({ length: 80 }, (_, i) => ANO_ATUAL - 5 + i);
 
@@ -129,9 +153,9 @@ function Modal({ tipo, membros, item, onClose, onSaved, userId, token, valorInic
 
   async function handleSalvar() {
     setErro("");
-    if (!form.descricao.trim()) return setErro("Informe a descricao.");
+    if (!form.descricao.trim()) return setErro("Informe a descrição.");
     if (!form.valor_bruto) return setErro("Informe o valor.");
-    if (!form.data_inicio_mes || !form.data_inicio_ano) return setErro("Informe a data de inicio.");
+    if (!form.data_inicio_mes || !form.data_inicio_ano) return setErro("Informe a data de início.");
 
     setSaving(true);
 
@@ -220,7 +244,7 @@ function Modal({ tipo, membros, item, onClose, onSaved, userId, token, valorInic
 
         <div style={styles.modalBody}>
           <div style={styles.campo}>
-            <label style={styles.label}>Selecione o responsavel *</label>
+            <label style={styles.label}>Selecione o responsável *</label>
             <select style={styles.select} value={form.responsavel} onChange={(e) => setField("responsavel", e.target.value)}>
               {membrosOrdenados.map((membro) => (
                 <option key={membro.id} value={membro.nome}>{membro.nome}</option>
@@ -234,13 +258,13 @@ function Modal({ tipo, membros, item, onClose, onSaved, userId, token, valorInic
             <label style={styles.label}>Categoria *</label>
             <select style={styles.select} value={form.categoria} onChange={(e) => setField("categoria", e.target.value)}>
               {(isRenda ? CATEGORIAS_RENDA : CATEGORIAS_DESPESA).map((categoria) => (
-                <option key={categoria}>{categoria}</option>
+                <option key={categoria} value={categoria}>{rotulo(categoria)}</option>
               ))}
             </select>
           </div>
 
           <div style={styles.campo}>
-            <label style={styles.label}>Descricao *</label>
+            <label style={styles.label}>Descrição *</label>
             <input
               style={styles.input}
               value={form.descricao}
@@ -264,17 +288,17 @@ function Modal({ tipo, membros, item, onClose, onSaved, userId, token, valorInic
           </div>
 
           <div style={styles.campo}>
-            <label style={styles.label}>Frequencia *</label>
+            <label style={styles.label}>Frequência *</label>
             <select style={styles.select} value={form.frequencia} onChange={(e) => setField("frequencia", e.target.value)}>
               {FREQUENCIAS.map((frequencia) => (
-                <option key={frequencia}>{frequencia}</option>
+                <option key={frequencia} value={frequencia}>{rotulo(frequencia)}</option>
               ))}
             </select>
           </div>
 
           <div style={styles.duasColunas}>
             <div style={styles.campo}>
-              <label style={styles.label}>Data inicio *</label>
+              <label style={styles.label}>Data início *</label>
               <div style={styles.dateRow}>
                 <select style={styles.selectSmall} value={form.data_inicio_mes} onChange={(e) => setField("data_inicio_mes", e.target.value)}>
                   {MESES.map((mes) => <option key={mes}>{mes}</option>)}
@@ -300,7 +324,7 @@ function Modal({ tipo, membros, item, onClose, onSaved, userId, token, valorInic
           </div>
 
           <div style={styles.campo}>
-            <label style={{ ...styles.label, marginBottom: 8 }}>Previsao de termino</label>
+            <label style={{ ...styles.label, marginBottom: 8 }}>Previsão de término</label>
             {PREVISOES_TERMINO.map((previsao) => (
               <label key={previsao} style={styles.radioLabel}>
                 <input
@@ -311,14 +335,14 @@ function Modal({ tipo, membros, item, onClose, onSaved, userId, token, valorInic
                   onChange={() => setField("previsao_termino", previsao)}
                   style={{ marginRight: 8 }}
                 />
-                {previsao}
+                {rotulo(previsao)}
               </label>
             ))}
           </div>
 
           {form.previsao_termino === "Apos algumas ocorrencias" && (
             <div style={styles.campo}>
-              <label style={styles.label}>Ocorrencias</label>
+              <label style={styles.label}>Ocorrências</label>
               <input
                 style={styles.input}
                 type="number"
@@ -331,7 +355,7 @@ function Modal({ tipo, membros, item, onClose, onSaved, userId, token, valorInic
           )}
 
           <div style={styles.campo}>
-            <label style={styles.label}>Comentarios</label>
+            <label style={styles.label}>Comentários</label>
             <textarea
               style={{ ...styles.input, minHeight: 72, resize: "vertical" }}
               value={form.comentarios}
@@ -468,11 +492,11 @@ export default function RendasDespesasFP({ session }) {
     <div style={styles.container}>
       <div style={styles.resumoRow}>
         <div style={{ ...styles.resumoCard, borderLeftColor: "#4caf50" }}>
-          <div style={styles.resumoLabel}>RECEITA DO MES ATUAL</div>
+          <div style={styles.resumoLabel}>RECEITA DO MÊS ATUAL</div>
           <div style={{ ...styles.resumoValor, color: "#4caf50" }}>{formatBRL(resumoLancamentos.receitasMesAtual)}</div>
         </div>
         <div style={{ ...styles.resumoCard, borderLeftColor: "#f44336" }}>
-          <div style={styles.resumoLabel}>DESPESA DO MES ATUAL</div>
+          <div style={styles.resumoLabel}>DESPESA DO MÊS ATUAL</div>
           <div style={{ ...styles.resumoValor, color: "#f44336" }}>{formatBRL(resumoLancamentos.despesasMesAtual)}</div>
         </div>
       </div>
@@ -511,7 +535,7 @@ export default function RendasDespesasFP({ session }) {
           <div style={styles.cardLancamentos}>
             <div>
               <div style={styles.cardLancTitulo}>Despesas do mes nos lancamentos</div>
-              <div style={styles.cardLancSub}>Total do mes atual com base nos lancamentos reais</div>
+              <div style={styles.cardLancSub}>Total do mês atual com base nos lançamentos reais</div>
             </div>
             <div style={{ textAlign: "right", flexShrink: 0 }}>
               <div style={styles.cardLancValor}>{formatBRL(totalLancamentos)}</div>

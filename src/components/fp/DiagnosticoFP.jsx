@@ -349,7 +349,7 @@ export default function DiagnosticoFP({ session }) {
   return (
     <div style={styles.shell}>
       <div style={styles.topRow}>
-        <p style={styles.topTitle}>Diagnostico do planejamento</p>
+        <p style={styles.topTitle}>Diagnóstico do planejamento</p>
         <div style={styles.topControls}>
           <div style={styles.toggleGroup} role="group" aria-label="Modo de projeção">
             <button

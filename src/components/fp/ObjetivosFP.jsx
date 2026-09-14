@@ -198,9 +198,9 @@ export default function ObjetivosFP({ session }) {
     <div style={{ width: "100%", boxSizing: "border-box" }}>
       <div style={card}>
         <div style={cardHeader}>
-          <span style={badge}>Obrigatorio</span>
+          <span style={badge}>Obrigatório</span>
           <h2 style={titulo}>Aposentadoria</h2>
-          <p style={subtitulo}>O primeiro objetivo do planejamento e garantir a estabilidade financeira apos o encerramento da vida profissional.</p>
+          <p style={subtitulo}>O primeiro objetivo do planejamento é garantir a estabilidade financeira após o encerramento da vida profissional.</p>
         </div>
 
         <div style={grid}>
@@ -220,7 +220,7 @@ export default function ObjetivosFP({ session }) {
             <input type="number" placeholder="65" value={apIdade} onChange={(e) => setApIdade(e.target.value)} style={input} />
           </div>
           <div style={campo}>
-            <label style={lbl}>Frequencia do resgate</label>
+            <label style={lbl}>Frequência do resgate</label>
             <select value={apFrequencia} onChange={(e) => setApFrequencia(e.target.value)} style={input}>
               {FREQUENCIAS.map((frequencia) => <option key={frequencia}>{frequencia}</option>)}
             </select>
@@ -282,7 +282,7 @@ export default function ObjetivosFP({ session }) {
                 <input type="number" placeholder="35" value={objetivo.idade_atingimento} onChange={(e) => updateObjetivo(objetivo.localId, "idade_atingimento", e.target.value)} style={input} />
               </div>
               <div style={campo}>
-                <label style={lbl}>Frequencia do resgate *</label>
+                <label style={lbl}>Frequência do resgate *</label>
                 <select value={objetivo.frequencia} onChange={(e) => updateObjetivo(objetivo.localId, "frequencia", e.target.value)} style={input}>
                   {FREQUENCIAS.map((frequencia) => <option key={frequencia}>{frequencia}</option>)}
                 </select>
@@ -375,6 +375,11 @@ const input = {
   minWidth: 0,
   boxSizing: "border-box",
   fontFamily: "inherit",
+  // Este mesmo objeto estiliza os <select> daqui. O CSS global do App desenha uma
+  // seta propria em todo select do mobile ASSUMINDO que o campo zerou a nativa —
+  // sem isto, as duas aparecem empilhadas. PerfilFP ja fazia; aqui faltava.
+  appearance: "none",
+  WebkitAppearance: "none",
 };
 const linhaObjetivo = {
   ...CARTAO_INTERNO,

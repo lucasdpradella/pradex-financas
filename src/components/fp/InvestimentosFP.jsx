@@ -218,7 +218,7 @@ export default function InvestimentosFP({ session }) {
         </div>
         {TIPOS.map((tipo) => {
           const total = investimentos.filter((i) => i.tipo === tipo).reduce((s, i) => s + Number(i.valor || 0), 0);
-          const pct = totalGeral > 0 ? ((total / totalGeral) * 100).toFixed(1) : "0.0";
+          const pct = totalGeral > 0 ? ((total / totalGeral) * 100).toFixed(1).replace(".", ",") : "0,0";
           if (total === 0) return null;
           return (
             <div key={tipo} style={st.resumoCard}>
