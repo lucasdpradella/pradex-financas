@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { syncSupabaseSession } from "../../supabaseClient";
+import { CARTAO_RESUMO, VALOR_RESUMO } from "./molduras";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdnVocXFzamJvbmN3cGJvY2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTM1NzEsImV4cCI6MjA5MTI2OTU3MX0.qpOXjpyJ29Hr9kvee3uxNS1LmJNUEZqDtMCCEpaHjsE";
@@ -606,7 +607,11 @@ const styles = {
   },
   resumoRow: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
+    // minmax(0, 1fr) e nao 1fr. `1fr` sozinho e `minmax(auto, 1fr)`, e o minimo
+    // AUTO impede a coluna de encolher abaixo do conteudo: como "R$ 1.234.567,89"
+    // nao quebra, a coluna CRESCIA pra caber o numero e a linha inteira do resumo
+    // ficava mais larga que o container — passando dos cards de lista logo abaixo.
+    gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
     gap: 16,
     marginBottom: 32,
   },
@@ -614,25 +619,20 @@ const styles = {
   // paddings diferentes pro mesmo papel — era o "cards desconfigurados de tamanho".
   // Borda colorida vira faixa a esquerda, que diferencia sem mudar a geometria.
   resumoCard: {
+    ...CARTAO_RESUMO,
     background: "var(--surface, #151821)",
     border: "1px solid var(--border, #2C3344)",
     borderLeftWidth: 3,
-    borderRadius: 10,
-    padding: "14px 18px",
     boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-    boxSizing: "border-box",
   },
   resumoLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: "var(--text-secondary, #8B93A1)",
     marginBottom: 6,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-  resumoValor: {
-    fontSize: 22,
-    fontWeight: 700,
-  },
+  resumoValor: VALOR_RESUMO,
   section: {
     marginBottom: 40,
   },
@@ -818,6 +818,7 @@ const styles = {
   },
   selectSmall: {
     flex: 1,
+    minWidth: 0,
     padding: "8px 10px",
     border: "none",
     borderBottom: "1.5px solid var(--border, #2C3344)",

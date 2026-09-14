@@ -46,6 +46,10 @@ export default function PerfilFP({ session, onPerfilSaved }) {
 
   const inputStyle = {
     width: "100%", boxSizing: "border-box",
+    // Sem minWidth: 0 o campo nao encolhe abaixo da largura intrinseca dele —
+    // vale pro input[type=date], que tem widget nativo, e pra celula de grid que
+    // o hospeda (item de grid tem min-width auto por padrao).
+    minWidth: 0,
     background: "var(--input-bg, #0C0E14)",
     border: "1px solid var(--border, #1E2330)",
     borderRadius: "10px",

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { syncSupabaseSession } from "../../supabaseClient";
-import { CARTAO, gradeResumo, LINHA, LINHA_ESQUERDA, LINHA_DIREITA } from "./molduras";
+import { CARTAO, CARTAO_RESUMO, VALOR_RESUMO, gradeResumo, LINHA, LINHA_ESQUERDA, LINHA_DIREITA } from "./molduras";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdnVocXFzamJvbmN3cGJvY2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTM1NzEsImV4cCI6MjA5MTI2OTU3MX0.qpOXjpyJ29Hr9kvee3uxNS1LmJNUEZqDtMCCEpaHjsE";
@@ -292,10 +292,10 @@ const st = {
   vazio: { textAlign: "center", padding: "40px 0", color: "var(--text-muted, #5C6570)", fontSize: 14, background: "var(--surface, #151821)", borderRadius: 10, border: "1px dashed var(--border, #2C3344)" },
   // Grade, nao flex: era o flex que esticava o card sozinho da ultima linha.
   // Ver molduras.js.
-  resumoRow: { ...gradeResumo(150), marginBottom: 28 },
-  resumoCard: { ...CARTAO, background: "var(--surface, #151821)", border: "1px solid var(--border, #2C3344)" },
+  resumoRow: { ...gradeResumo(), marginBottom: 28 },
+  resumoCard: { ...CARTAO_RESUMO, background: "var(--surface, #151821)", border: "1px solid var(--border, #2C3344)" },
   resumoLabel: { fontSize: 11, color: "var(--text-secondary, #8B93A1)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 },
-  resumoValor: { fontSize: 22, fontWeight: 700 },
+  resumoValor: VALOR_RESUMO,
   resumoPct: { fontSize: 11, color: "var(--text-muted, #5C6570)", marginTop: 4 },
   sectionHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
   grupo: { marginBottom: 24 },
