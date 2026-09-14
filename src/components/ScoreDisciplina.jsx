@@ -123,11 +123,12 @@ export default function ScoreDisciplina({
             Você fechou o mês com {d.score}. Isso vale prêmio.
           </p>
           <p style={{ margin: "0 0 0.7rem", fontSize: "0.76rem", color: c.medio, lineHeight: 1.45 }}>
-            {premio.percentual}% no primeiro mês do Essencial e mais {premio.diasTrial} dias de teste antes de qualquer cobrança. Uma vez só.
+            {premio.diasTrial} dias de Essencial liberados agora — agente no WhatsApp e teto por categoria,
+            sem cartão e sem cobrança. Uma vez só.
           </p>
           <button type="button" onClick={onResgatarPremio} className="pdx-tap"
             style={{ width: "100%", padding: "0.7rem", border: "none", borderRadius: "8px", background: c.bom, color: "#0C0E14", fontSize: "0.82rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-            Resgatar
+            Liberar meus {premio.diasTrial} dias
           </button>
         </div>
       )}
@@ -161,7 +162,7 @@ export default function ScoreDisciplina({
 
           {!premio.elegivel && oQueFalta(premio) && d.score > 0 && (
             <p style={{ margin: "0.8rem 0 0", fontSize: "0.72rem", color: c.fraco }}>
-              🎁 {oQueFalta(premio)} Fechando o mês em 80 você ganha {premio.percentual}% no primeiro mês + {premio.diasTrial} dias de teste.
+              🎁 {oQueFalta(premio)} Fechando o mês em 80 você ganha {premio.diasTrial} dias de Essencial liberados.
             </p>
           )}
 

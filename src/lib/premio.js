@@ -1,8 +1,20 @@
 // Prêmio por disciplina — a recompensa de quem fecha o mês com nota alta.
 //
-// Regra (decisão do PRADELLA, 2026-09-12):
-//   bateu 80 de disciplina  →  20% no PRIMEIRO mês + 14 dias de trial
+// Regra (decisão do PRADELLA, 2026-09-14):
+//   bateu 80 de disciplina  →  14 dias de trial do Essencial
 //   uma vez na vida do usuário
+//
+// POR QUE NÃO TEM MAIS DESCONTO. O desenho de 12/09 prometia 20% no primeiro mês
+// além do trial. Ao ir criar o cupom, o formulário da Cakto mostrou que ele não
+// suporta as duas travas que essa promessa exige: não dá pra restringir o desconto
+// à PRIMEIRA cobrança, nem limitar o número de usos. Um cupom de 20% lá é 20% pra
+// sempre, recorrente, pra qualquer um que descubra o código — risco permanente de
+// receita em troca de um empurrãozinho de conversão.
+//
+// O trial resolve o mesmo problema sem nada disso: é generoso, tem fim automático,
+// é concedido pelo nosso próprio banco (não depende de config em terceiro) e não
+// deixa rastro no preço. Palavras do PRADELLA sobre a ideia: "gosto sim da ideia do
+// trial acho que melhor até".
 //
 // Lógica pura, como o resto de lib/: o App só pergunta, não decide. Isso mantém a
 // regra testável sem montar componente.
@@ -19,7 +31,6 @@ export const NOTA_MINIMA = 80;
 // é o que se quer premiar.
 export const DIAS_DISTINTOS_MINIMO = 15;
 
-export const PERCENTUAL_DESCONTO = 20;
 export const DIAS_TRIAL_PREMIO = 14;
 
 // Único ponto que decide se o prêmio aparece. Devolve sempre o mesmo formato pra a
@@ -30,15 +41,14 @@ export function avaliarPremio({ score = 0, diasDistintos = 0, resgatadoEm = null
     motivo: null,
     faltaNota: Math.max(0, NOTA_MINIMA - Number(score || 0)),
     faltaDias: Math.max(0, DIAS_DISTINTOS_MINIMO - Number(diasDistintos || 0)),
-    percentual: PERCENTUAL_DESCONTO,
     diasTrial: DIAS_TRIAL_PREMIO,
   };
 
   // Já usou: é uma vez na vida, e isso vale mesmo que ele tenha voltado pro Free.
   if (resgatadoEm) return { ...base, motivo: "ja_resgatado" };
 
-  // Quem já paga não precisa de desconto pra assinar o que já assinou. Oferecer seria
-  // ensinar o cliente pagante que existia um preço menor.
+  // Quem já paga não tem o que ganhar com um teste do que já assinou. Oferecer seria
+  // só ruído — e, pior, insinuar que existia um jeito de pagar menos.
   if (plano && plano !== "none") return { ...base, motivo: "ja_assinante" };
 
   if (Number(score || 0) < NOTA_MINIMA) return { ...base, motivo: "nota_baixa" };

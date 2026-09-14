@@ -27,10 +27,6 @@ import Landing from "./components/Landing";
 import PreviaBorrada from "./components/PreviaBorrada";
 import OrcamentoCategoria from "./components/OrcamentoCategoria";
 import { normalizePlano, temAcesso, mostraCadeado, podeUsarWhatsapp, trialAtivo, diasRestantesTrial, CHECKOUT } from "./lib/plano";
-
-// Cupom de 20% do premio por disciplina. PRECISA ser criado na Cakto — enquanto for
-// vazio, o resgate cai no checkout normal e a pessoa paga cheio.
-const CHECKOUT_PREMIO = "";
 import { useIsDesktop } from "./components/desktop/useIsDesktop";
 import { desktopTheme, SIDEBAR_WIDTH } from "./components/desktop/theme";
 import SidebarDesktop from "./components/desktop/SidebarDesktop";
@@ -719,27 +715,37 @@ export default function PradexFinancas() {
     } finally { setSalvandoOrcamento(false); }
   };
 
-  // Resgate do premio por disciplina. Grava a data (o trigger do banco torna o
-  // campo imutavel depois da primeira gravacao), liga o trial de 14 dias reusando a
-  // maquina do PR #30, e manda a pessoa pro checkout com o cupom.
+  // Resgate do premio por disciplina: 14 dias de Essencial liberados na hora.
   //
-  // ⚠️ CUPOM_PREMIO precisa existir na Cakto. Enquanto nao existir, o link cai no
-  // checkout normal e a pessoa paga cheio — por isso o botao avisa antes de abrir.
+  // Tudo numa RPC so (fp_resgatar_premio) porque o premio e uma vez na vida e nao
+  // pode ficar dividido em dois passos que falham separado — antes eram um PATCH e
+  // uma chamada a fp_iniciar_trial, e se a segunda falhasse a pessoa perdia o premio
+  // sem ganhar nada. A RPC tambem ESTENDE trial ja usado, que fp_iniciar_trial nao
+  // faz: quem testou o Zap no primeiro dia chegaria aqui com o trial vencido e
+  // ganharia zero. Detalhe em supabase/migrations/2026-09-14_premio_resgate_rpc.sql.
+  //
+  // Nao abre checkout. O premio nao e desconto, e tempo — mandar a pessoa pra uma
+  // pagina de pagamento logo depois de premiar ela e o jeito mais rapido de fazer
+  // o premio parecer isca.
   const resgatarPremio = async () => {
     try {
-      const agora = new Date().toISOString();
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/fp_perfil?user_id=eq.${session?.user?.id}`, {
-        method: "PATCH",
-        headers: { ...api(session?.token), "Content-Type": "application/json", Prefer: "return=representation" },
-        body: JSON.stringify({ premio_disciplina_em: agora }),
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/fp_resgatar_premio`, {
+        method: "POST", headers: api(session?.token), body: "{}",
       });
-      const data = await res.json();
-      const gravado = Array.isArray(data) ? data[0]?.premio_disciplina_em : null;
-      if (!gravado) return;            // trigger barrou (ja tinha resgatado): nao abre nada
-      setPremioResgatadoEm(gravado);
-      await iniciarTrial?.();
-      window.open(CHECKOUT_PREMIO || CHECKOUT.essencial, "_blank", "noopener,noreferrer");
-    } catch (e) {}
+      if (!res.ok) {
+        console.error("[premio] erro ao resgatar:", await res.json().catch(() => ({})));
+        setErro("Não foi possível liberar o prêmio agora. Tente de novo.");
+        return;
+      }
+      const linhas = await res.json();
+      const r = Array.isArray(linhas) ? linhas[0] : linhas;
+      if (r?.premio_em) setPremioResgatadoEm(r.premio_em);
+      // Recarrega plano/trial do perfil pra o app destravar o Essencial na hora.
+      await verificarTelefonePerfil();
+    } catch (e) {
+      console.error("[premio] erro de conexão:", e);
+      setErro("Erro de conexão ao liberar o prêmio.");
+    }
   };
 
   const fetchDividas = async () => {
