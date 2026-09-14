@@ -2426,7 +2426,7 @@ export default function PradexFinancas() {
           <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Planejamento Financeiro</p>
 
           {/* Subabas */}
-          <div style={{ display: "flex", background: "#0C0E14", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", gap: "2px", border: "1px solid #1E2330" }}>
+          <div style={{ display: "flex", background: "var(--surface2, #0C0E14)", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", gap: "2px", border: "1px solid var(--border, #1E2330)" }}>
             {[
               { key: "perfil", label: "Perfil" },
               { key: "objetivos", label: "Objetivos" },
