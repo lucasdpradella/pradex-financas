@@ -549,18 +549,36 @@ export default function RendasDespesasFP({ session }) {
   );
 }
 
-// ⚠️ ILHA CLARA — NAO APLICAR A PALETA DE src/theme.js AQUI.
+// ⚠️ COR AQUI SO POR TOKEN — nada de hex de canvas (nem claro, nem escuro).
 //
-// Esta tela e CLARA (cards brancos, cinzas claros) dentro de um app escuro. Os
-// tokens do tema escuro invertem o sentido aqui: #F1F2F4 e "texto primario" no
-// escuro e, sobre branco, SOME. #8B93A1 e "texto secundario" no escuro e vira
-// cinza fraco demais sobre branco.
+// HISTORICO, porque este arquivo ja quebrou duas vezes por motivos OPOSTOS.
 //
-// A migracao de paleta de 11/09 passou por cima deste arquivo e apagou bordas,
-// fundos E textos — a tela ficou sem moldura e com texto invisivel. Em 13/09 o
-// arquivo foi restaurado INTEIRO pro estado anterior a migracao.
+// 1) Esta tela nasceu CLARA de proposito (cards brancos, texto #1a1a1a) numa
+//    epoca em que o app era so escuro — uma "ilha clara". Em 11/09 uma migracao
+//    de paleta trocou os hex claros pelos escuros LITERAIS e a tela ficou sem
+//    moldura e com texto invisivel. Em 13/09 foi restaurada inteira, e ficou o
+//    aviso "NAO APLICAR A PALETA AQUI".
 //
-// Se for mexer em cor aqui: pense em fundo BRANCO, nao no app escuro.
+// 2) Esse aviso envelheceu mal. Quando o desktop ganhou canvas CLARO, a ilha
+//    passou a estar certa no desktop e errada no celular: o app mobile e escuro
+//    e esta aba aparecia como um bloco BRANCO no meio dele, unica entre as seis
+//    do Planejamento. O arquivo tambem estava meio migrado — `cardLancSub` era
+//    #C8D3E2 (quase branco) sobre fundo quase branco, invisivel no desktop.
+//
+// A saida nao e escolher um dos dois canvas: e nao escolher nenhum. Toda cor de
+// superficie, borda e texto agora sai de var(--surface / --border / --text-*),
+// que o App injeta com valores CLAROS no desktop e ESCUROS no celular (ver o
+// bloco de tokens em App.jsx, aba fp). A tela continua clara onde era clara e
+// acompanha o app onde ele e escuro.
+//
+// Se precisar de cor que o token nao cobre (aviso, erro), use TINTA TRANSLUCIDA
+// — rgba sobre o fundo de quem hospeda — e deixe o TEXTO no token. Cor solida
+// so pra valor semantico que nao muda de sentido (vermelho de despesa, verde de
+// renda, roxo do acento).
+//
+// Geometria dos cards mora em ./molduras.js. Este arquivo ainda tem a sua
+// propria (raio 10 / padding 14x18 batem com o modulo) por ser o unico com
+// sombra e faixa lateral; se for unificar, unifique junto com as outras abas.
 const styles = {
   // O shell (mobile e desktop) ja define padding e largura. Este bloco tinha
   // padding proprio de 24px + maxWidth 820 + margin auto: em 390px sobrava ~294px
@@ -573,16 +591,18 @@ const styles = {
   loading: {
     padding: 40,
     textAlign: "center",
-    color: "#888",
+    color: "var(--text-secondary, #8B93A1)",
   },
   aviso: {
-    background: "#fff8e1",
-    border: "1px solid #ffe082",
+    // Tinta translucida em vez de amarelo solido: a mesma cor funciona nos dois
+    // canvas. O texto segue o token, entao fica escuro no claro e claro no escuro.
+    background: "rgba(245,158,11,0.12)",
+    border: "1px solid rgba(245,158,11,0.40)",
     borderRadius: 10,
     padding: "12px 16px",
     marginBottom: 24,
     fontSize: 14,
-    color: "#5d4037",
+    color: "var(--text-primary, #F1F2F4)",
   },
   resumoRow: {
     display: "grid",
@@ -594,8 +614,8 @@ const styles = {
   // paddings diferentes pro mesmo papel — era o "cards desconfigurados de tamanho".
   // Borda colorida vira faixa a esquerda, que diferencia sem mudar a geometria.
   resumoCard: {
-    background: "#fff",
-    border: "1px solid #e8e8e8",
+    background: "var(--surface, #151821)",
+    border: "1px solid var(--border, #2C3344)",
     borderLeftWidth: 3,
     borderRadius: 10,
     padding: "14px 18px",
@@ -604,7 +624,7 @@ const styles = {
   },
   resumoLabel: {
     fontSize: 12,
-    color: "#777",
+    color: "var(--text-secondary, #8B93A1)",
     marginBottom: 6,
     textTransform: "uppercase",
     letterSpacing: 0.5,
@@ -632,19 +652,19 @@ const styles = {
   },
   vazio: {
     padding: "24px 0",
-    color: "#aaa",
+    color: "var(--text-muted, #5C6570)",
     fontSize: 14,
     textAlign: "center",
-    background: "#fafafa",
+    background: "var(--surface2, #1E2330)",
     borderRadius: 8,
-    border: "1px dashed #e0e0e0",
+    border: "1px dashed var(--border, #2C3344)",
   },
   card: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    background: "#fff",
-    border: "1px solid #e8e8e8",
+    background: "var(--surface, #151821)",
+    border: "1px solid var(--border, #2C3344)",
     borderRadius: 10,
     padding: "14px 18px",
     marginBottom: 10,
@@ -659,17 +679,17 @@ const styles = {
   cardTitulo: {
     fontWeight: 600,
     fontSize: 15,
-    color: "#1a1a1a",
+    color: "var(--text-primary, #F1F2F4)",
     marginBottom: 3,
   },
   cardSub: {
     fontSize: 12,
-    color: "#777",
+    color: "var(--text-secondary, #8B93A1)",
     marginBottom: 3,
   },
   cardDatas: {
     fontSize: 12,
-    color: "#aaa",
+    color: "var(--text-muted, #5C6570)",
   },
   cardRight: {
     textAlign: "right",
@@ -681,7 +701,7 @@ const styles = {
   cardValor: {
     fontWeight: 700,
     fontSize: 16,
-    color: "#1a1a1a",
+    color: "var(--text-primary, #F1F2F4)",
   },
   cardAcoes: {
     display: "flex",
@@ -690,7 +710,7 @@ const styles = {
   },
   btnAcao: {
     background: "none",
-    border: "1px solid #d9d9d9",
+    border: "1px solid var(--border, #2C3344)",
     cursor: "pointer",
     fontSize: 12,
     padding: "4px 8px",
@@ -708,7 +728,7 @@ const styles = {
     padding: 16,
   },
   modal: {
-    background: "#fff",
+    background: "var(--surface, #151821)",
     borderRadius: 12,
     width: "100%",
     maxWidth: 520,
@@ -723,12 +743,12 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     padding: "20px 24px 16px",
-    borderBottom: "1px solid #f0f0f0",
+    borderBottom: "1px solid var(--border, #2C3344)",
   },
   modalTitulo: {
     fontSize: 20,
     fontWeight: 700,
-    color: "#1a1a1a",
+    color: "var(--text-primary, #F1F2F4)",
     textTransform: "capitalize",
   },
   btnFechar: {
@@ -736,7 +756,7 @@ const styles = {
     border: "none",
     fontSize: 24,
     cursor: "pointer",
-    color: "#888",
+    color: "var(--text-secondary, #8B93A1)",
     lineHeight: 1,
     padding: 0,
   },
@@ -750,7 +770,7 @@ const styles = {
     justifyContent: "flex-end",
     gap: 12,
     padding: "16px 24px",
-    borderTop: "1px solid #f0f0f0",
+    borderTop: "1px solid var(--border, #2C3344)",
   },
   campo: {
     marginBottom: 16,
@@ -758,18 +778,18 @@ const styles = {
   label: {
     display: "block",
     fontSize: 12,
-    color: "#888",
+    color: "var(--text-secondary, #8B93A1)",
     marginBottom: 6,
   },
   input: {
     width: "100%",
     padding: "10px 12px",
     border: "none",
-    borderBottom: "1.5px solid #ddd",
+    borderBottom: "1.5px solid var(--border, #2C3344)",
     borderRadius: 0,
     fontSize: 15,
-    color: "#1a1a1a",
-    background: "#fafafa",
+    color: "var(--text-primary, #F1F2F4)",
+    background: "var(--surface2, #1E2330)",
     outline: "none",
     boxSizing: "border-box",
   },
@@ -777,10 +797,10 @@ const styles = {
     width: "100%",
     padding: "10px 12px",
     border: "none",
-    borderBottom: "1.5px solid #ddd",
-    background: "#fafafa",
+    borderBottom: "1.5px solid var(--border, #2C3344)",
+    background: "var(--surface2, #1E2330)",
     fontSize: 15,
-    color: "#1a1a1a",
+    color: "var(--text-primary, #F1F2F4)",
     outline: "none",
     cursor: "pointer",
     appearance: "none",
@@ -800,30 +820,30 @@ const styles = {
     flex: 1,
     padding: "8px 10px",
     border: "none",
-    borderBottom: "1.5px solid #ddd",
-    background: "#fafafa",
+    borderBottom: "1.5px solid var(--border, #2C3344)",
+    background: "var(--surface2, #1E2330)",
     fontSize: 13,
-    color: "#1a1a1a",
+    color: "var(--text-primary, #F1F2F4)",
     outline: "none",
     cursor: "pointer",
     boxSizing: "border-box",
   },
   tagFamiliar: {
     fontSize: 12,
-    color: "#888",
+    color: "var(--text-secondary, #8B93A1)",
     marginBottom: 14,
   },
   radioLabel: {
     display: "flex",
     alignItems: "center",
     fontSize: 14,
-    color: "#333",
+    color: "var(--text-primary, #F1F2F4)",
     marginBottom: 8,
     cursor: "pointer",
   },
   erro: {
-    background: "#ffebee",
-    color: "#c62828",
+    background: "rgba(239,68,68,0.12)",
+    color: "#E06C65",
     borderRadius: 6,
     padding: "8px 12px",
     fontSize: 13,
@@ -845,7 +865,7 @@ const styles = {
   btnCancelar: {
     background: "none",
     border: "none",
-    color: "#555",
+    color: "var(--text-secondary, #8B93A1)",
     fontSize: 14,
     cursor: "pointer",
     padding: "10px 16px",
@@ -855,8 +875,8 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     gap: 16,
-    background: "rgba(33,150,243,0.06)",
-    border: "1px solid rgba(33,150,243,0.25)",
+    background: "rgba(99,102,241,0.08)",
+    border: "1px solid rgba(99,102,241,0.28)",
     borderRadius: 10,
     padding: "14px 18px",
     marginBottom: 16,
@@ -864,12 +884,12 @@ const styles = {
   cardLancTitulo: {
     fontWeight: 700,
     fontSize: 14,
-    color: "#1a1a1a",
+    color: "var(--text-primary, #F1F2F4)",
     marginBottom: 3,
   },
   cardLancSub: {
     fontSize: 12,
-    color: "#C8D3E2",
+    color: "var(--text-secondary, #8B93A1)",
   },
   cardLancValor: {
     fontWeight: 700,
@@ -879,8 +899,8 @@ const styles = {
   },
   btnUsarTotal: {
     background: "transparent",
-    border: "1px solid #1976d2",
-    color: "#8EC5FF",
+    border: "1px solid var(--accent, #6366F1)",
+    color: "var(--accent, #6366F1)",
     borderRadius: 6,
     padding: "6px 12px",
     fontSize: 12,
