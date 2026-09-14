@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { normalizeTelefone, isValidTelefoneBr, formatTelefoneInput } from "../../utils/phone";
+import { PAINEL, CARTAO_INTERNO, LINHA, LINHA_ESQUERDA } from "./molduras";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdnVocXFzamJvbmN3cGJvY2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTM1NzEsImV4cCI6MjA5MTI2OTU3MX0.qpOXjpyJ29Hr9kvee3uxNS1LmJNUEZqDtMCCEpaHjsE";
@@ -46,7 +47,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
   const inputStyle = {
     width: "100%", boxSizing: "border-box",
     background: "var(--input-bg, #0C0E14)",
-    border: "1px solid #1E2330",
+    border: "1px solid var(--border, #1E2330)",
     borderRadius: "10px",
     padding: "0.75rem 1rem",
     color: "var(--text-primary, #F1F2F4)",
@@ -380,7 +381,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
 
   return (
     <div>
-      <div style={{ background: "var(--surface, #151821)", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #1E2330" }}>
+      <div style={{ ...PAINEL, background: "var(--surface, #151821)", marginBottom: "1rem", border: "1px solid var(--border, #1E2330)" }}>
         <p style={{ margin: "0 0 1.25rem", fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary, #8B93A1)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
           Dados Pessoais
         </p>
@@ -519,7 +520,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
         )}
       </div>
 
-      <div style={{ background: "var(--surface, #151821)", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #1E2330" }}>
+      <div style={{ ...PAINEL, background: "var(--surface, #151821)", marginBottom: "1rem", border: "1px solid var(--border, #1E2330)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
           <p style={{ margin: 0, fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary, #8B93A1)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
             Membros da Familia
@@ -546,7 +547,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
         </div>
 
         {showFormMembro && (
-          <div style={{ background: "var(--input-bg, #0C0E14)", borderRadius: "12px", padding: "1rem", marginBottom: "1rem", border: "1px solid #1E2330" }}>
+          <div style={{ ...CARTAO_INTERNO, background: "var(--input-bg, #0C0E14)", marginBottom: "1rem", border: "1px solid var(--border, #1E2330)" }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.5rem", marginBottom: "0.5rem" }}>
               <div>
                 <label style={labelStyle}>Nome *</label>
@@ -612,11 +613,10 @@ export default function PerfilFP({ session, onPerfilSaved }) {
           <div
             key={membro.id}
             style={{
+              ...CARTAO_INTERNO,
               background: "var(--input-bg, #0C0E14)",
-              borderRadius: "10px",
-              padding: "0.75rem 1rem",
               marginBottom: "0.5rem",
-              border: "1px solid #1E2330",
+              border: "1px solid var(--border, #1E2330)",
             }}
           >
             {editandoMembro === membro.id ? (
@@ -676,7 +676,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
                     onClick={() => setEditandoMembro(null)}
                     style={{
                       padding: "0.6rem 1rem",
-                      border: "1px solid #1E2330",
+                      border: "1px solid var(--border, #1E2330)",
                       borderRadius: "8px",
                       background: "none",
                       color: "var(--text-secondary, #8B93A1)",
@@ -690,8 +690,10 @@ export default function PerfilFP({ session, onPerfilSaved }) {
                 </div>
               </>
             ) : (
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
+              // LINHA_ESQUERDA leva minWidth: 0 — sem isso um nome longo nao
+              // encolhe e empurra os botoes pra fora do card no celular.
+              <div style={{ ...LINHA, alignItems: "center" }}>
+                <div style={LINHA_ESQUERDA}>
                   <div style={{ color: "var(--text-primary, #F1F2F4)", fontSize: "0.9rem", fontWeight: 600 }}>{membro.nome}</div>
                   <div style={{ color: "var(--text-secondary, #8B93A1)", fontSize: "0.75rem", marginTop: "0.15rem" }}>
                     {membro.parentesco}
@@ -703,7 +705,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
                     onClick={() => iniciarEdicao(membro)}
                     style={{
                       background: "none",
-                      border: "1px solid #1E2330",
+                      border: "1px solid var(--border, #1E2330)",
                       borderRadius: "6px",
                       color: "#6366F1",
                       cursor: "pointer",

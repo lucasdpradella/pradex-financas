@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { PAINEL, CARTAO_INTERNO } from "./molduras";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdnVocXFzamJvbmN3cGJvY2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTM1NzEsImV4cCI6MjA5MTI2OTU3MX0.qpOXjpyJ29Hr9kvee3uxNS1LmJNUEZqDtMCCEpaHjsE";
@@ -192,7 +193,9 @@ export default function ObjetivosFP({ session }) {
     setOutros((prev) => prev.map((o) => (o.localId === localId ? { ...o, [campo]: valor } : o)));
 
   return (
-    <div style={{ maxWidth: 700, margin: "0 auto", padding: "24px 16px" }}>
+    // Sem padding nem maxWidth proprios: o shell ja da os dois. Somados, no
+    // celular sobravam ~310px de miolo e no desktop o conteudo parava em 700.
+    <div style={{ width: "100%", boxSizing: "border-box" }}>
       <div style={card}>
         <div style={cardHeader}>
           <span style={badge}>Obrigatorio</span>
@@ -321,11 +324,13 @@ export default function ObjetivosFP({ session }) {
   );
 }
 
+// Moldura compartilhada com as outras abas do Planejamento — ver molduras.js.
+// Este painel era raio 12 / padding 24x20 enquanto o do Perfil era raio 16 /
+// padding 24: trocar de aba mudava a geometria da tela.
 const card = {
+  ...PAINEL,
   background: "var(--card-bg, #151821)",
   border: "1px solid var(--border, #1E2330)",
-  borderRadius: 12,
-  padding: "24px 20px",
 };
 const cardHeader = { marginBottom: 20 };
 const badge = {
@@ -364,12 +369,17 @@ const input = {
   color: "var(--text-primary, #F1F2F4)",
   fontSize: 14,
   outline: "none",
+  // <input> tem largura intrinseca (~20 caracteres) e content-box por padrao:
+  // dentro de uma coluna estreita ele nao encolhia e furava o card no celular.
+  width: "100%",
+  minWidth: 0,
+  boxSizing: "border-box",
+  fontFamily: "inherit",
 };
 const linhaObjetivo = {
+  ...CARTAO_INTERNO,
   background: "rgba(255,255,255,0.03)",
   border: "1px solid var(--border, #1E2330)",
-  borderRadius: 10,
-  padding: "16px",
   marginBottom: 16,
 };
 const linhaHeader = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 };
