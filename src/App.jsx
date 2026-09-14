@@ -1448,6 +1448,24 @@ export default function PradexFinancas() {
 
   /* Fix 6 — descrição longa quebrava o layout da linha em vez de truncar. */
   .pdx-clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+  /* Fix 9 — CAUSA: input[type=date] no WebKit não é um campo de texto comum. Ele
+     desenha um widget nativo (::-webkit-datetime-edit + ícone de calendário) com
+     LARGURA INTRÍNSECA própria, que ignora width:100% e não encolhe. Num campo
+     estreito o conteúdo vazava pra fora da borda — era a "data de nascimento
+     estourando" no Perfil.
+     appearance:none tira o widget nativo; min-width:0 permite encolher; o
+     ::-webkit-date-and-time-value vem centralizado por padrão e com margem
+     própria, então precisa ser alinhado à esquerda pra ficar igual aos outros
+     campos. O seletor de data do sistema continua abrindo normalmente no toque. */
+  input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+    max-width: 100%;
+  }
+  input[type="date"]::-webkit-date-and-time-value { text-align: left; margin: 0; }
+  input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 0; opacity: 0.55; }
 }`}</style>
 
       {isDesktop && (

@@ -61,11 +61,43 @@ export const CARTAO_INTERNO = {
 // colunas; a diferença é o contrário, quando sobram colunas: auto-fill mantém
 // as vazias e dois cards ficam espremidos à esquerda de um desktop largo,
 // enquanto auto-fit colapsa as vazias e eles dividem a linha inteira.
-export const gradeResumo = (min = 150, gap = 12) => ({
+export const gradeResumo = (min = 170, gap = 12) => ({
   display: "grid",
   gridTemplateColumns: `repeat(auto-fit, minmax(${min}px, 1fr))`,
   gap,
 });
+
+// Card de resumo: um pouco mais alto e menos apertado nas laterais que a linha
+// de lista, porque aqui dentro mora um número grande. O padding lateral menor
+// (16 em vez de 18) devolve 4px de miolo, que num card de ~180px conta.
+export const CARTAO_RESUMO = {
+  borderRadius: 10,
+  padding: "16px 16px",
+  boxSizing: "border-box",
+  // Sem isto, o card não encolhe abaixo do número e vaza pra fora da coluna.
+  minWidth: 0,
+  overflow: "hidden",
+};
+
+// O número dentro do card de resumo.
+//
+// Era 20-22px. "R$ 1.234.567,89" nesse tamanho pede ~160px e o miolo do card no
+// celular tem ~150 — o valor vazava. Pior: em grade `1fr 1fr` (a aba Rendas), o
+// mínimo AUTO da coluna faz a COLUNA crescer pra caber o texto, e aí a linha
+// inteira do resumo passa da largura do container e fica mais larga que os
+// cards de lista logo abaixo. Era isso que aparecia como "o quadrado indo além
+// dos retângulos de baixo".
+//
+// 17px cabe um valor na casa dos milhões com folga, nos dois canvas.
+export const VALOR_RESUMO = {
+  fontSize: 17,
+  fontWeight: 700,
+  lineHeight: 1.35,
+  fontVariantNumeric: "tabular-nums",
+  // Rede de segurança: se um dia entrar um número maior que tudo, ele quebra
+  // dentro do card em vez de furar a lateral.
+  overflowWrap: "anywhere",
+};
 
 // Linha com conteúdo à esquerda e valor à direita.
 //
