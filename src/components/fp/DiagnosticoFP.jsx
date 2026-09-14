@@ -4,8 +4,24 @@ const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdnVocXFzamJvbmN3cGJvY2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTM1NzEsImV4cCI6MjA5MTI2OTU3MX0.qpOXjpyJ29Hr9kvee3uxNS1LmJNUEZqDtMCCEpaHjsE";
 
 const IPCA_ANUAL = 0.045;
-const SPREAD_ANUAL = 0.045;
-const TAXA_NOMINAL_ANUAL = (1 + IPCA_ANUAL) * (1 + SPREAD_ANUAL) - 1;
+// Taxa real DEFAULT. 4,5% e o valor com que a matematica foi validada contra a XP
+// (gap < 0,4%), entao ele e o ponto de partida e o "voltar ao padrao" — nao um chute.
+const SPREAD_PADRAO = 0.045;
+const SPREAD_MIN = 0;
+const SPREAD_MAX = 0.20;      // acima disso nao e projecao, e fantasia
+const CHAVE_TAXA = "pdx_taxa_real";
+
+// Persistencia POR DISPOSITIVO, de proposito provisorio: a casa certa desta
+// preferencia e uma coluna em fp_perfil, o que exige migration. Enquanto isso, o
+// localStorage evita o pior — que e a taxa voltar pro padrao toda visita e a pessoa
+// achar que o app ignorou ela.
+const lerTaxaSalva = () => {
+  try {
+    const v = Number(localStorage.getItem(CHAVE_TAXA));
+    return Number.isFinite(v) && v >= SPREAD_MIN && v <= SPREAD_MAX ? v : SPREAD_PADRAO;
+  } catch { return SPREAD_PADRAO; }
+};
+const nominalDe = (spread) => (1 + IPCA_ANUAL) * (1 + spread) - 1;
 
 const taxaMensal = (taxaAnual) => Math.pow(1 + taxaAnual, 1 / 12) - 1;
 
@@ -195,8 +211,18 @@ export default function DiagnosticoFP({ session }) {
   const [dados, setDados] = useState(null);
   const [hoverIdx, setHoverIdx] = useState(null);
   const [modoProjecao, setModoProjecao] = useState('valor_presente');
+  const [spread, setSpread] = useState(lerTaxaSalva);
+  const [editandoTaxa, setEditandoTaxa] = useState(false);
 
-  const TAXA_ANUAL = modoProjecao === 'nominal' ? TAXA_NOMINAL_ANUAL : SPREAD_ANUAL;
+  const aplicarTaxa = (valorPct) => {
+    const n = Number(String(valorPct).replace(",", "."));
+    if (!Number.isFinite(n)) return;
+    const dec = Math.min(SPREAD_MAX, Math.max(SPREAD_MIN, n / 100));
+    setSpread(dec);
+    try { localStorage.setItem(CHAVE_TAXA, String(dec)); } catch {}
+  };
+
+  const TAXA_ANUAL = modoProjecao === 'nominal' ? nominalDe(spread) : spread;
   const INFLACAO_ANUAL = modoProjecao === 'nominal' ? IPCA_ANUAL : 0;
   const i_mes = taxaMensal(TAXA_ANUAL);
   const g_mes = taxaMensal(INFLACAO_ANUAL);
@@ -350,8 +376,47 @@ export default function DiagnosticoFP({ session }) {
             </div>
             <div style={styles.assumptionRow}>
               <span style={styles.assumptionLabel}>Retorno esperado</span>
-              <span style={styles.assumptionValue}>{modoProjecao === 'nominal' ? `IPCA + ${formatPct(SPREAD_ANUAL)}` : `${formatPct(SPREAD_ANUAL)} real`}</span>
+              {editandoTaxa ? (
+                <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <input
+                    autoFocus
+                    inputMode="decimal"
+                    defaultValue={(spread * 100).toFixed(2).replace(".", ",")}
+                    onBlur={(e) => { aplicarTaxa(e.target.value); setEditandoTaxa(false); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") { aplicarTaxa(e.target.value); setEditandoTaxa(false); } if (e.key === "Escape") setEditandoTaxa(false); }}
+                    aria-label="Retorno real esperado ao ano, em porcento"
+                    style={{ width: "72px", textAlign: "right", background: "var(--input-bg, #0C0E14)", color: "var(--text-primary, #F1F2F4)", border: "1px solid var(--accent, #6366F1)", borderRadius: 6, padding: "4px 6px", fontSize: "0.8rem", fontFamily: "inherit", outline: "none" }}
+                  />
+                  <span style={styles.assumptionLabel}>% a.a.</span>
+                </span>
+              ) : (
+                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={styles.assumptionValue}>{modoProjecao === 'nominal' ? `IPCA + ${formatPct(spread)}` : `${formatPct(spread)} real`}</span>
+                  <button
+                    type="button"
+                    onClick={() => setEditandoTaxa(true)}
+                    style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--accent, #6366F1)", fontSize: "0.72rem", fontWeight: 600, fontFamily: "inherit" }}
+                  >
+                    editar
+                  </button>
+                  {Math.abs(spread - SPREAD_PADRAO) > 1e-9 && (
+                    <button
+                      type="button"
+                      onClick={() => aplicarTaxa(SPREAD_PADRAO * 100)}
+                      title="Voltar pra 4,50%, a taxa com que a conta foi validada"
+                      style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--text-muted, #5C6570)", fontSize: "0.72rem", fontFamily: "inherit" }}
+                    >
+                      padrão
+                    </button>
+                  )}
+                </span>
+              )}
             </div>
+            {Math.abs(spread - SPREAD_PADRAO) > 1e-9 && (
+              <p style={{ margin: 0, fontSize: "0.72rem", color: "var(--text-muted, #5C6570)", lineHeight: 1.4 }}>
+                Taxa alterada por você. A conta foi validada com 4,50% real — mudar aqui muda a projeção, não o retorno.
+              </p>
+            )}
             <div style={styles.assumptionRow}>
               <span style={styles.assumptionLabel}>Rentabilidade total</span>
               <span style={styles.assumptionValue}>{formatPct(TAXA_ANUAL)} a.a.</span>
