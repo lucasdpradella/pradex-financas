@@ -180,6 +180,15 @@ export default function PradexFinancas() {
   const [novaSenha, setNovaSenha] = useState("");
   const [novaSenhaRepetida, setNovaSenhaRepetida] = useState("");
   const [senhaTrocadaOk, setSenhaTrocadaOk] = useState(false);
+
+  // Trocar a senha JA LOGADO. E outro caso que o de recuperar: aqui a pessoa sabe a
+  // senha e quer outra. Sem isto, trocar de senha exigia fingir que esqueceu.
+  const [modalSenha, setModalSenha] = useState(false);
+  const [senhaModalNova, setSenhaModalNova] = useState("");
+  const [senhaModalRepetida, setSenhaModalRepetida] = useState("");
+  const [senhaModalErro, setSenhaModalErro] = useState("");
+  const [senhaModalOk, setSenhaModalOk] = useState(false);
+  const [senhaModalLoading, setSenhaModalLoading] = useState(false);
   const [cadastroNome, setCadastroNome] = useState("");
   const [cadastroDataNasc, setCadastroDataNasc] = useState("");
   const [cadastroTelefone, setCadastroTelefone] = useState("");
@@ -467,6 +476,34 @@ export default function PradexFinancas() {
     setAuthLoading(false);
   };
 
+  const handleTrocarSenhaLogado = async () => {
+    if (senhaModalNova.length < 6) { setSenhaModalErro("A senha precisa ter pelo menos 6 caracteres."); return; }
+    if (senhaModalNova !== senhaModalRepetida) { setSenhaModalErro("As duas senhas não são iguais."); return; }
+    setSenhaModalLoading(true); setSenhaModalErro("");
+    try {
+      // updateUser age sobre a sessao corrente — nao precisa da senha antiga nem de
+      // service_role. Quem ja esta dentro pode trocar a propria senha, e so a dela.
+      const { error } = await supabase.auth.updateUser({ password: senhaModalNova });
+      if (error) {
+        setSenhaModalErro(error.message === "New password should be different from the old password."
+          ? "A senha nova precisa ser diferente da atual."
+          : "Não foi possível alterar a senha. Tente de novo.");
+        setSenhaModalLoading(false);
+        return;
+      }
+      setSenhaModalOk(true);
+      setSenhaModalNova(""); setSenhaModalRepetida("");
+    } catch (e) {
+      setSenhaModalErro("Erro de conexão.");
+    }
+    setSenhaModalLoading(false);
+  };
+
+  const fecharModalSenha = () => {
+    setModalSenha(false); setSenhaModalOk(false); setSenhaModalErro("");
+    setSenhaModalNova(""); setSenhaModalRepetida("");
+  };
+
   const handleLogout = () => {
     supabase.auth.signOut().catch(() => {});
     clearSessionTokens();
@@ -476,6 +513,8 @@ export default function PradexFinancas() {
     setPlano("none"); setTrial(null); setPremioResgatadoEm(null); setOrcamentos([]);
     setTelaRecuperar(false); setRecuperarEnviado(false); setDefinindoSenha(false);
     setNovaSenha(""); setNovaSenhaRepetida(""); setSenhaTrocadaOk(false);
+    setModalSenha(false); setSenhaModalOk(false); setSenhaModalErro("");
+    setSenhaModalNova(""); setSenhaModalRepetida("");
   };
 
   useEffect(() => {
@@ -1635,7 +1674,7 @@ export default function PradexFinancas() {
 }`}</style>
 
       {isDesktop && (
-        <SidebarDesktop tela={tela} setTela={setTela} userEmail={session?.user?.email} userRole={userRole} onLogout={handleLogout} plano={plano} />
+        <SidebarDesktop tela={tela} setTela={setTela} userEmail={session?.user?.email} userRole={userRole} onLogout={handleLogout} onTrocarSenha={() => setModalSenha(true)} plano={plano} />
       )}
       {isDesktop && (
         <TopBar
@@ -1789,8 +1828,51 @@ export default function PradexFinancas() {
             {monthNames[new Date().getMonth()]} {new Date().getFullYear()}
           </h1>
         </div>
-        <button onClick={handleLogout} className="pdx-tap" style={{ background: "none", border: "1px solid #1E2330", borderRadius: "8px", color: "#8B93A1", cursor: "pointer", padding: "0.4rem 0.9rem", fontSize: "0.75rem", fontFamily: "inherit" }}>Sair</button>
+        <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
+          <button onClick={() => setModalSenha(true)} className="pdx-tap" style={{ background: "none", border: "1px solid #1E2330", borderRadius: "8px", color: "#8B93A1", cursor: "pointer", padding: "0.4rem 0.9rem", fontSize: "0.75rem", fontFamily: "inherit" }}>Senha</button>
+          <button onClick={handleLogout} className="pdx-tap" style={{ background: "none", border: "1px solid #1E2330", borderRadius: "8px", color: "#8B93A1", cursor: "pointer", padding: "0.4rem 0.9rem", fontSize: "0.75rem", fontFamily: "inherit" }}>Sair</button>
+        </div>
       </div>
+
+      {modalSenha && (
+        <div
+          onClick={fecharModalSenha}
+          style={{ position: "fixed", inset: 0, background: "#00000099", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem", zIndex: 1000 }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: "#151821", border: "1px solid #1E2330", borderRadius: "16px", padding: "1.5rem", width: "100%", maxWidth: "380px", boxSizing: "border-box" }}
+          >
+            {senhaModalOk ? (
+              <>
+                <h2 style={{ margin: "0 0 0.4rem", fontSize: "1.05rem", fontWeight: 700, color: "#F1F2F4" }}>Senha alterada</h2>
+                <p style={{ margin: "0 0 1.25rem", fontSize: "0.85rem", color: "#8B93A1", lineHeight: 1.5 }}>
+                  Sua sessão continua aberta. Use a senha nova no próximo login.
+                </p>
+                <button onClick={fecharModalSenha} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", background: "#6366F1", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                  Fechar
+                </button>
+              </>
+            ) : (
+              <>
+                <h2 style={{ margin: "0 0 0.4rem", fontSize: "1.05rem", fontWeight: 700, color: "#F1F2F4" }}>Trocar senha</h2>
+                <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", color: "#8B93A1", lineHeight: 1.5 }}>
+                  Você está logado, então não precisamos da senha atual — só da nova.
+                </p>
+                <input type="password" placeholder="Nova senha" autoComplete="new-password" value={senhaModalNova} onChange={e => setSenhaModalNova(e.target.value)} style={inputStyle} />
+                <input type="password" placeholder="Repita a nova senha" autoComplete="new-password" value={senhaModalRepetida} onChange={e => setSenhaModalRepetida(e.target.value)} onKeyDown={e => e.key === "Enter" && handleTrocarSenhaLogado()} style={inputStyle} />
+                {senhaModalErro && <p style={{ color: "#E06C65", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{senhaModalErro}</p>}
+                <button onClick={handleTrocarSenhaLogado} disabled={senhaModalLoading} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", background: "#6366F1", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: senhaModalLoading ? "not-allowed" : "pointer", opacity: senhaModalLoading ? 0.7 : 1, fontFamily: "inherit", marginBottom: "0.6rem" }}>
+                  {senhaModalLoading ? "Aguarde..." : "Salvar senha"}
+                </button>
+                <button onClick={fecharModalSenha} style={{ width: "100%", padding: "0.6rem", border: "none", borderRadius: "10px", background: "transparent", color: "#8B93A1", fontSize: "0.82rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                  Cancelar
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {podeZap && precisaCadastrarTelefone && !bannerTelefoneFechado && (
         <div style={{ background: "#6366F112", border: "1px solid #6366F140", borderRadius: "14px", padding: "1rem 1.1rem", marginBottom: "1.25rem", display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
