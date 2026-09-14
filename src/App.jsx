@@ -1398,6 +1398,17 @@ export default function PradexFinancas() {
           {authErro && <p style={{ color: "#E06C65", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{authErro}</p>}
           <button onClick={handleAuth} disabled={authLoading} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", background: "#6366F1", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: authLoading ? "not-allowed" : "pointer", opacity: authLoading ? 0.7 : 1, fontFamily: "inherit" }}>{authLoading ? "Aguarde..." : authMode === "login" ? "Entrar" : "Criar conta"}</button>
         </div>
+
+        {/* Rodape da tela de entrada. Existe por dois motivos:
+            1. A politica de privacidade estava em /privacidade respondendo 200 e
+               NENHUMA pagina linkava pra ela. Documento que ninguem acha nao conta.
+            2. Da ao crawler um caminho pra /sobre — o app inteiro e atras de login,
+               entao sem link nenhum robo chega la. */}
+        <p style={{ marginTop: "1.25rem", textAlign: "center", fontSize: "0.74rem", color: "#5C6570" }}>
+          <a href="/sobre" style={{ color: "#8B93A1", textDecoration: "none" }}>Sobre o Pradex</a>
+          {" · "}
+          <a href="/privacidade" style={{ color: "#8B93A1", textDecoration: "none" }}>Privacidade</a>
+        </p>
       </div>
     </div>
   );

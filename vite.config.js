@@ -29,7 +29,10 @@ export default defineConfig({
         // Precache só do shell (build assets). Nada do Supabase passa pelo cache:
         // dado financeiro é sempre network (cross-origin fica fora do SW por padrão).
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/rest\//, /^\/functions\//, /^\/privacidade/, /^\/excluir-conta/],
+        // /sobre entra junto das outras paginas estaticas: sem isso o service worker
+        // responde index.html (o app) no lugar do HTML publico, e a pagina que existe
+        // justamente pra ser lida por crawler vira a tela de login.
+        navigateFallbackDenylist: [/^\/rest\//, /^\/functions\//, /^\/privacidade/, /^\/excluir-conta/, /^\/sobre/],
       },
     }),
   ],
