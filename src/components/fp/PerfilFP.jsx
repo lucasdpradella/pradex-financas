@@ -45,11 +45,11 @@ export default function PerfilFP({ session, onPerfilSaved }) {
 
   const inputStyle = {
     width: "100%",
-    background: "#0C0E14",
+    background: "var(--input-bg, #0C0E14)",
     border: "1px solid #1E2330",
     borderRadius: "10px",
     padding: "0.75rem 1rem",
-    color: "#F1F2F4",
+    color: "var(--text-primary, #F1F2F4)",
     fontSize: "0.9rem",
     marginBottom: "0.75rem",
     outline: "none",
@@ -59,7 +59,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
   const labelStyle = {
     display: "block",
     fontSize: "0.68rem",
-    color: "#8B93A1",
+    color: "var(--text-secondary, #8B93A1)",
     textTransform: "uppercase",
     letterSpacing: "0.1em",
     marginBottom: "0.35rem",
@@ -373,15 +373,15 @@ export default function PerfilFP({ session, onPerfilSaved }) {
   if (loadingPerfil) {
     return (
       <div style={{ textAlign: "center", padding: "3rem 0" }}>
-        <p style={{ color: "#5C6570", fontSize: "0.85rem" }}>Carregando perfil...</p>
+        <p style={{ color: "var(--text-muted, #5C6570)", fontSize: "0.85rem" }}>Carregando perfil...</p>
       </div>
     );
   }
 
   return (
     <div>
-      <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #1E2330" }}>
-        <p style={{ margin: "0 0 1.25rem", fontSize: "0.75rem", fontWeight: 700, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+      <div style={{ background: "var(--surface, #151821)", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #1E2330" }}>
+        <p style={{ margin: "0 0 1.25rem", fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary, #8B93A1)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
           Dados Pessoais
         </p>
 
@@ -445,7 +445,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
             <select
               value={perfil.estado_civil}
               onChange={(e) => setPerfil((prev) => ({ ...prev, estado_civil: e.target.value, regime_uniao: "" }))}
-              style={{ ...inputStyle, marginBottom: 0, color: perfil.estado_civil ? "#F1F2F4" : "#5C6570", appearance: "none" }}
+              style={{ ...inputStyle, marginBottom: 0, color: perfil.estado_civil ? "var(--text-primary, #F1F2F4)" : "var(--text-muted, #5C6570)", appearance: "none" }}
             >
               <option value="">Selecione...</option>
               {estadosCivis.map((estadoCivil) => (
@@ -461,7 +461,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
               <select
                 value={perfil.regime_uniao}
                 onChange={(e) => setPerfil((prev) => ({ ...prev, regime_uniao: e.target.value }))}
-                style={{ ...inputStyle, marginBottom: 0, color: perfil.regime_uniao ? "#F1F2F4" : "#5C6570", appearance: "none" }}
+                style={{ ...inputStyle, marginBottom: 0, color: perfil.regime_uniao ? "var(--text-primary, #F1F2F4)" : "var(--text-muted, #5C6570)", appearance: "none" }}
               >
                 <option value="">Selecione...</option>
                 {regimesUniao.map((regime) => (
@@ -519,9 +519,9 @@ export default function PerfilFP({ session, onPerfilSaved }) {
         )}
       </div>
 
-      <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #1E2330" }}>
+      <div style={{ background: "var(--surface, #151821)", borderRadius: "16px", padding: "1.5rem", marginBottom: "1rem", border: "1px solid #1E2330" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
-          <p style={{ margin: 0, fontSize: "0.75rem", fontWeight: 700, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+          <p style={{ margin: 0, fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary, #8B93A1)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
             Membros da Familia
           </p>
           <button
@@ -546,7 +546,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
         </div>
 
         {showFormMembro && (
-          <div style={{ background: "#0C0E14", borderRadius: "12px", padding: "1rem", marginBottom: "1rem", border: "1px solid #1E2330" }}>
+          <div style={{ background: "var(--input-bg, #0C0E14)", borderRadius: "12px", padding: "1rem", marginBottom: "1rem", border: "1px solid #1E2330" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginBottom: "0.5rem" }}>
               <div>
                 <label style={labelStyle}>Nome *</label>
@@ -604,7 +604,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
 
         {membros.length === 0 && !showFormMembro && (
           <div style={{ textAlign: "center", padding: "1.5rem 0" }}>
-            <p style={{ margin: 0, fontSize: "0.85rem", color: "#5C6570" }}>Nenhum membro cadastrado ainda.</p>
+            <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-muted, #5C6570)" }}>Nenhum membro cadastrado ainda.</p>
           </div>
         )}
 
@@ -612,7 +612,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
           <div
             key={membro.id}
             style={{
-              background: "#0C0E14",
+              background: "var(--input-bg, #0C0E14)",
               borderRadius: "10px",
               padding: "0.75rem 1rem",
               marginBottom: "0.5rem",
@@ -679,7 +679,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
                       border: "1px solid #1E2330",
                       borderRadius: "8px",
                       background: "none",
-                      color: "#8B93A1",
+                      color: "var(--text-secondary, #8B93A1)",
                       fontSize: "0.84rem",
                       cursor: "pointer",
                       fontFamily: "inherit",
@@ -692,8 +692,8 @@ export default function PerfilFP({ session, onPerfilSaved }) {
             ) : (
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <div style={{ color: "#F1F2F4", fontSize: "0.9rem", fontWeight: 600 }}>{membro.nome}</div>
-                  <div style={{ color: "#8B93A1", fontSize: "0.75rem", marginTop: "0.15rem" }}>
+                  <div style={{ color: "var(--text-primary, #F1F2F4)", fontSize: "0.9rem", fontWeight: 600 }}>{membro.nome}</div>
+                  <div style={{ color: "var(--text-secondary, #8B93A1)", fontSize: "0.75rem", marginTop: "0.15rem" }}>
                     {membro.parentesco}
                     {membro.data_nascimento ? ` - ${membro.data_nascimento}` : ""}
                   </div>
@@ -719,7 +719,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
                     style={{
                       background: "none",
                       border: "none",
-                      color: "#5C6570",
+                      color: "var(--text-muted, #5C6570)",
                       cursor: "pointer",
                       fontSize: "1.1rem",
                       lineHeight: 1,

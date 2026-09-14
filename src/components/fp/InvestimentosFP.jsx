@@ -222,7 +222,7 @@ export default function InvestimentosFP({ session }) {
           return (
             <div key={tipo} style={st.resumoCard}>
               <div style={st.resumoLabel}>{tipo}</div>
-              <div style={{ ...st.resumoValor, color: "#F1F2F4" }}>{formatBRL(total)}</div>
+              <div style={{ ...st.resumoValor, color: "var(--text-primary, #F1F2F4)" }}>{formatBRL(total)}</div>
               <div style={st.resumoPct}>{pct}% do total</div>
             </div>
           );
@@ -282,22 +282,22 @@ export default function InvestimentosFP({ session }) {
 
 const st = {
   container: { padding: "24px", maxWidth: 820, margin: "0 auto" },
-  loading: { padding: 40, textAlign: "center", color: "#8B93A1" },
-  vazio: { textAlign: "center", padding: "40px 0", color: "#5C6570", fontSize: 14, background: "var(--surface, #151821)", borderRadius: 10, border: "1px dashed var(--border, #2C3344)" },
+  loading: { padding: 40, textAlign: "center", color: "var(--text-secondary, #8B93A1)" },
+  vazio: { textAlign: "center", padding: "40px 0", color: "var(--text-muted, #5C6570)", fontSize: 14, background: "var(--surface, #151821)", borderRadius: 10, border: "1px dashed var(--border, #2C3344)" },
   resumoRow: { display: "flex", gap: 16, marginBottom: 28, flexWrap: "wrap" },
   resumoCard: { flex: 1, minWidth: 160, background: "var(--surface, #151821)", border: "1px solid var(--border, #2C3344)", borderRadius: 10, padding: "16px 20px" },
-  resumoLabel: { fontSize: 11, color: "#8B93A1", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 },
+  resumoLabel: { fontSize: 11, color: "var(--text-secondary, #8B93A1)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 },
   resumoValor: { fontSize: 22, fontWeight: 700 },
-  resumoPct: { fontSize: 11, color: "#5C6570", marginTop: 4 },
+  resumoPct: { fontSize: 11, color: "var(--text-muted, #5C6570)", marginTop: 4 },
   sectionHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
   grupo: { marginBottom: 24 },
   grupoHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, padding: "0 4px" },
-  grupoTitulo: { fontSize: 13, fontWeight: 700, color: "#8B93A1", textTransform: "uppercase", letterSpacing: ".06em" },
-  grupoTotal: { fontSize: 14, fontWeight: 700, color: "#F1F2F4" },
+  grupoTitulo: { fontSize: 13, fontWeight: 700, color: "var(--text-secondary, #8B93A1)", textTransform: "uppercase", letterSpacing: ".06em" },
+  grupoTotal: { fontSize: 14, fontWeight: 700, color: "var(--text-primary, #F1F2F4)" },
   card: { display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--surface, #151821)", border: "1px solid var(--border, #2C3344)", borderRadius: 10, padding: "14px 18px", marginBottom: 8 },
   cardLeft: { flex: 1 },
-  cardTitulo: { fontWeight: 600, fontSize: 14, color: "#F1F2F4", marginBottom: 3 },
-  cardSub: { fontSize: 12, color: "#8B93A1" },
+  cardTitulo: { fontWeight: 600, fontSize: 14, color: "var(--text-primary, #F1F2F4)", marginBottom: 3 },
+  cardSub: { fontSize: 12, color: "var(--text-secondary, #8B93A1)" },
   cardRight: { textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 },
   cardValor: { fontWeight: 700, fontSize: 16, color: "#6366f1" },
   cardAcoes: { display: "flex", gap: 6 },
@@ -305,15 +305,15 @@ const st = {
   overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 },
   modal: { background: "var(--surface, #151821)", border: "1px solid var(--border, #2C3344)", borderRadius: 14, width: "100%", maxWidth: 480, maxHeight: "90vh", display: "flex", flexDirection: "column" },
   modalHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px 16px", borderBottom: "1px solid var(--border, #2C3344)" },
-  modalTitulo: { fontSize: 16, fontWeight: 700, color: "#F1F2F4" },
-  btnFechar: { background: "none", border: "none", color: "#8B93A1", fontSize: 22, cursor: "pointer", lineHeight: 1, padding: 0 },
+  modalTitulo: { fontSize: 16, fontWeight: 700, color: "var(--text-primary, #F1F2F4)" },
+  btnFechar: { background: "none", border: "none", color: "var(--text-secondary, #8B93A1)", fontSize: 22, cursor: "pointer", lineHeight: 1, padding: 0 },
   modalBody: { padding: "20px 24px", overflowY: "auto", flex: 1 },
   modalFooter: { display: "flex", justifyContent: "flex-end", gap: 10, padding: "16px 24px", borderTop: "1px solid var(--border, #2C3344)" },
   campo: { marginBottom: 16 },
-  label: { display: "block", fontSize: 11, fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 6 },
-  input: { width: "100%", background: "#0C0E14", border: "1px solid var(--border, #2C3344)", borderRadius: 8, padding: "9px 12px", color: "#F1F2F4", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" },
-  select: { width: "100%", background: "#0C0E14", border: "1px solid var(--border, #2C3344)", borderRadius: 8, padding: "9px 12px", color: "#F1F2F4", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" },
+  label: { display: "block", fontSize: 11, fontWeight: 600, color: "var(--text-secondary, #8B93A1)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 6 },
+  input: { width: "100%", background: "var(--input-bg, #0C0E14)", border: "1px solid var(--border, #2C3344)", borderRadius: 8, padding: "9px 12px", color: "var(--text-primary, #F1F2F4)", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" },
+  select: { width: "100%", background: "var(--input-bg, #0C0E14)", border: "1px solid var(--border, #2C3344)", borderRadius: 8, padding: "9px 12px", color: "var(--text-primary, #F1F2F4)", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" },
   erro: { background: "rgba(239,68,68,.1)", color: "#E06C65", borderRadius: 6, padding: "8px 12px", fontSize: 13, marginTop: 8 },
   btnPrimario: { background: "#6366f1", color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "inherit" },
-  btnCancelar: { background: "none", border: "none", color: "#8B93A1", fontSize: 13, cursor: "pointer", padding: "9px 16px", fontFamily: "inherit" },
+  btnCancelar: { background: "none", border: "none", color: "var(--text-secondary, #8B93A1)", fontSize: 13, cursor: "pointer", padding: "9px 16px", fontFamily: "inherit" },
 };

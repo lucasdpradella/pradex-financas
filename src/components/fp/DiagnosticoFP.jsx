@@ -183,7 +183,7 @@ function formatYAxis(v) {
 // destacado sumiu contra o próprio fundo. Valores originais restaurados.
 function ScenarioCard({ color, title, aporte, patrimonio, subtitle, highlighted = false }) {
   return (
-    <div style={{ ...styles.scenarioCard, background: highlighted ? "#1E2330" : "#151821", borderColor: highlighted ? "#3A4258" : "#2C3344" }}>
+    <div style={{ ...styles.scenarioCard, background: highlighted ? "var(--surface2, #1E2330)" : "var(--surface, #151821)", borderColor: highlighted ? "#3A4258" : "var(--border, #2C3344)" }}>
       <div style={styles.scenarioHeader}>
         <div style={styles.scenarioTitleWrap}>
           <span style={{ ...styles.scenarioDot, background: color }} />
@@ -288,7 +288,7 @@ export default function DiagnosticoFP({ session }) {
   }
 
   if (loading || !dados) {
-    return <div style={{ padding: 40, textAlign: "center", color: "#8B93A1" }}>{loading ? "Carregando..." : "Sem dados suficientes para diagnóstico."}</div>;
+    return <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary, #8B93A1)" }}>{loading ? "Carregando..." : "Sem dados suficientes para diagnóstico."}</div>;
   }
 
   const { patrimonioAtual, aportesMensais, idadeInicio, idadeAposentadoria, expectativaVida, rendaMensalDesejada, somaRendas, somaDespesas } = dados;
@@ -532,9 +532,9 @@ export default function DiagnosticoFP({ session }) {
 
           <div style={styles.legend}>
             <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#2FBF8A" }} />Projeção Atual</div>
-            <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#0C0E14" }} />Preservação do Patrimônio</div>
+            <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "var(--input-bg, #0C0E14)" }} />Preservação do Patrimônio</div>
             <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#8B93A1" }} />Consumo do Patrimônio</div>
-            <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#1E2330", boxShadow: "0 0 0 4px rgba(0,0,0,0.12)" }} />Aposentadoria</div>
+            <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "var(--surface2, #1E2330)", boxShadow: "0 0 0 4px rgba(0,0,0,0.12)" }} />Aposentadoria</div>
           </div>
 
           <div style={styles.legendNote}>
@@ -552,11 +552,11 @@ const styles = {
   topRow: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap" },
   topTitle: { margin: 0, fontSize: "0.95rem", color: "#D6D9E0", fontWeight: 500 },
   topControls: { display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" },
-  toggleGroup: { display: "inline-flex", borderRadius: "999px", background: "#0C0E14", padding: "3px" },
+  toggleGroup: { display: "inline-flex", borderRadius: "999px", background: "var(--input-bg, #0C0E14)", padding: "3px" },
   toggleButton: {
     border: "none",
     background: "transparent",
-    color: "#8B93A1",
+    color: "var(--text-secondary, #8B93A1)",
     padding: "0.45rem 0.85rem",
     fontSize: "0.78rem",
     fontWeight: 700,
@@ -566,30 +566,30 @@ const styles = {
     transition: "background 0.15s, color 0.15s",
   },
   toggleButtonActive: { background: "#FFFFFF", color: "#0C0E14" },
-  filterButton: { border: "none", borderRadius: "999px", background: "#0C0E14", color: "#FFFFFF", padding: "0.55rem 0.9rem", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
+  filterButton: { border: "none", borderRadius: "999px", background: "var(--input-bg, #0C0E14)", color: "#FFFFFF", padding: "0.55rem 0.9rem", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
   // O grafico e o coracao da tela e vinha DEPOIS de status, descricao, seis premissas
   // e tres cards de cenario. `order` inverte a leitura sem mexer no JSX.
-  board: { background: "#151821", borderRadius: "18px", border: "1px solid #1E2330", padding: "1.2rem 1.1rem", display: "grid", gridTemplateColumns: "1fr", gap: "1rem" },
+  board: { background: "var(--surface, #151821)", borderRadius: "18px", border: "1px solid #1E2330", padding: "1.2rem 1.1rem", display: "grid", gridTemplateColumns: "1fr", gap: "1rem" },
   leftPanel: { display: "grid", alignContent: "start", gap: "1rem", order: 2 },
   statusRow: { display: "flex", alignItems: "center", gap: "0.7rem" },
   statusDot: { width: "12px", height: "12px", borderRadius: "999px", background: "#2FBF8A", flexShrink: 0 },
-  statusTitle: { margin: 0, fontSize: "1.35rem", fontWeight: 600, letterSpacing: "-0.02em", color: "#F1F2F4" },
-  separator: { width: "100%", height: "1px", background: "#1E2330" },
-  description: { margin: 0, fontSize: "0.92rem", color: "#8B93A1", lineHeight: 1.55 },
+  statusTitle: { margin: 0, fontSize: "1.35rem", fontWeight: 600, letterSpacing: "-0.02em", color: "var(--text-primary, #F1F2F4)" },
+  separator: { width: "100%", height: "1px", background: "var(--surface2, #1E2330)" },
+  description: { margin: 0, fontSize: "0.92rem", color: "var(--text-secondary, #8B93A1)", lineHeight: 1.55 },
   assumptions: { display: "grid", gap: "0.45rem" },
   assumptionRow: { display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "center" },
-  assumptionLabel: { fontSize: "0.8rem", color: "#8B93A1" },
-  assumptionValue: { fontSize: "0.8rem", color: "#F1F2F4", fontWeight: 500, textAlign: "right", fontVariantNumeric: "tabular-nums" },
+  assumptionLabel: { fontSize: "0.8rem", color: "var(--text-secondary, #8B93A1)" },
+  assumptionValue: { fontSize: "0.8rem", color: "var(--text-primary, #F1F2F4)", fontWeight: 500, textAlign: "right", fontVariantNumeric: "tabular-nums" },
   scenarioList: { display: "grid", gap: "0.85rem" },
   scenarioCard: { border: "1px solid #1E2330", borderRadius: "12px", padding: "0.95rem 1rem", boxShadow: "0 1px 2px rgba(0,0,0,0.16)" },
   scenarioHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.75rem", marginBottom: "0.9rem" },
   scenarioTitleWrap: { display: "flex", alignItems: "center", gap: "0.7rem" },
   scenarioDot: { width: "12px", height: "12px", borderRadius: "999px", flexShrink: 0 },
-  scenarioTitle: { fontSize: "0.92rem", color: "#F1F2F4", fontWeight: 500 },
-  infoIcon: { width: "18px", height: "18px", borderRadius: "999px", border: "1px solid #8B93A1", color: "#8B93A1", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "0.72rem", fontWeight: 700, flexShrink: 0 },
+  scenarioTitle: { fontSize: "0.92rem", color: "var(--text-primary, #F1F2F4)", fontWeight: 500 },
+  infoIcon: { width: "18px", height: "18px", borderRadius: "999px", border: "1px solid #8B93A1", color: "var(--text-secondary, #8B93A1)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "0.72rem", fontWeight: 700, flexShrink: 0 },
   metricRow: { display: "flex", justifyContent: "space-between", gap: "0.75rem", marginBottom: "0.55rem", alignItems: "center" },
-  metricLabel: { fontSize: "0.77rem", color: "#8B93A1" },
-  metricValue: { fontSize: "0.8rem", color: "#F1F2F4", fontWeight: 700, textAlign: "right" },
+  metricLabel: { fontSize: "0.77rem", color: "var(--text-secondary, #8B93A1)" },
+  metricValue: { fontSize: "0.8rem", color: "var(--text-primary, #F1F2F4)", fontWeight: 700, textAlign: "right" },
   rightPanel: { order: 1, minWidth: 0, display: "grid", gap: "0.55rem" },
   chartActions: { display: "flex", justifyContent: "flex-end", marginBottom: "0.15rem" },
   // Acao secundaria: nao pode ter mais peso que o grafico que ela controla.
@@ -598,18 +598,18 @@ const styles = {
   svg: { width: "100%", minWidth: "640px", height: "auto", display: "block" },
   axisText: { fontSize: "12px", fill: "#5C6570", fontWeight: 500 },
   focusText: { fontSize: "11px", fill: "#FFFFFF", fontWeight: 700 },
-  tooltip: { position: "absolute", left: "50%", top: "49%", transform: "translateX(-50%)", background: "#0C0E14", color: "#FFFFFF", borderRadius: "12px", padding: "0.95rem 1rem", width: "310px", maxWidth: "calc(100% - 24px)", boxShadow: "0 12px 24px rgba(0,0,0,0.18)", whiteSpace: "pre-line" },
+  tooltip: { position: "absolute", left: "50%", top: "49%", transform: "translateX(-50%)", background: "var(--input-bg, #0C0E14)", color: "#FFFFFF", borderRadius: "12px", padding: "0.95rem 1rem", width: "310px", maxWidth: "calc(100% - 24px)", boxShadow: "0 12px 24px rgba(0,0,0,0.18)", whiteSpace: "pre-line" },
   tooltipTitle: { margin: "0 0 0.45rem", fontSize: "0.88rem", fontWeight: 700 },
   tooltipValues: { margin: "0 0 0.7rem", fontSize: "0.8rem", lineHeight: 1.45, fontWeight: 700 },
   tooltipAge: { margin: 0, fontSize: "0.78rem", opacity: 0.8 },
   tooltipAgeValue: { margin: "0.1rem 0 0", fontSize: "1rem", fontWeight: 700 },
-  miniTrack: { height: "24px", background: "#151821", marginTop: "0.15rem", position: "relative", overflow: "hidden", borderRadius: "8px" },
+  miniTrack: { height: "24px", background: "var(--surface, #151821)", marginTop: "0.15rem", position: "relative", overflow: "hidden", borderRadius: "8px" },
   // Gradiente decorativo: os dois stops têm que ser DIFERENTES, senão vira cor chapada.
   // A migração de 11/09 mapeou #2E3953 e #425071 pro mesmo tom e apagou o degradê.
   miniTrackFill: { position: "absolute", left: "2%", right: "2%", top: "7px", height: "10px", borderRadius: "10px", background: "linear-gradient(90deg, #2C3344 0%, #425071 100%)" },
   legend: { display: "flex", justifyContent: "center", gap: "1rem", flexWrap: "wrap", marginTop: "0.5rem", background: "#F2F4F8", padding: "0.65rem 0.85rem", borderRadius: "10px" },
-  legendItem: { display: "flex", alignItems: "center", gap: "0.45rem", fontSize: "0.75rem", color: "#5C6570", fontWeight: 600 },
+  legendItem: { display: "flex", alignItems: "center", gap: "0.45rem", fontSize: "0.75rem", color: "var(--text-muted, #5C6570)", fontWeight: 600 },
   legendDot: { width: "11px", height: "11px", borderRadius: "999px", display: "inline-block", flexShrink: 0 },
-  legendNote: { display: "flex", justifyContent: "center", alignItems: "center", gap: "0.55rem", marginTop: "1rem", fontSize: "0.75rem", color: "#8B93A1", textAlign: "center" },
+  legendNote: { display: "flex", justifyContent: "center", alignItems: "center", gap: "0.55rem", marginTop: "1rem", fontSize: "0.75rem", color: "var(--text-secondary, #8B93A1)", textAlign: "center" },
   legendInfo: { width: "16px", height: "16px", borderRadius: "999px", border: "1px solid #8B93A1", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "0.68rem", fontWeight: 700, color: "#C9CFDA", flexShrink: 0 },
 };
