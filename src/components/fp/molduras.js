@@ -50,15 +50,20 @@ export const CARTAO_INTERNO = {
 
 // Grade dos cards de resumo.
 //
-// `auto-fill`, NUNCA `auto-fit`. Os dois dão colunas iguais quando a linha está
-// cheia; a diferença aparece na última linha incompleta, que é justamente o caso
-// aqui — o número de cards de resumo é variável (só entra a categoria com saldo).
-// Com auto-fit, o card sozinho da última linha ESTICA até a largura toda e fica
-// do tamanho de dois. Com auto-fill a coluna vazia continua existindo e ele fica
-// do mesmo tamanho dos outros. Era essa a esticada que aparecia no celular.
+// A esticada que aparecia no celular era do FLEXBOX, não da grade: com
+// `flex: 1` + `flexWrap`, o card sozinho da última linha cresce até a largura
+// toda e fica do tamanho de dois. Em grade isso não acontece — item de última
+// linha ocupa UMA célula, do tamanho das outras. Só trocar flex por grid já
+// resolve.
+//
+// `auto-fit` e não `auto-fill` porque o número de cards é variável (só entra a
+// categoria com saldo). Os dois se comportam igual quando há mais cards que
+// colunas; a diferença é o contrário, quando sobram colunas: auto-fill mantém
+// as vazias e dois cards ficam espremidos à esquerda de um desktop largo,
+// enquanto auto-fit colapsa as vazias e eles dividem a linha inteira.
 export const gradeResumo = (min = 150, gap = 12) => ({
   display: "grid",
-  gridTemplateColumns: `repeat(auto-fill, minmax(${min}px, 1fr))`,
+  gridTemplateColumns: `repeat(auto-fit, minmax(${min}px, 1fr))`,
   gap,
 });
 

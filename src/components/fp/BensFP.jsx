@@ -581,8 +581,8 @@ const st = {
   container: { width: "100%", boxSizing: "border-box" },
   loading: { padding: 40, textAlign: "center", color: "var(--text-secondary, #8B93A1)" },
   vazio: { textAlign: "center", padding: "40px 0", color: "var(--text-muted, #5C6570)", fontSize: 14, background: "var(--surface, #151821)", borderRadius: 10, border: "1px dashed var(--border, #2C3344)" },
-  // So entra a categoria com saldo, entao a contagem varia de 1 a 5 — auto-fill
-  // e o que impede o card sozinho da ultima linha de esticar. Ver molduras.js.
+  // Grade, nao flex: era o flex que esticava o card sozinho da ultima linha.
+  // Ver molduras.js.
   resumoRow: { ...gradeResumo(150), marginBottom: 24 },
   resumoCard: { ...CARTAO, background: "var(--surface, #151821)", border: "1px solid var(--border, #2C3344)" },
   resumoLabel: { fontSize: 11, color: "var(--text-secondary, #8B93A1)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 },
