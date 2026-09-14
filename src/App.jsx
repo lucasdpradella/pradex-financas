@@ -23,6 +23,7 @@ import DiagnosticoFP from "./components/fp/DiagnosticoFP";
 import FabWhatsapp from "./components/FabWhatsapp";
 import UpgradePlano from "./components/UpgradePlano";
 import ScoreDisciplina from "./components/ScoreDisciplina";
+import Landing from "./components/Landing";
 import PreviaBorrada from "./components/PreviaBorrada";
 import OrcamentoCategoria from "./components/OrcamentoCategoria";
 import { normalizePlano, temAcesso, mostraCadeado, podeUsarWhatsapp, trialAtivo, diasRestantesTrial, CHECKOUT } from "./lib/plano";
@@ -1349,13 +1350,12 @@ export default function PradexFinancas() {
 
   if (loadingAuth) return <div style={{ minHeight: "100vh", background: "#0C0E14", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "#5C6570", fontFamily: "'DM Sans', sans-serif" }}>Carregando...</p></div>;
 
+  // Sem sessao: pagina de vendas com o formulario dentro (decisao "B", 14/09).
+  // A MESMA URL serve os dois publicos — o `start_url: "/"` do PWA continua valido e
+  // nenhuma instalacao existente quebra. O formulario nao foi reescrito: a logica de
+  // auth segue aqui e entra na Landing como children.
   if (!session) return (
-    <div style={{ minHeight: "100vh", background: "#0C0E14", color: "#F1F2F4", fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
-      <div style={{ width: "100%", maxWidth: "380px" }}>
-        <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
-          <p style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "#5C6570", textTransform: "uppercase", margin: "0 0 0.5rem" }}>Pradex</p>
-          <h1 style={{ margin: 0, fontSize: "2rem", fontWeight: 600, color: "#F1F2F4", letterSpacing: "-0.03em" }}>Finanças</h1>
-        </div>
+    <Landing>
         <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", border: "1px solid #1E2330" }}>
           <div style={{ display: "flex", background: "#0C0E14", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem" }}>
             {["login", "cadastro"].map(m => (
@@ -1399,18 +1399,7 @@ export default function PradexFinancas() {
           <button onClick={handleAuth} disabled={authLoading} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", background: "#6366F1", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: authLoading ? "not-allowed" : "pointer", opacity: authLoading ? 0.7 : 1, fontFamily: "inherit" }}>{authLoading ? "Aguarde..." : authMode === "login" ? "Entrar" : "Criar conta"}</button>
         </div>
 
-        {/* Rodape da tela de entrada. Existe por dois motivos:
-            1. A politica de privacidade estava em /privacidade respondendo 200 e
-               NENHUMA pagina linkava pra ela. Documento que ninguem acha nao conta.
-            2. Da ao crawler um caminho pra /sobre — o app inteiro e atras de login,
-               entao sem link nenhum robo chega la. */}
-        <p style={{ marginTop: "1.25rem", textAlign: "center", fontSize: "0.74rem", color: "#5C6570" }}>
-          <a href="/sobre" style={{ color: "#8B93A1", textDecoration: "none" }}>Sobre o Pradex</a>
-          {" · "}
-          <a href="/privacidade" style={{ color: "#8B93A1", textDecoration: "none" }}>Privacidade</a>
-        </p>
-      </div>
-    </div>
+    </Landing>
   );
 
   return (

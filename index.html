@@ -59,7 +59,44 @@
     </style>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- CONTEUDO PRA QUEM NAO EXECUTA JAVASCRIPT.
+         O app e renderizado no navegador, entao um crawler ve #root vazio e nao tem
+         o que indexar — foi assim que a IA do Google acabou descrevendo o Pradex a
+         partir de uma pagina de topicos do GitHub.
+         Isto aqui e substituido pelo React no instante em que ele monta, entao
+         usuario nenhum ve esta versao; robo ve. Mantenha em sincronia com o texto de
+         components/Landing.jsx quando a promessa mudar. -->
+    <div id="root">
+      <main style="max-width:760px;margin:0 auto;padding:2rem 1.25rem;font-family:'DM Sans',system-ui,sans-serif;color:#F1F2F4">
+        <p style="font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:#8B93A1">Pradex Finanças</p>
+        <h1 style="font-size:2rem;line-height:1.15;font-weight:600;letter-spacing:-.03em">Saber pra onde vai o seu dinheiro não deveria dar trabalho.</h1>
+        <p style="color:#8B93A1;line-height:1.6">
+          Você manda "gastei 50 no mercado" no WhatsApp e acabou. O Pradex registra, organiza por
+          categoria e mostra onde você está estourando — antes do fim do mês.
+        </p>
+        <ul style="color:#C9CFDA;line-height:1.7">
+          <li><strong>Lance pelo WhatsApp</strong> — por texto ou áudio, e cai categorizado.</li>
+          <li><strong>Teto por categoria</strong> — você define o limite e o app avisa quando está perto.</li>
+          <li><strong>Cartões e parcelas</strong> — as dos próximos meses já aparecem.</li>
+          <li><strong>Score de disciplina</strong> — pontua o hábito, nunca o tamanho da sua conta.</li>
+        </ul>
+        <h2 style="font-size:1.1rem">Onde ficam os seus dados</h2>
+        <p style="color:#C9CFDA;line-height:1.6">
+          Na sua conta, em servidor, com acesso isolado por usuário. Não é armazenamento local do
+          navegador: trocar de celular ou limpar o histórico não apaga nada. O Pradex não pede senha
+          de banco, não acessa conta bancária e não lê cartão.
+        </p>
+        <p style="color:#C9CFDA;line-height:1.6">
+          Registrar e acompanhar é grátis. O agente do WhatsApp e o teto por categoria fazem parte do
+          plano Essencial, R$ 29,90 por mês.
+        </p>
+        <p style="color:#8B93A1;font-size:.85rem">
+          Feito por Lucas D'Angelo Pradella, assessor de investimentos na Nobel Capital.
+          App de organização financeira — não faz recomendação de investimento nem promete rentabilidade.
+        </p>
+        <p><a href="/sobre" style="color:#6366F1">Sobre o Pradex</a> · <a href="/privacidade" style="color:#6366F1">Privacidade</a></p>
+      </main>
+    </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
