@@ -142,8 +142,28 @@ function calcularProjecoes({
   const consumoVals = simular(Math.max(0, aporteConsumo), false);
   const preservacaoVals = simular(Math.max(0, aportePreservacao), false);
 
+  // IDADE EM QUE O DINHEIRO ACABA — o numero da capa.
+  //
+  // `simular` empurra o saldo do INICIO de cada idade e trava em 0 quando zera, entao
+  // o primeiro indice com 0 depois da aposentadoria e o ano em que acabou. null quando
+  // o dinheiro passa da expectativa de vida.
+  //
+  // Trocamos "patrimonio projetado" por isto porque ninguem sente R$ 1,4 milhao; sente
+  // "acaba aos 78". E 78 contra 90 e uma conta que dispensa legenda.
+  let idadeAcaba = null;
+  for (let k = 0; k < ages.length; k++) {
+    if (ages[k] <= idadeAposentadoria) continue;
+    if (projecaoAtual[k] <= 0.005) { idadeAcaba = ages[k]; break; }
+  }
+
+  // Aporte que falta pra durar ate a expectativa. O alvo padrao e "durar ate os N",
+  // nao "viver de renda": brasileiro comum nao esta otimizando heranca.
+  const faltaPorMes = Math.max(0, aporteConsumo - aportesMensais);
+
   return {
     ages,
+    idadeAcaba,
+    faltaPorMes,
     projecaoAtual,
     consumoVals,
     preservacaoVals,
@@ -213,6 +233,7 @@ export default function DiagnosticoFP({ session }) {
   const [modoProjecao, setModoProjecao] = useState('valor_presente');
   const [spread, setSpread] = useState(lerTaxaSalva);
   const [editandoTaxa, setEditandoTaxa] = useState(false);
+  const [mostrarPerpetuidade, setMostrarPerpetuidade] = useState(false);
 
   const aplicarTaxa = (valorPct) => {
     const n = Number(String(valorPct).replace(",", "."));
@@ -294,7 +315,7 @@ export default function DiagnosticoFP({ session }) {
   const { patrimonioAtual, aportesMensais, idadeInicio, idadeAposentadoria, expectativaVida, rendaMensalDesejada, somaRendas, somaDespesas } = dados;
 
   const projecoes = calcularProjecoes({ patrimonioAtual, aportesMensais, idadeInicio, idadeAposentadoria, expectativaVida, rendaMensalDesejada, i_mes, g_mes, INFLACAO_ANUAL });
-  const { ages, projecaoAtual, consumoVals, preservacaoVals, aporteConsumo, aportePreservacao, pvConsumo, pvPreservacao, patrimonioAtualNaAposentadoria } = projecoes;
+  const { ages, idadeAcaba, faltaPorMes, projecaoAtual, consumoVals, preservacaoVals, aporteConsumo, aportePreservacao, pvConsumo, pvPreservacao, patrimonioAtualNaAposentadoria } = projecoes;
 
   const yMaxBase = Math.max(patrimonioAtualNaAposentadoria, pvPreservacao, pvConsumo);
   const yMax = Math.ceil(yMaxBase * 1.25 / 500_000) * 500_000 || 3_500_000;
@@ -356,11 +377,73 @@ export default function DiagnosticoFP({ session }) {
         </div>
       </div>
 
+      {/* VEREDITO — o primeiro bloco da tela.
+          Responde "vai dar?" antes de "quanto". A pergunta que a pessoa traz e essa;
+          patrimonio projetado e resposta de assessor pra pergunta que ela nao fez. */}
+      <div style={styles.veredito}>
+        <span style={{ ...styles.vereditoSelo, background: idadeAcaba ? "#E06C6518" : "#2FBF8A18", color: idadeAcaba ? "#E06C65" : "#2FBF8A" }}>
+          {idadeAcaba ? "Não chega" : "Chega"}
+        </span>
+        {idadeAcaba ? (
+          <>
+            <p style={styles.vereditoFrase}>
+              No seu ritmo, o dinheiro acaba aos <strong style={styles.vereditoNumero}>{idadeAcaba}</strong>.
+            </p>
+            <p style={styles.vereditoSub}>
+              São {expectativaVida - idadeAcaba} {expectativaVida - idadeAcaba === 1 ? "ano descoberto" : "anos descobertos"} até os {expectativaVida}.
+            </p>
+            {faltaPorMes > 0 && (
+              <div style={styles.vereditoAcao}>
+                <span style={styles.vereditoAcaoLabel}>Pra durar até os {expectativaVida}</span>
+                <span style={styles.vereditoAcaoValor}>+{formatBRL(faltaPorMes)} por mês</span>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <p style={styles.vereditoFrase}>
+              No seu ritmo, o dinheiro passa dos <strong style={styles.vereditoNumero}>{expectativaVida}</strong>.
+            </p>
+            <p style={styles.vereditoSub}>Pode manter o aporte de {formatBRL(aportesMensais)} por mês.</p>
+          </>
+        )}
+      </div>
+
+      {/* O QUE O NUMERO GRANDE VALE DE VERDADE (ideia do PRADELLA).
+          "No futuro tera 1 milhao, e desse 1 milhao equivalera a 700 mil, porque 30%
+          sera inflacao." Em vez de um toggle Nominal/Real que obriga a pessoa a
+          escolher entre dois numeros sem saber a diferenca, mostra os DOIS de uma vez:
+          a barra cheia e o nominal, a parte preenchida e o poder de compra de hoje.
+          O toggle continua existindo pro grafico; isto aqui e a explicacao. */}
+      {(() => {
+        const anos = Math.max(0, idadeAposentadoria - idadeInicio);
+        const fator = Math.pow(1 + IPCA_ANUAL, anos);
+        const emModoNominal = modoProjecao === "nominal";
+        const nominal = emModoNominal ? patrimonioAtualNaAposentadoria : patrimonioAtualNaAposentadoria * fator;
+        const real = emModoNominal ? patrimonioAtualNaAposentadoria / fator : patrimonioAtualNaAposentadoria;
+        if (!(nominal > 0)) return null;
+        const pct = Math.max(4, Math.min(100, (real / nominal) * 100));
+        const perdaPct = Math.round(100 - pct);
+        return (
+          <div style={styles.inflaCard}>
+            <p style={styles.inflaTopo}>Aos {idadeAposentadoria} você terá</p>
+            <p style={styles.inflaNominal}>{formatBRL(nominal)}</p>
+            <div style={styles.inflaTrack}>
+              <div style={{ ...styles.inflaFill, width: `${pct}%` }} />
+            </div>
+            <p style={styles.inflaLegenda}>
+              Compra o que <strong style={{ color: "var(--text-primary, #F1F2F4)" }}>{formatBRL(real)}</strong> compram hoje.
+              A inflação come {perdaPct}% em {anos} {anos === 1 ? "ano" : "anos"}.
+            </p>
+          </div>
+        );
+      })()}
+
       <div style={styles.board}>
         <div style={styles.leftPanel}>
           <div style={styles.statusRow}>
             <span style={styles.statusDot} />
-            <h2 style={styles.statusTitle}>Planejamento Adequado Consumo</h2>
+            <h2 style={styles.statusTitle}>Sua projeção</h2>
           </div>
 
           <div style={styles.separator} />
@@ -444,20 +527,36 @@ export default function DiagnosticoFP({ session }) {
               subtitle={`Patrimônio projetado aos ${idadeAposentadoria} anos`}
               highlighted
             />
+            {/* O ALVO PADRAO e um so: durar ate a expectativa. Brasileiro comum nao
+                esta otimizando heranca — esta perguntando se aposenta. */}
             <ScenarioCard
               color="#8B93A1"
-              title="Consumo total do patrimônio"
+              title="Durar até os ${expectativaVida}"
               aporte={`${formatBRL(aporteConsumo)}/mês`}
               patrimonio={formatBRL(pvConsumo)}
-              subtitle={`Patrimônio mínimo aos ${idadeAposentadoria} anos`}
+              subtitle="O dinheiro chega no fim e zera"
             />
-            <ScenarioCard
-              color="#0C0E14"
-              title="Preservação do patrimônio"
-              aporte={`${formatBRL(aportePreservacao)}/mês`}
-              patrimonio={formatBRL(pvPreservacao)}
-              subtitle={`Patrimônio necessário aos ${idadeAposentadoria} anos`}
-            />
+
+            {/* "Nunca zerar" e UPGRADE, nao terceiro igual. Tres cards lado a lado
+                empatavam a projecao DELA com dois cenarios hipoteticos — foi isso que
+                o PRADELLA chamou de confuso. Quem quer, pede. */}
+            {mostrarPerpetuidade ? (
+              <ScenarioCard
+                color="var(--text-secondary, #8B93A1)"
+                title="Nunca zerar"
+                aporte={`${formatBRL(aportePreservacao)}/mês`}
+                patrimonio={formatBRL(pvPreservacao)}
+                subtitle="Você vive do rendimento e o que já juntou fica"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setMostrarPerpetuidade(true)}
+                style={{ background: "none", border: "none", padding: "0.4rem 0", textAlign: "left", cursor: "pointer", color: "var(--accent, #6366F1)", fontSize: "0.8rem", fontWeight: 600, fontFamily: "inherit" }}
+              >
+                E se eu quiser que o dinheiro não acabe nunca?
+              </button>
+            )}
           </div>
         </div>
 
@@ -532,8 +631,8 @@ export default function DiagnosticoFP({ session }) {
 
           <div style={styles.legend}>
             <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#2FBF8A" }} />Projeção Atual</div>
-            <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "var(--input-bg, #0C0E14)" }} />Preservação do Patrimônio</div>
-            <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#8B93A1" }} />Consumo do Patrimônio</div>
+            <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "var(--input-bg, #0C0E14)" }} />Nunca zerar</div>
+            <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#8B93A1" }} />Durar até o fim</div>
             <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: "var(--surface2, #1E2330)", boxShadow: "0 0 0 4px rgba(0,0,0,0.12)" }} />Aposentadoria</div>
           </div>
 
@@ -569,6 +668,24 @@ const styles = {
   filterButton: { border: "none", borderRadius: "999px", background: "var(--input-bg, #0C0E14)", color: "#FFFFFF", padding: "0.55rem 0.9rem", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
   // O grafico e o coracao da tela e vinha DEPOIS de status, descricao, seis premissas
   // e tres cards de cenario. `order` inverte a leitura sem mexer no JSX.
+  veredito: { background: "var(--surface, #151821)", border: "1px solid var(--border, #1E2330)", borderRadius: "18px", padding: "1.3rem 1.2rem", marginBottom: "1rem", display: "grid", gap: "0.4rem", justifyItems: "start" },
+  vereditoSelo: { fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", padding: "4px 10px", borderRadius: "999px" },
+  vereditoFrase: { margin: "0.3rem 0 0", fontSize: "1.05rem", color: "var(--text-primary, #F1F2F4)", lineHeight: 1.35 },
+  // 34/600 e o degrau de "numero heroi" da escala do app. A idade e o unico numero
+  // grande da tela de proposito — dois herois nao sao heroi nenhum.
+  vereditoNumero: { fontSize: "2.1rem", fontWeight: 600, letterSpacing: "-0.03em", fontVariantNumeric: "tabular-nums" },
+  vereditoSub: { margin: 0, fontSize: "0.82rem", color: "var(--text-secondary, #8B93A1)" },
+  vereditoAcao: { marginTop: "0.7rem", display: "flex", alignItems: "baseline", gap: "0.6rem", flexWrap: "wrap", padding: "0.65rem 0.9rem", borderRadius: "10px", background: "var(--surface2, #1E2330)" },
+  vereditoAcaoLabel: { fontSize: "0.78rem", color: "var(--text-secondary, #8B93A1)" },
+  vereditoAcaoValor: { fontSize: "1rem", fontWeight: 700, color: "var(--accent, #6366F1)", fontVariantNumeric: "tabular-nums" },
+  inflaCard: { background: "var(--surface, #151821)", border: "1px solid var(--border, #1E2330)", borderRadius: "18px", padding: "1.1rem 1.2rem", marginBottom: "1rem" },
+  inflaTopo: { margin: 0, fontSize: "0.7rem", color: "var(--text-secondary, #8B93A1)", textTransform: "uppercase", letterSpacing: "0.1em" },
+  inflaNominal: { margin: "0.2rem 0 0.7rem", fontSize: "1.5rem", fontWeight: 600, letterSpacing: "-0.02em", color: "var(--text-primary, #F1F2F4)", fontVariantNumeric: "tabular-nums" },
+  inflaTrack: { height: "10px", borderRadius: "999px", background: "var(--surface2, #1E2330)", overflow: "hidden" },
+  // A parte cheia e o poder de compra REAL; o vazio a direita e a inflacao. O olho
+  // le "quanto disso e meu de verdade" sem precisar de legenda de cor.
+  inflaFill: { height: "100%", borderRadius: "999px", background: "#2FBF8A", transition: "width .3s" },
+  inflaLegenda: { margin: "0.55rem 0 0", fontSize: "0.78rem", color: "var(--text-secondary, #8B93A1)", lineHeight: 1.45 },
   board: { background: "var(--surface, #151821)", borderRadius: "18px", border: "1px solid #1E2330", padding: "1.2rem 1.1rem", display: "grid", gridTemplateColumns: "1fr", gap: "1rem" },
   leftPanel: { display: "grid", alignContent: "start", gap: "1rem", order: 2 },
   statusRow: { display: "flex", alignItems: "center", gap: "0.7rem" },
