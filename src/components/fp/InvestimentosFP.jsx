@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { syncSupabaseSession } from "../../supabaseClient";
+import { CARTAO, gradeResumo, LINHA, LINHA_ESQUERDA, LINHA_DIREITA } from "./molduras";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdnVocXFzamJvbmN3cGJvY2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTM1NzEsImV4cCI6MjA5MTI2OTU3MX0.qpOXjpyJ29Hr9kvee3uxNS1LmJNUEZqDtMCCEpaHjsE";
@@ -281,11 +282,18 @@ export default function InvestimentosFP({ session }) {
 }
 
 const st = {
-  container: { padding: "24px", maxWidth: 820, margin: "0 auto" },
+  // Sem padding e sem maxWidth proprios: o shell (mobile 480px com gutter de 24,
+  // desktop com a sua propria caixa) ja define os dois. Este bloco somava mais 24
+  // de cada lado — num iPhone de 390px sobravam ~294px de miolo — e ainda cortava
+  // o desktop em 820 dentro de um container maior, o que empurra o conteudo pra
+  // um lado e deixa a sobra toda no outro. Mesmo conserto ja feito em Rendas.
+  container: { width: "100%", boxSizing: "border-box" },
   loading: { padding: 40, textAlign: "center", color: "var(--text-secondary, #8B93A1)" },
   vazio: { textAlign: "center", padding: "40px 0", color: "var(--text-muted, #5C6570)", fontSize: 14, background: "var(--surface, #151821)", borderRadius: 10, border: "1px dashed var(--border, #2C3344)" },
-  resumoRow: { display: "flex", gap: 16, marginBottom: 28, flexWrap: "wrap" },
-  resumoCard: { flex: 1, minWidth: 160, background: "var(--surface, #151821)", border: "1px solid var(--border, #2C3344)", borderRadius: 10, padding: "16px 20px" },
+  // Grade, nao flex: era o flex que esticava o card sozinho da ultima linha.
+  // Ver molduras.js.
+  resumoRow: { ...gradeResumo(150), marginBottom: 28 },
+  resumoCard: { ...CARTAO, background: "var(--surface, #151821)", border: "1px solid var(--border, #2C3344)" },
   resumoLabel: { fontSize: 11, color: "var(--text-secondary, #8B93A1)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 },
   resumoValor: { fontSize: 22, fontWeight: 700 },
   resumoPct: { fontSize: 11, color: "var(--text-muted, #5C6570)", marginTop: 4 },
@@ -294,11 +302,11 @@ const st = {
   grupoHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, padding: "0 4px" },
   grupoTitulo: { fontSize: 13, fontWeight: 700, color: "var(--text-secondary, #8B93A1)", textTransform: "uppercase", letterSpacing: ".06em" },
   grupoTotal: { fontSize: 14, fontWeight: 700, color: "var(--text-primary, #F1F2F4)" },
-  card: { display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--surface, #151821)", border: "1px solid var(--border, #2C3344)", borderRadius: 10, padding: "14px 18px", marginBottom: 8 },
-  cardLeft: { flex: 1 },
+  card: { ...LINHA, ...CARTAO, alignItems: "center", background: "var(--surface, #151821)", border: "1px solid var(--border, #2C3344)", marginBottom: 8 },
+  cardLeft: LINHA_ESQUERDA,
   cardTitulo: { fontWeight: 600, fontSize: 14, color: "var(--text-primary, #F1F2F4)", marginBottom: 3 },
   cardSub: { fontSize: 12, color: "var(--text-secondary, #8B93A1)" },
-  cardRight: { textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 },
+  cardRight: { ...LINHA_DIREITA, gap: 6 },
   cardValor: { fontWeight: 700, fontSize: 16, color: "#6366f1" },
   cardAcoes: { display: "flex", gap: 6 },
   btnAcao: { background: "none", border: "none", cursor: "pointer", fontSize: 14, padding: "2px 4px", borderRadius: 4 },

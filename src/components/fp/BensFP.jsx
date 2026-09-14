@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { syncSupabaseSession } from "../../supabaseClient";
+import { ABAS_INTERNAS, CARTAO, gradeResumo, LINHA, LINHA_ESQUERDA, LINHA_DIREITA } from "./molduras";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdnVocXFzamJvbmN3cGJvY2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTM1NzEsImV4cCI6MjA5MTI2OTU3MX0.qpOXjpyJ29Hr9kvee3uxNS1LmJNUEZqDtMCCEpaHjsE";
@@ -576,22 +577,28 @@ export default function BensFP({ session }) {
 }
 
 const st = {
-  container: { padding: "24px", maxWidth: 820, margin: "0 auto" },
+  // Mesmo conserto de Investimentos e Rendas: o shell ja da gutter e largura.
+  container: { width: "100%", boxSizing: "border-box" },
   loading: { padding: 40, textAlign: "center", color: "var(--text-secondary, #8B93A1)" },
   vazio: { textAlign: "center", padding: "40px 0", color: "var(--text-muted, #5C6570)", fontSize: 14, background: "var(--surface, #151821)", borderRadius: 10, border: "1px dashed var(--border, #2C3344)" },
-  resumoRow: { display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap" },
-  resumoCard: { flex: 1, minWidth: 150, background: "var(--surface, #151821)", border: "1px solid var(--border, #2C3344)", borderRadius: 10, padding: "16px 20px" },
+  // Grade, nao flex: era o flex que esticava o card sozinho da ultima linha.
+  // Ver molduras.js.
+  resumoRow: { ...gradeResumo(150), marginBottom: 24 },
+  resumoCard: { ...CARTAO, background: "var(--surface, #151821)", border: "1px solid var(--border, #2C3344)" },
   resumoLabel: { fontSize: 11, color: "var(--text-secondary, #8B93A1)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 },
   resumoValor: { fontSize: 20, fontWeight: 700, color: "var(--text-primary, #F1F2F4)" },
-  tabsRow: { display: "flex", gap: 4, marginBottom: 20, background: "var(--surface, #151821)", padding: 4, borderRadius: 10, width: "fit-content" },
-  tab: { padding: "7px 16px", borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: "pointer", color: "var(--text-secondary, #8B93A1)", border: "none", background: "transparent", fontFamily: "inherit" },
+  // Eram 4 abas num flex de largura natural: "Participações" e longa e a linha
+  // pedia ~360px, mais do que os ~342 de miolo de um iPhone de 390. Estourava a
+  // lateral. Em grade vira 2x2 no celular e uma linha so no desktop.
+  tabsRow: { ...ABAS_INTERNAS, marginBottom: 20, background: "var(--surface, #151821)" },
+  tab: { padding: "7px 10px", borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: "pointer", color: "var(--text-secondary, #8B93A1)", border: "none", background: "transparent", fontFamily: "inherit", textAlign: "center", whiteSpace: "nowrap" },
   tabActive: { background: "var(--surface2, #1E2330)", color: "var(--text-primary, #F1F2F4)" },
   sectionHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
-  card: { display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--surface, #151821)", border: "1px solid var(--border, #2C3344)", borderRadius: 10, padding: "14px 18px", marginBottom: 8 },
-  cardLeft: { flex: 1 },
+  card: { ...LINHA, ...CARTAO, alignItems: "center", background: "var(--surface, #151821)", border: "1px solid var(--border, #2C3344)", marginBottom: 8 },
+  cardLeft: LINHA_ESQUERDA,
   cardTitulo: { fontWeight: 600, fontSize: 14, color: "var(--text-primary, #F1F2F4)", marginBottom: 3 },
   cardSub: { fontSize: 12, color: "var(--text-secondary, #8B93A1)" },
-  cardRight: { textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 },
+  cardRight: LINHA_DIREITA,
   cardValor: { fontWeight: 700, fontSize: 16, color: "#6366f1" },
   cardAcoes: { display: "flex", gap: 6 },
   btnAcao: { background: "none", border: "none", cursor: "pointer", fontSize: 14, padding: "2px 4px" },
