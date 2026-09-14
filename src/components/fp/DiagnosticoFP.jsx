@@ -531,7 +531,7 @@ export default function DiagnosticoFP({ session }) {
                 esta otimizando heranca — esta perguntando se aposenta. */}
             <ScenarioCard
               color="#8B93A1"
-              title="Durar até os ${expectativaVida}"
+              title={`Durar até os ${expectativaVida}`}
               aporte={`${formatBRL(aporteConsumo)}/mês`}
               patrimonio={formatBRL(pvConsumo)}
               subtitle="O dinheiro chega no fim e zera"

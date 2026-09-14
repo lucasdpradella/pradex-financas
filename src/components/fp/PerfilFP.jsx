@@ -44,7 +44,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
   const userId = session?.user?.id;
 
   const inputStyle = {
-    width: "100%",
+    width: "100%", boxSizing: "border-box",
     background: "var(--input-bg, #0C0E14)",
     border: "1px solid #1E2330",
     borderRadius: "10px",
@@ -394,7 +394,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
           style={inputStyle}
         />
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "0.75rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.75rem", marginBottom: "0.75rem" }}>
           <div>
             <label style={labelStyle}>Data de nascimento</label>
             <input
@@ -439,7 +439,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
           style={inputStyle}
         />
 
-        <div style={{ display: "grid", gridTemplateColumns: mostrarRegime ? "1fr 1fr" : "1fr", gap: "0.75rem", marginBottom: "0.75rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: mostrarRegime ? "repeat(auto-fit, minmax(180px, 1fr))" : "1fr", gap: "0.75rem", marginBottom: "0.75rem" }}>
           <div>
             <label style={labelStyle}>Estado civil</label>
             <select
@@ -496,7 +496,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
           onClick={salvarPerfil}
           disabled={savingPerfil}
           style={{
-            width: "100%",
+            width: "100%", boxSizing: "border-box",
             padding: "0.85rem",
             border: "none",
             borderRadius: "10px",
@@ -547,7 +547,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
 
         {showFormMembro && (
           <div style={{ background: "var(--input-bg, #0C0E14)", borderRadius: "12px", padding: "1rem", marginBottom: "1rem", border: "1px solid #1E2330" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginBottom: "0.5rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.5rem", marginBottom: "0.5rem" }}>
               <div>
                 <label style={labelStyle}>Nome *</label>
                 <input
@@ -584,7 +584,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
               onClick={adicionarMembroFP}
               disabled={savingMembro}
               style={{
-                width: "100%",
+                width: "100%", boxSizing: "border-box",
                 padding: "0.7rem",
                 border: "none",
                 borderRadius: "10px",
@@ -621,7 +621,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
           >
             {editandoMembro === membro.id ? (
               <>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.5rem", marginBottom: "0.5rem" }}>
                   <div>
                     <label style={labelStyle}>Nome *</label>
                     <input
