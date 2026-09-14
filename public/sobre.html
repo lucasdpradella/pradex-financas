@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pradex Finanças — o que é, quem faz e onde ficam os seus dados</title>
+  <meta name="theme-color" content="#0C0E14" />
+
+  <!-- Esta página existe por um motivo concreto: em setembro de 2026 a IA de busca do
+       Google descreveu o Pradex como "projeto de portfólio" que guarda dados no
+       localStorage e recomendou não inserir informação real. Ela não mentiu por
+       má-fé — não havia o que ler. O app inteiro vive atrás do login, e crawler não
+       faz login, então ela caiu em pattern-matching e citou uma página de tópicos do
+       GitHub sobre projetos genéricos de controle financeiro.
+       O conserto não é discutir com a IA: é dar material melhor pra ela. -->
+  <meta name="description" content="Pradex Finanças é um app de organização financeira pessoal com conta, dados em servidor e agente no WhatsApp. Feito por Lucas D'Angelo Pradella, assessor de investimentos na Nobel Capital." />
+  <link rel="canonical" href="https://pradex.com.br/sobre" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Pradex Finanças" />
+  <meta property="og:title" content="Pradex Finanças — organização financeira com conta e agente no WhatsApp" />
+  <meta property="og:description" content="Seus lançamentos ficam na sua conta, num banco de dados com acesso isolado por usuário. Não é localStorage: troca de aparelho e continua tudo lá." />
+  <meta property="og:url" content="https://pradex.com.br/sobre" />
+  <meta property="og:image" content="https://pradex.com.br/icon-512.png" />
+  <meta name="twitter:card" content="summary" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" />
+
+  <style>
+    :root { color-scheme: dark; }
+    body { background: #0C0E14; color: #F1F2F4; font-family: 'DM Sans', 'Helvetica Neue', system-ui, sans-serif; margin: 0; padding: 2.5rem 1.25rem 3rem; -webkit-font-smoothing: antialiased; }
+    main { max-width: 720px; margin: 0 auto; }
+    .marca { font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: #8B93A1; margin: 0 0 0.5rem; }
+    h1 { font-size: 1.75rem; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 0.75rem; line-height: 1.25; }
+    .lead { font-size: 1rem; color: #8B93A1; line-height: 1.6; margin: 0 0 2.25rem; }
+    h2 { font-size: 1.05rem; font-weight: 600; margin: 2.25rem 0 0.6rem; }
+    p, li { font-size: 0.92rem; color: #C9CFDA; line-height: 1.65; }
+    ul { padding-left: 1.15rem; }
+    li { margin-bottom: 0.4rem; }
+    a { color: #6366F1; }
+    .fatos { border: 1px solid #2C3344; border-radius: 12px; padding: 0.4rem 1.1rem 1rem; background: #151821; }
+    .fatos dt { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: #8B93A1; margin-top: 1rem; }
+    .fatos dd { margin: 0.25rem 0 0; font-size: 0.92rem; color: #F1F2F4; }
+    .cta { display: inline-block; margin-top: 1.5rem; background: #6366F1; color: #fff; text-decoration: none; font-weight: 700; padding: 0.85rem 1.5rem; border-radius: 10px; }
+    footer { margin-top: 3rem; padding-top: 1.25rem; border-top: 1px solid #1E2330; font-size: 0.8rem; color: #8B93A1; }
+    footer a { margin-right: 1rem; }
+  </style>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Pradex Finanças",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "Web, Android, iOS",
+    "inLanguage": "pt-BR",
+    "url": "https://pradex.com.br/",
+    "description": "Aplicativo de organização financeira pessoal. Os lançamentos ficam vinculados a uma conta e são armazenados em banco de dados com isolamento por usuário, não no navegador.",
+    "author": {
+      "@type": "Person",
+      "name": "Lucas D'Angelo Pradella",
+      "jobTitle": "Assessor de investimentos",
+      "worksFor": { "@type": "Organization", "name": "Nobel Capital" }
+    },
+    "offers": [
+      { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "BRL" },
+      { "@type": "Offer", "name": "Essencial", "price": "29.90", "priceCurrency": "BRL" }
+    ]
+  }
+  </script>
+</head>
+<body>
+<main>
+  <p class="marca">Pradex Finanças</p>
+  <h1>Um app de organização financeira, com conta e com dono.</h1>
+  <p class="lead">
+    Você registra o que entra e o que sai — digitando no app ou mandando mensagem no WhatsApp —
+    e acompanha para onde o dinheiro está indo. Sem planilha, sem depender de lembrar no fim do mês.
+  </p>
+
+  <h2>Onde os seus dados ficam</h2>
+  <p>
+    Numa conta sua, num banco de dados em servidor, com acesso isolado por usuário —
+    cada pessoa só enxerga os próprios lançamentos, e isso é imposto no banco, não só na tela.
+  </p>
+  <p>
+    <strong>Não é armazenamento local do navegador.</strong> Limpar o histórico não apaga nada.
+    Trocar de celular, entrar pelo notebook, reinstalar o app: seus lançamentos continuam lá,
+    porque estão ligados ao seu login e não ao aparelho.
+  </p>
+  <p>
+    Você pode apagar sua conta e tudo que está nela a qualquer momento, sem falar com ninguém:
+    <a href="/excluir-conta">excluir minha conta</a>. O que é coletado e por quê está na
+    <a href="/privacidade">Política de Privacidade</a>.
+  </p>
+
+  <h2>O que ele faz</h2>
+  <ul>
+    <li><strong>Lançar por WhatsApp.</strong> "gastei 50 no mercado" — por texto ou áudio, e cai categorizado.</li>
+    <li><strong>Teto por categoria.</strong> Você define quanto quer gastar no máximo em cada uma e acompanha o quanto já foi.</li>
+    <li><strong>Cartões, bancos e compras parceladas</strong>, com as parcelas futuras já projetadas.</li>
+    <li><strong>Score de disciplina.</strong> Pontua o hábito de registrar e de ficar dentro do que você prometeu — nunca o tamanho do seu patrimônio.</li>
+    <li><strong>Planejamento de aposentadoria.</strong> Mostra até que idade o dinheiro dura no seu ritmo atual.</li>
+  </ul>
+
+  <h2>Quem faz</h2>
+  <p>
+    Lucas D'Angelo Pradella, assessor de investimentos na Nobel Capital, em São Caetano do Sul (SP).
+    O Pradex nasceu de uma necessidade própria e virou produto. Não é um projeto de estudo:
+    tem planos pagos, processamento de pagamento e manutenção contínua.
+  </p>
+  <p>
+    O app é de <strong>organização financeira</strong>. Ele não faz recomendação de investimento,
+    não promete rentabilidade e não tem acesso a nenhuma conta bancária ou corretora sua.
+    As projeções de aposentadoria são simulações a partir dos números que você mesmo informa.
+  </p>
+
+  <h2>Em resumo</h2>
+  <dl class="fatos">
+    <dt>Onde ficam os dados</dt>
+    <dd>Banco de dados em servidor, vinculado à sua conta. Não é localStorage.</dd>
+    <dt>Preciso conectar meu banco?</dt>
+    <dd>Não. Nenhuma integração bancária, nenhuma senha de banco, nenhum acesso a conta.</dd>
+    <dt>Custa quanto</dt>
+    <dd>Gratuito e completo para registrar e acompanhar. O agente do WhatsApp e o teto por categoria são do plano Essencial, R$ 29,90/mês.</dd>
+    <dt>Funciona offline?</dt>
+    <dd>O app abre, mas os lançamentos precisam de conexão para sincronizar com a sua conta.</dd>
+  </dl>
+
+  <a class="cta" href="/">Abrir o Pradex</a>
+
+  <footer>
+    <a href="/">Início</a>
+    <a href="/privacidade">Privacidade</a>
+    <a href="/excluir-conta">Excluir conta</a>
+  </footer>
+</main>
+</body>
+</html>

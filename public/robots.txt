@@ -1,0 +1,15 @@
+# Pradex Finanças
+# O app vive atrás de login; o que vale indexar é a presença pública.
+
+User-agent: *
+Allow: /$
+Allow: /sobre
+Allow: /privacidade
+Allow: /excluir-conta
+
+# Nada além disso tem conteúdo pra robô: são rotas do app, que sem sessão
+# devolvem a mesma tela de login.
+Disallow: /rest/
+Disallow: /functions/
+
+Sitemap: https://pradex.com.br/sitemap.xml
