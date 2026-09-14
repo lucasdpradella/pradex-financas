@@ -11,6 +11,15 @@
 -- garante que ninguém lê nem escreve o teto de outra pessoa.
 
 -- ============================================================================
+-- ⚠️ ESTE BLOCO NAO GARANTIU O FORMATO. Em producao ja existia uma tabela
+-- `orcamentos` com menos colunas, entao o `create table if not exists` virou NO-OP
+-- silencioso: `limite` e `updated_at` nunca entraram, e o app passou dias salvando
+-- contra uma coluna inexistente (PGRST204). Corrigido em
+-- 2026-09-14_orcamentos_colunas_faltando.sql.
+--
+-- Regra que fica: `create table if not exists` garante EXISTENCIA, nao FORMATO.
+-- Quando o formato importa, seguir com `alter table ... add column if not exists`.
+--
 -- 1. Tabela
 -- ============================================================================
 create table if not exists public.orcamentos (
