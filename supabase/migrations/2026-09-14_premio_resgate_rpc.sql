@@ -40,6 +40,12 @@ language plpgsql
 security definer
 set search_path = public, pg_temp
 as $$
+-- Os nomes do `returns table` (trial_inicio, trial_ate) viram variáveis OUT e
+-- colidem com as colunas homônimas de fp_perfil. Toda referência abaixo está
+-- qualificada, mas esta diretiva torna o desempate explícito em vez de depender
+-- disso — sem ela, um `trial_ate` solto que escape numa edição futura estoura em
+-- "column reference is ambiguous", e só em produção.
+#variable_conflict use_column
 declare
   v_user_id uuid := auth.uid();
   v_premio  timestamptz;
