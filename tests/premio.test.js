@@ -12,8 +12,10 @@ describe("avaliarPremio — o caminho feliz", () => {
   it("libera quem bate nota e dias", () => {
     const av = avaliarPremio(base);
     expect(av.elegivel).toBe(true);
-    expect(av.percentual).toBe(20);
     expect(av.diasTrial).toBe(14);
+    // O prêmio é só tempo. Não existe mais percentual de desconto: a Cakto não sabe
+    // limitar cupom à primeira cobrança, então 20% lá seria 20% pra sempre.
+    expect(av.percentual).toBeUndefined();
   });
 
   it("o limite é inclusivo nos dois critérios", () => {
@@ -45,8 +47,8 @@ describe("avaliarPremio — o que barra", () => {
     expect(av.motivo).toBe("ja_resgatado");
   });
 
-  // Oferecer desconto a quem já paga é ensinar que existia um preço menor.
-  it("assinante não recebe oferta de desconto", () => {
+  // Oferecer o teste a quem já paga é ruído: ele já tem o que o prêmio libera.
+  it("assinante não recebe oferta de prêmio", () => {
     expect(avaliarPremio({ ...base, plano: "essencial" }).motivo).toBe("ja_assinante");
     expect(avaliarPremio({ ...base, plano: "assistente" }).motivo).toBe("ja_assinante");
   });
