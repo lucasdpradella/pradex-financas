@@ -435,10 +435,10 @@ export default function PerfilFP({ session, onPerfilSaved }) {
           style={inputStyle}
         />
 
-        <label style={labelStyle}>Profissao</label>
+        <label style={labelStyle}>Profissão</label>
         <input
           type="text"
-          placeholder="Ex: Medico, Empresario, Engenheiro..."
+          placeholder="Ex: Médico, Empresário, Engenheiro..."
           value={perfil.profissao}
           onChange={(e) => setPerfil((prev) => ({ ...prev, profissao: e.target.value }))}
           style={inputStyle}
@@ -462,7 +462,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
           </div>
           {mostrarRegime && (
             <div>
-              <label style={labelStyle}>Regime de uniao</label>
+              <label style={labelStyle}>Regime de união</label>
               <select
                 value={perfil.regime_uniao}
                 onChange={(e) => setPerfil((prev) => ({ ...prev, regime_uniao: e.target.value }))}

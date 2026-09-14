@@ -13,6 +13,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { paywallNoSave } from "../lib/plano";
 
+// `toFixed(2).replace(".", ",")` nao poe separador de milhar: "R$ 2421,00" ao lado de
+// "R$ 33.782,00" nos cards do topo, na mesma tela. Acima de mil, a vista tropeca.
+const formatBRL = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
 const COR = {
   bg: "#151821", borda: "#1E2330", fundo: "#0C0E14",
   texto: "#F1F2F4", medio: "#8B93A1", fraco: "#5C6570",
@@ -117,7 +121,7 @@ export default function OrcamentoCategoria({ categorias = [], tetos = [], plano,
                 <p style={{ margin: 0, fontSize: "0.82rem", color: COR.texto, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{cat}</p>
                 {gasto > 0 && (
                   <p style={{ margin: "1px 0 0", fontSize: "0.66rem", color: estourou ? COR.ruim : COR.fraco, fontVariantNumeric: "tabular-nums" }}>
-                    já gastou R$ {gasto.toFixed(2).replace(".", ",")}
+                    já gastou {formatBRL(gasto)}
                     {herdado && <span style={{ color: COR.fraco }}> · teto do mês anterior</span>}
                   </p>
                 )}
