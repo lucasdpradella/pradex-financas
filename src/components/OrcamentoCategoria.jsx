@@ -17,10 +17,31 @@ import { paywallNoSave } from "../lib/plano";
 // "R$ 33.782,00" nos cards do topo, na mesma tela. Acima de mil, a vista tropeca.
 const formatBRL = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+// ⚠️ COR AQUI SO POR TOKEN — esta tela renderiza nos DOIS canvas do app.
+//
+// Ate 16/09 estes valores eram os hex do canvas ESCURO, escritos direto. No
+// celular ficava certo; no desktop, que tem canvas claro desde 07/03, o Orcamento
+// aparecia como um bloco PRETO no meio das telas brancas — o mesmo defeito que a
+// aba Rendas teve (ver o historico no rodape de fp/RendasDespesasFP.jsx).
+//
+// Agora cada cor sai de var(--x), que App.jsx injeta no wrapper da tela conforme o
+// canvas (CANVAS_CLARO / CANVAS_ESCURO). O FALLBACK de cada uma e o hex escuro de
+// antes: e ele que segura o mobile, onde nada e injetado.
+//
+// Regra pra mexer aqui: superficie, borda e texto sempre em token. Cor semantica
+// (o vermelho de estouro) tambem, porque o vermelho que serve sobre #151821 nao e
+// o que serve sobre branco — por isso --danger, e nao um hex.
 const COR = {
-  bg: "#151821", borda: "#1E2330", fundo: "#0C0E14",
-  texto: "#F1F2F4", medio: "#8B93A1", fraco: "#5C6570",
-  acento: "#6366F1", ruim: "#E06C65",
+  bg: "var(--surface, #151821)",
+  borda: "var(--border, #1E2330)",
+  // --surface2, e nao --input-bg: no claro o --input-bg e #FFFFFF e o campo ficaria
+  // branco dentro de um card branco. Mesma pegadinha que ja pegou a aba Rendas.
+  fundo: "var(--surface2, #0C0E14)",
+  texto: "var(--text-primary, #F1F2F4)",
+  medio: "var(--text-secondary, #8B93A1)",
+  fraco: "var(--text-muted, #5C6570)",
+  acento: "var(--accent, #6366F1)",
+  ruim: "var(--danger, #E06C65)",
 };
 
 // Aceita "1.200,50", "1200.50" e "1200". O usuário digita como quiser; o banco
