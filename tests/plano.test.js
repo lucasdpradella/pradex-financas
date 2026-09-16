@@ -12,6 +12,8 @@ import {
   mostraPreviaBorrada,
   checkoutPara,
   conteudoUpgrade,
+  planoDaUrl,
+  PRECO,
 } from "../src/lib/plano";
 
 describe("normalizePlano", () => {
@@ -243,5 +245,54 @@ describe("paywallNoSave respeita o trial", () => {
 
   it("trial não abre o Planejamento", () => {
     expect(paywallNoSave("none", "fp", ativo)).not.toBeNull();
+  });
+});
+
+// ===== Oferta de pagamento no primeiro contato (2026-09-16) =====
+//
+// O Lucas mandou o link pra um amigo que ele ja tinha convencido e descobriu que o app
+// nao tinha caminho nenhum pra essa pessoa pagar: o card do trial tinha um botao so.
+describe("segunda saida do card de trial", () => {
+  const nuncaTestou = { trial_inicio: null, trial_ate: null };
+
+  it("quem pode testar recebe TAMBEM o link de assinar", () => {
+    const c = conteudoUpgrade("none", "whatsapp", { trial: nuncaTestou });
+    expect(c.modo).toBe("trial");
+    expect(c.hrefSecundario).toBe(CHECKOUT.essencial);
+    expect(c.ctaSecundario).toContain(PRECO.essencial);
+  });
+
+  it("o teste continua sendo a acao principal", () => {
+    const c = conteudoUpgrade("none", "whatsapp", { trial: nuncaTestou });
+    expect(c.cta).toMatch(/Testar/);
+  });
+
+  // Fora do modo trial o card ja é checkout: um segundo link pro mesmo lugar seria
+  // ruido, e o componente so renderiza o secundario quando ha acao de trial.
+  it("quem nao pode testar nao ganha link duplicado", () => {
+    expect(conteudoUpgrade("none", "fp").ctaSecundario).toBeUndefined();
+    expect(conteudoUpgrade("essencial", "fp").ctaSecundario).toBeUndefined();
+  });
+});
+
+describe("planoDaUrl", () => {
+  it("le os dois planos vendaveis", () => {
+    expect(planoDaUrl("?plano=essencial")).toBe("essencial");
+    expect(planoDaUrl("?plano=assistente")).toBe("assistente");
+  });
+
+  it("acha o parametro no meio da querystring e ignora caixa", () => {
+    expect(planoDaUrl("?utm_source=zap&plano=ESSENCIAL&x=1")).toBe("essencial");
+  });
+
+  it("lixo, vazio e ausente caem em null", () => {
+    for (const v of ["", "?", "?plano=", "?plano=premium", "?planos=essencial", null, undefined]) {
+      expect(planoDaUrl(v)).toBeNull();
+    }
+  });
+
+  // 'none' passa em PLANOS mas nao e plano vendavel: convite pra ele e ruido.
+  it("'none' nao e convite", () => {
+    expect(planoDaUrl("?plano=none")).toBeNull();
   });
 });
