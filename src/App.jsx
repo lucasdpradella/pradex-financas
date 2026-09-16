@@ -51,6 +51,25 @@ const api = (token) => ({
 // Telas que existem só no shell desktop (>=1024px), acessadas pela sidebar.
 const TELAS_DESKTOP = ["cartoes", "categorias", "bancos", "relatorios"];
 
+// TOKENS DE CANVAS — o app tem DOIS: claro no desktop (>=1024px) e escuro no
+// celular. Componentes compartilhados pelos dois (fp/, OrcamentoCategoria) não
+// podem ter hex de superfície fixo: o mesmo arquivo renderiza nos dois fundos.
+//
+// Quem injeta é a tela, num style no wrapper; o componente só lê var(--x, fallback).
+// Fallback SEMPRE no valor escuro, pra tela que ainda não injeta continuar certa
+// no celular (era isso que deixava o Orçamento preto no desktop: os hex do canvas
+// escuro estavam escritos dentro do componente, sem token nenhum).
+const CANVAS_CLARO = {
+  "--fp-text": "#111827", "--text-primary": "#111827", "--text-secondary": "#4B5563", "--text-muted": "#6B7280",
+  "--surface": "#FFFFFF", "--surface2": "#F1F3F9", "--card-bg": "#FFFFFF", "--input-bg": "#FFFFFF",
+  "--border": "#E4E7F0", "--accent": "#6366F1", "--danger": "#DC2626",
+};
+const CANVAS_ESCURO = {
+  "--fp-text": "#F1F2F4", "--text-primary": "#F1F2F4", "--text-secondary": "#8B93A1", "--text-muted": "#5C6570",
+  "--surface": "#151821", "--surface2": "#1E2330", "--card-bg": "#151821", "--input-bg": "#0C0E14",
+  "--border": "#2C3344", "--accent": "#6366F1", "--danger": "#E06C65",
+};
+
 const defaultCategories = {
   receita: ["Salário", "Freelance", "Investimentos", "Aluguel recebido", "Outros"],
   gasto: ["Moradia", "Alimentação", "Transporte", "Saúde", "Lazer", "Educação", "Assinaturas", "Outros"],
@@ -2038,7 +2057,12 @@ export default function PradexFinancas() {
           A tela abre pra TODO MUNDO, inclusive Free. O paywall mora dentro do
           componente, no clique de salvar. Nada aqui pergunta pelo plano. */}
       {tela === "orcamento" && (
-        <div>
+        // Tokens de canvas só no desktop, de propósito. No celular a tela fica sem
+        // definição nenhuma e o componente cai nos fallbacks escuros — que são
+        // exatamente os hex que ele já usava, então o mobile não muda um pixel.
+        // Injetar CANVAS_ESCURO aqui também trocaria a borda do card de #1E2330
+        // pra #2C3344 no celular, mudança que ninguém pediu.
+        <div style={isDesktop ? CANVAS_CLARO : undefined}>
           {!isDesktop && (
             <button
               onClick={() => setTela("dashboard")}
@@ -2678,16 +2702,8 @@ export default function PradexFinancas() {
 
       {/* FP */}
       {tela === "fp" && podeFp && (
-        <div style={isDesktop ? {
-          "--fp-text": "#111827", "--text-primary": "#111827", "--text-secondary": "#4B5563", "--text-muted": "#6B7280",
-          "--surface": "#FFFFFF", "--surface2": "#F1F3F9", "--card-bg": "#FFFFFF", "--input-bg": "#FFFFFF",
-          "--border": "#E4E7F0", "--accent": "#6366F1",
-        } : {
-          "--fp-text": "#F1F2F4", "--text-primary": "#F1F2F4", "--text-secondary": "#8B93A1", "--text-muted": "#5C6570",
-          "--surface": "#151821", "--surface2": "#1E2330", "--card-bg": "#151821", "--input-bg": "#0C0E14",
-          "--border": "#2C3344", "--accent": "#6366F1",
-        }}>
-          {/* Tokens do Planejamento, por CANVAS.
+        <div style={isDesktop ? CANVAS_CLARO : CANVAS_ESCURO}>
+          {/* Tokens do Planejamento, por CANVAS (definidos no topo do arquivo).
                Os componentes de fp/ ja usam var(--surface), var(--border), var(--text-*)
                em 31 lugares — mas NINGUEM definia essas variaveis, entao todas caiam no
                fallback ESCURO. Por isso o Planejamento aparecia como um bloco escuro
