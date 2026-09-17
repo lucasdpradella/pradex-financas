@@ -26,7 +26,9 @@ import ScoreDisciplina from "./components/ScoreDisciplina";
 import Landing from "./components/Landing";
 import PreviaBorrada from "./components/PreviaBorrada";
 import OrcamentoCategoria from "./components/OrcamentoCategoria";
-import { normalizePlano, temAcesso, mostraCadeado, podeUsarWhatsapp, trialAtivo, diasRestantesTrial, CHECKOUT } from "./lib/plano";
+import CardAgente from "./components/CardAgente";
+import ConvitePlano from "./components/ConvitePlano";
+import { normalizePlano, temAcesso, mostraCadeado, podeUsarWhatsapp, trialAtivo, diasRestantesTrial, planoDaUrl, CHECKOUT } from "./lib/plano";
 import { useIsDesktop } from "./components/desktop/useIsDesktop";
 import { desktopTheme, SIDEBAR_WIDTH } from "./components/desktop/theme";
 import SidebarDesktop from "./components/desktop/SidebarDesktop";
@@ -221,6 +223,23 @@ export default function PradexFinancas() {
   // Trial do Zap: { trial_inicio, trial_ate } de fp_perfil. null = ainda não sei
   // (perfil não carregado), que NÃO é o mesmo que "nunca testou" — ver plano.js.
   const [trial, setTrial] = useState(null);
+
+  // Plano pedido pelo link (`?plano=essencial`). Lido UMA vez, no mount, e guardado em
+  // localStorage porque o cadastro tem etapas (criar conta, confirmar) e a querystring
+  // não sobrevive a um F5 no meio. Sem isso o convite se perderia exatamente em quem
+  // demora um pouco mais pra terminar o cadastro.
+  const [planoConvite, setPlanoConvite] = useState(() => {
+    try {
+      const daUrl = planoDaUrl(window.location.search);
+      if (daUrl) { localStorage.setItem("pdx_convite", daUrl); return daUrl; }
+      return planoDaUrl(`?plano=${localStorage.getItem("pdx_convite") || ""}`);
+    } catch { return null; }
+  });
+  const dispensarConvite = () => {
+    setPlanoConvite(null);
+    try { localStorage.removeItem("pdx_convite"); } catch { /* modo privado: só não lembra */ }
+  };
+
   const podeZap = podeUsarWhatsapp(plano, trial);
   const podeFp = temAcesso(plano, "fp");
   const [tela, setTela] = useState("dashboard");
@@ -1979,6 +1998,18 @@ export default function PradexFinancas() {
       {/* DASHBOARD — desktop (Fase 2) */}
       {tela === "dashboard" && isDesktop && (
         <>
+        {/* Convite e card do agente: ate 16/09 NENHUM dos dois existia no desktop.
+            Quem abria o link no computador nao via preco, teste nem botao — e link
+            e justamente como a indicacao chega. */}
+        <ConvitePlano planoConvite={planoConvite} plano={plano} isDesktop={isDesktop} onFechar={dispensarConvite} />
+        <CardAgente
+          plano={plano}
+          trial={trial}
+          podeZap={podeZap}
+          isDesktop={isDesktop}
+          onIniciarTrial={iniciarTrial}
+          carregando={iniciandoTrial}
+        />
         {/* A nota vale pro app inteiro, nao so pro mobile. */}
         <ScoreDisciplina
           lancamentos={lancamentos}
@@ -2137,41 +2168,20 @@ export default function PradexFinancas() {
               ))}
             </div>
           )}
-          {/* Card do Zap, TRES casos distintos — cuidado ao mexer:
-              - assina  -> NADA. Ja achou o agente; o card viraria lembrete do obvio
-                ocupando o topo do dashboard. (E um "&&" simples aqui jogaria o
-                assinante no else, que e o CTA de upgrade — pior ainda.)
-              - trial    -> o card com o link, porque pode nao ter comecado a conversa
-              - sem nada -> UpgradePlano, que e o convite */}
-          {temAcesso(plano, "whatsapp") ? null : podeZap ? <a
-            href="https://wa.me/5511924568633?text=Oi%21%20Quero%20come%C3%A7ar%20a%20usar%20o%20Pradex%20pelo%20WhatsApp."
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ display: "flex", alignItems: "center", gap: "0.85rem", background: "#25D36612", border: "1px solid #25D36635", borderRadius: "16px", padding: "1rem 1.25rem", marginBottom: "1.25rem", textDecoration: "none", cursor: "pointer" }}
-          >
-            <div style={{ width: "40px", height: "40px", borderRadius: "12px", flexShrink: 0, background: "#25D366", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <svg viewBox="0 0 24 24" fill="#fff" width="22" height="22" aria-hidden="true">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-              </svg>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ margin: "0 0 0.15rem", fontSize: "0.92rem", fontWeight: 700, color: "#F1F2F4" }}>Lance seus gastos pelo WhatsApp</p>
-              <p style={{ margin: 0, fontSize: "0.76rem", color: "#8B93A1", lineHeight: 1.4 }}>Manda texto ou áudio — "gastei 50 no mercado" — e o Pradex registra sozinho.</p>
-              {/* Quem está no teste precisa saber que ele acaba — descobrir pelo
-                  silêncio no dia 15 é a pior versão disso. */}
-              {/* Só pra quem ainda NÃO paga. Quem assinou continua com trial_ate
-                  preenchido no banco (o plano não apaga o trial), e mostrar
-                  "teste grátis · N dias restantes" pra assinante sugere que o
-                  acesso dele vence — foi o que o PRADELLA viu depois de virar
-                  assistente. */}
-              {trialAtivo(trial) && !temAcesso(plano, "whatsapp") && (
-                <p style={{ margin: "0.3rem 0 0", fontSize: "0.72rem", color: "#6366F1", fontWeight: 600 }}>
-                  Teste grátis · {diasRestantesTrial(trial)} {diasRestantesTrial(trial) === 1 ? "dia restante" : "dias restantes"}
-                </p>
-              )}
-            </div>
-            <span style={{ fontSize: "1.1rem", color: "#25D366", flexShrink: 0 }}>›</span>
-          </a> : <UpgradePlano isDesktop={isDesktop} plano={plano} recurso="whatsapp" variant="card" trial={trial} onIniciarTrial={iniciarTrial} carregando={iniciandoTrial} />}
+          {/* Convite do link `?plano=`, antes do card: quem chegou ja convencido nao
+              deve ter que passar os olhos pela oferta de teste primeiro. */}
+          <ConvitePlano planoConvite={planoConvite} plano={plano} isDesktop={isDesktop} onFechar={dispensarConvite} />
+          {/* Card do agente: os TRES casos moram em CardAgente.jsx agora, porque
+              este bloco so existia AQUI — ou seja, so no mobile. Ver o comentario
+              no topo do componente. */}
+          <CardAgente
+            plano={plano}
+            trial={trial}
+            podeZap={podeZap}
+            isDesktop={isDesktop}
+            onIniciarTrial={iniciarTrial}
+            carregando={iniciandoTrial}
+          />
           {lancamentos.length === 0 ? (
             <div style={{ textAlign: "center", padding: "3rem 0", color: "#5C6570" }}>
               <p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>•</p>

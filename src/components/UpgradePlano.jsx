@@ -37,7 +37,7 @@ const BOTAO = {
 export default function UpgradePlano({ plano, recurso, variant = "card", trial = null, onIniciarTrial, carregando = false, isDesktop = false }) {
   const cTitulo = isDesktop ? "#111827" : "#F1F2F4";
   const cCorpo  = isDesktop ? "#4B5563" : "#8B93A1";
-  const { titulo, descricao, nota, cta, href, modo } = conteudoUpgrade(plano, recurso, { trial });
+  const { titulo, descricao, nota, cta, href, modo, ctaSecundario, hrefSecundario } = conteudoUpgrade(plano, recurso, { trial });
   const tela = variant === "tela";
   // Modo "trial" é ação no próprio app (RPC), não link externo de checkout — por isso
   // vira <button>. Se o pai não passou o handler, cai no link pra não virar botão morto.
@@ -93,6 +93,29 @@ export default function UpgradePlano({ plano, recurso, variant = "card", trial =
             >
               {cta}
             </a>
+          )}
+
+          {/* Segunda saída, só no modo trial: link discreto, nunca segundo botão cheio.
+              O teste continua sendo a ação principal — este é o atalho de quem já
+              decidiu e não quer esperar 14 dias pra poder pagar. */}
+          {acaoTrial && ctaSecundario && hrefSecundario && (
+            <p style={{ margin: "0.7rem 0 0", fontSize: "0.76rem", lineHeight: 1.45 }}>
+              <a
+                href={hrefSecundario}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "#6366F1", fontWeight: 700, textDecoration: "underline" }}
+              >
+                {ctaSecundario}
+              </a>
+              {/* PIX e não cartão: o 3DS do checkout não desliga (tentado 2x em
+                  15/09, o toggle volta sozinho) e derruba a compra SEM deixar
+                  registro — foi o que aconteceu com a Solange. No PIX não há 3DS,
+                  o webhook libera igual (status 'paid') e o líquido é maior.
+                  Quando o 3DS for resolvido com o suporte da Cakto, esta linha pode
+                  sair. */}
+              <span style={{ color: cCorpo }}> · no PIX a liberação é na hora</span>
+            </p>
           )}
         </div>
       </div>

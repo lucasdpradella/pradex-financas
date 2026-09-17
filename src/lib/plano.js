@@ -16,6 +16,26 @@ export const CHECKOUT = {
   assistente: "https://pay.cakto.com.br/4pteia8",
 };
 
+// Preço só pra COPY — quem cobra é a Cakto. Se divergir do painel, o painel vence.
+// O Assistente ficou meses marcado como indefinido no vault; foi confirmado em
+// 2026-09-15 na aba "Minhas Assinaturas".
+export const PRECO = { essencial: "R$ 29,90", assistente: "R$ 79,90" };
+
+// Plano pedido pela URL: `?plano=essencial` ou `?plano=assistente`.
+//
+// Existe pro Lucas mandar o link pra quem ele JÁ convenceu pessoalmente. Essa pessoa
+// não precisa de 14 dias pra decidir — precisa de botão. Qualquer outro valor (ou
+// nenhum) devolve null e o app segue como sempre foi: convite de teste, sem cobrança
+// na cara de quem acabou de chegar.
+export function planoDaUrl(search) {
+  const bruto = String(search ?? "");
+  const m = bruto.match(/[?&]plano=([^&]+)/i);
+  if (!m) return null;
+  const valor = decodeURIComponent(m[1]).trim().toLowerCase();
+  // 'none' entra em PLANOS mas não é plano vendável — convite pra ele é ruído.
+  return valor === "essencial" || valor === "assistente" ? valor : null;
+}
+
 // Só recursos PAGOS entram aqui. O core do app (dashboard, lançar, histórico, cartões,
 // bancos, categorias) é livre pros três planos e nunca passa por temAcesso.
 export const RECURSOS = {
@@ -172,6 +192,14 @@ export function conteudoUpgrade(plano, recurso, { trial = null, hoje = new Date(
       nota: `${DIAS_TRIAL} dias grátis. Sem cartão, sem cobrança automática.`,
       cta: `Testar ${DIAS_TRIAL} dias grátis`,
       href: CHECKOUT[alvo],
+      // ⚠️ A SEGUNDA SAÍDA. Até 16/09 este card tinha um botão só, e quem já estava
+      // convencido — indicação, alguém que o Lucas mostrou pessoalmente — não tinha
+      // caminho nenhum pro checkout: ou esperava os 14 dias vencerem, ou tropeçava no
+      // paywall de outro recurso. Trial é pra quem duvida; quem já decidiu quer pagar
+      // e pronto. Oferecer os dois no mesmo card não canibaliza o teste, porque quem
+      // ia testar continua vendo o teste primeiro, em botão cheio.
+      ctaSecundario: `Já quero assinar — ${PRECO[alvo]}/mês`,
+      hrefSecundario: CHECKOUT[alvo],
     };
   }
 
