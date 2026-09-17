@@ -26,6 +26,8 @@ import ScoreDisciplina from "./components/ScoreDisciplina";
 import Landing from "./components/Landing";
 import PreviaBorrada from "./components/PreviaBorrada";
 import OrcamentoCategoria from "./components/OrcamentoCategoria";
+import MetasCaixinhas from "./components/MetasCaixinhas";
+import { montarLancamentoAporte } from "./lib/metas";
 import CardAgente from "./components/CardAgente";
 import ConvitePlano from "./components/ConvitePlano";
 import { normalizePlano, temAcesso, mostraCadeado, podeUsarWhatsapp, trialAtivo, diasRestantesTrial, planoDaUrl, CHECKOUT } from "./lib/plano";
@@ -253,6 +255,16 @@ export default function PradexFinancas() {
 
   const [salvandoOrcamento, setSalvandoOrcamento] = useState(false);
   const [erroOrcamento, setErroOrcamento] = useState("");
+
+  // METAS (caixinhas). Só a lista; o progresso sai dos lançamentos com meta_id, que
+  // já estão carregados — não existe tabela de aportes pra buscar.
+  const [metas, setMetas] = useState([]);
+  const [salvandoMeta, setSalvandoMeta] = useState(false);
+  const [erroMeta, setErroMeta] = useState("");
+  // Aba da tela Metas no MOBILE, onde caixinhas e tetos dividem o mesmo item da nav
+  // (a bottom nav tem 5 lugares e não comporta um sexto). No desktop são telas irmãs
+  // na sidebar e esta aba não é usada.
+  const [metasAba, setMetasAba] = useState("caixinhas");
   const [premioResgatadoEm, setPremioResgatadoEm] = useState(null);
   // Linhas cruas da tabela `categorias` (id/nome/tipo/removida) — a tela desktop
   // precisa saber o que é custom, o que é default oculta e qual o id de cada uma.
@@ -548,7 +560,7 @@ export default function PradexFinancas() {
     setSession(null); setUserRole(null);
     setLancamentos([]); setCartoes([]); setBancos([]); setDividas([]);
     setPrecisaCadastrarTelefone(false); setBannerTelefoneFechado(false);
-    setPlano("none"); setTrial(null); setPremioResgatadoEm(null); setOrcamentos([]);
+    setPlano("none"); setTrial(null); setPremioResgatadoEm(null); setOrcamentos([]); setMetas([]);
     setTelaRecuperar(false); setRecuperarEnviado(false); setDefinindoSenha(false);
     setNovaSenha(""); setNovaSenhaRepetida(""); setSenhaTrocadaOk(false);
     setModalSenha(false); setSenhaModalOk(false); setSenhaModalErro("");
@@ -559,6 +571,9 @@ export default function PradexFinancas() {
     if (session) {
       fetchLancamentos(); fetchCartoes(); fetchBancos(); fetchDividas(); fetchRascunhos(); fetchCategorias();
       fetchOrcamentos(mesDashboard.ano, mesDashboard.mes);
+      // Metas não são por mês (a caixinha atravessa meses), então ficam fora do
+      // efeito que reage à troca de mês do dashboard.
+      fetchMetas();
       fetchTaxaFocus().then(t => setTaxaFocus(t));
       verificarTelefonePerfil();
     }
@@ -792,6 +807,79 @@ export default function PradexFinancas() {
       }
       setOrcamentos([...porCat.values()].sort((a, b) => String(a.categoria).localeCompare(String(b.categoria), "pt-BR")));
     } catch (e) {}
+  };
+
+  // ===== METAS (caixinhas) =====
+  //
+  // Só as metas ativas: arquivada não aparece na tela nem ocupa vaga no limite do
+  // plano. O progresso NÃO vem daqui — sai dos lançamentos com `meta_id`, que o app
+  // já carregou. Uma fonte da verdade só (ver lib/metas.js).
+  const fetchMetas = async (token = session?.token) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/metas?arquivada=is.false&order=criada_em.asc`, { headers: api(token) });
+      const data = await res.json();
+      setMetas(Array.isArray(data) ? data : []);
+    } catch (e) { console.error("[metas] erro ao carregar:", e); }
+  };
+
+  const criarMeta = async (dados) => {
+    if (!session?.token) return;
+    setSalvandoMeta(true);
+    setErroMeta("");
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/metas`, {
+        method: "POST",
+        headers: { ...api(session.token), Prefer: "return=minimal" },
+        body: JSON.stringify({ ...dados, user_id: session.user.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        // 23505 = a unique de nome ativo por usuário. A tela já checa antes, mas duas
+        // abas abertas passam por ela.
+        setErroMeta(err?.code === "23505"
+          ? "Você já tem uma caixinha com esse nome."
+          : `Não consegui criar a caixinha. ${String(err?.message || "").slice(0, 120)}`);
+      } else {
+        await fetchMetas();
+      }
+    } catch (e) {
+      setErroMeta("Falha de rede ao criar a caixinha. Tenta de novo.");
+    } finally { setSalvandoMeta(false); }
+  };
+
+  // Guardar dinheiro é LANÇAMENTO, não registro paralelo: sai do saldo do mês como
+  // saiu da conta (decisão do Lucas, 16/09). Por isso isto escreve em `Lancamentos` e
+  // não numa tabela de aportes — que não existe.
+  //
+  // Quem marca a meta como concluída é a trigger no banco, não esta função: o aporte
+  // pode nascer de três lugares (aqui, a tela de Lançar e o WhatsApp) e a regra de
+  // conclusão replicada em três clientes vira três regras diferentes no primeiro bug.
+  const aportarNaMeta = async ({ meta, valor, data, forma, resgate }) => {
+    if (!session?.token) return;
+    const { lancamento, erro } = montarLancamentoAporte({ meta, valor, data, forma, resgate, userId: session.user.id });
+    if (erro) { setErroMeta(erro); return; }
+
+    setSalvandoMeta(true);
+    setErroMeta("");
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
+        method: "POST",
+        headers: { ...api(session.token), Prefer: "return=minimal" },
+        body: JSON.stringify(lancamento),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setErroMeta(`Não consegui registrar. ${String(err?.message || "").slice(0, 140)}`);
+      } else {
+        // Os dois: o lançamento entra no fluxo de caixa e a meta pode ter sido
+        // concluída pela trigger — sem o refetch, o troféu só apareceria no próximo
+        // carregamento.
+        await Promise.all([fetchLancamentos(), fetchMetas()]);
+      }
+    } catch (e) {
+      setErroMeta("Falha de rede ao registrar. Tenta de novo.");
+    } finally { setSalvandoMeta(false); }
   };
 
   // Substitui os tetos do mês inteiro de uma vez: apaga os que saíram e regrava o
@@ -1485,7 +1573,10 @@ export default function PradexFinancas() {
     // Sem cadeado: a tela do teto abre pra todo mundo e o paywall e no save.
     // Faltava aqui — no mobile, quem JA tinha acesso nao tinha caminho nenhum pra
     // chegar na tela, porque a chamada do score so aparece pra quem NAO tem.
-    { key: "orcamento", label: "Teto" },
+    // "Teto" virou "Metas" em 16/09: no celular a bottom nav tem 5 lugares e não
+    // comporta um sexto, então caixinhas e tetos dividem o mesmo item, em abas. No
+    // desktop são duas telas irmãs na sidebar e o Orçamento fica onde sempre esteve.
+    { key: "metas", label: "Metas" },
     // FP fica sempre no menu: sem Assistente, abre o CTA de upgrade em vez de sumir.
     { key: "fp", label: mostraCadeado(plano, "fp") ? "Plan. 🔒" : "Plan." },
   ];
@@ -1716,7 +1807,7 @@ export default function PradexFinancas() {
       )}
       {isDesktop && (
         <TopBar
-          title={({ dashboard: "Dashboard", historico: "Lançamentos", lancamentos: "Lançamentos", cartoes: "Cartões", categorias: "Categorias", bancos: "Bancos", fp: "Planejamento Financeiro", relatorios: "Relatórios" })[tela] || "Pradex"}
+          title={({ dashboard: "Dashboard", historico: "Lançamentos", lancamentos: "Lançamentos", cartoes: "Cartões", categorias: "Categorias", bancos: "Bancos", orcamento: "Orçamento", metas: "Metas", fp: "Planejamento Financeiro", relatorios: "Relatórios" })[tela] || "Pradex"}
           periodoLabel={tela === "dashboard"
             ? `${monthNames[mesDashboard.mes]} ${mesDashboard.ano}`
             : tela === "relatorios" && podeFp
@@ -2019,7 +2110,8 @@ export default function PradexFinancas() {
           trial={trial}
           isDesktop={isDesktop}
           tetos={orcamentos}
-          onQueroTeto={() => setTela("orcamento")}
+          metas={metas}
+          onQueroTeto={() => { if (isDesktop) { setTela("orcamento"); } else { setMetasAba("tetos"); setTela("metas"); } }}
           premioResgatadoEm={premioResgatadoEm}
           onResgatarPremio={resgatarPremio}
         />
@@ -2115,7 +2207,10 @@ export default function PradexFinancas() {
             gastosPorCategoria={Object.fromEntries(
               (() => {
                 const prefixo = `${mesDashboard.ano}-${String(mesDashboard.mes + 1).padStart(2, "0")}`;
-                const doMes = lancamentos.filter((l) => l.tipo === "gasto" && l.data_lancamento?.startsWith(prefixo));
+                // `meta_id == null`: aporte de caixinha não consome teto de categoria
+                // nenhuma. Guardar dinheiro sai do saldo, mas não é consumo — ver o
+                // bloco de separação em lib/fechamento.js.
+                const doMes = lancamentos.filter((l) => l.tipo === "gasto" && l.meta_id == null && l.data_lancamento?.startsWith(prefixo));
                 return categories.gasto.map((cat) => [cat, doMes.filter((l) => l.categoria === cat).reduce((s, l) => s + Number(l.valor), 0)]);
               })(),
             )}
@@ -2123,6 +2218,78 @@ export default function PradexFinancas() {
             erroExterno={erroOrcamento}
             onSalvar={(linhas) => salvarOrcamentos(linhas, mesDashboard.ano, mesDashboard.mes)}
           />
+        </div>
+      )}
+
+      {/* METAS — caixinhas de guardar dinheiro.
+          No DESKTOP esta tela é só as caixinhas: o Orçamento continua como item
+          próprio na sidebar. No CELULAR ela é o guarda-chuva das duas coisas, em
+          abas, porque a bottom nav tem 5 lugares e não comporta um sexto.
+          Decisão do Lucas, 16/09. */}
+      {tela === "metas" && (
+        <div style={isDesktop ? CANVAS_CLARO : undefined}>
+          {!isDesktop && (
+            <button
+              onClick={() => setTela("dashboard")}
+              className="pdx-tap"
+              style={{ background: "transparent", border: "none", color: "#8B93A1", fontSize: "0.8rem", cursor: "pointer", padding: "0 0 0.9rem", fontFamily: "inherit" }}
+            >
+              ← Dashboard
+            </button>
+          )}
+
+          {!isDesktop && (
+            <div style={{ display: "flex", background: "var(--surface2, #0C0E14)", borderRadius: "10px", padding: "4px", marginBottom: "1.25rem", gap: "2px", border: "1px solid var(--border, #1E2330)" }}>
+              {[{ key: "caixinhas", label: "Caixinhas" }, { key: "tetos", label: "Tetos" }].map((aba) => (
+                <button
+                  key={aba.key}
+                  onClick={() => setMetasAba(aba.key)}
+                  className="pdx-tap"
+                  style={{
+                    flex: 1, padding: "0.5rem", border: "none", borderRadius: "8px", cursor: "pointer",
+                    fontSize: "0.8rem", fontWeight: 600, fontFamily: "inherit",
+                    background: metasAba === aba.key ? "#6366F1" : "transparent",
+                    color: metasAba === aba.key ? "#fff" : "var(--text-secondary, #8B93A1)",
+                  }}
+                >
+                  {aba.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {(isDesktop || metasAba === "caixinhas") && (
+            <MetasCaixinhas
+              metas={metas}
+              lancamentos={lancamentos}
+              plano={plano}
+              temAcessoPago={temAcesso(plano, "orcamento")}
+              salvando={salvandoMeta}
+              erroExterno={erroMeta}
+              onCriar={criarMeta}
+              onAportar={aportarNaMeta}
+            />
+          )}
+
+          {!isDesktop && metasAba === "tetos" && (
+            <OrcamentoCategoria
+              key={`teto-${mesDashboard.ano}-${mesDashboard.mes}`}
+              categorias={categories.gasto.map((nome) => ({ nome, tipo: "gasto" }))}
+              tetos={orcamentos}
+              plano={plano}
+              trial={trial}
+              gastosPorCategoria={Object.fromEntries(
+                (() => {
+                  const prefixo = `${mesDashboard.ano}-${String(mesDashboard.mes + 1).padStart(2, "0")}`;
+                  const doMes = lancamentos.filter((l) => l.tipo === "gasto" && l.meta_id == null && l.data_lancamento?.startsWith(prefixo));
+                  return categories.gasto.map((cat) => [cat, doMes.filter((l) => l.categoria === cat).reduce((s, l) => s + Number(l.valor), 0)]);
+                })(),
+              )}
+              salvando={salvandoOrcamento}
+              erroExterno={erroOrcamento}
+              onSalvar={(linhas) => salvarOrcamentos(linhas, mesDashboard.ano, mesDashboard.mes)}
+            />
+          )}
         </div>
       )}
 
@@ -2141,7 +2308,8 @@ export default function PradexFinancas() {
             trial={trial}
             isDesktop={isDesktop}
             tetos={orcamentos}
-            onQueroTeto={() => setTela("orcamento")}
+            metas={metas}
+            onQueroTeto={() => { if (isDesktop) { setTela("orcamento"); } else { setMetasAba("tetos"); setTela("metas"); } }}
             premioResgatadoEm={premioResgatadoEm}
             onResgatarPremio={resgatarPremio}
           />
