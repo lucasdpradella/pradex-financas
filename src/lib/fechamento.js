@@ -95,13 +95,32 @@ export const formatarBRL = (valor) =>
  */
 export function calcularFechamento(lancamentos, ano, mes, { hoje = new Date(), normalizar = (x) => x } = {}) {
   const doMes = lancamentosDoMes(lancamentos, ano, mes);
-  const gastos = doMes.filter((l) => l.tipo === "gasto");
+
+  // APORTE DE META NÃO É CONSUMO (2026-09-16). Guardar dinheiro é lançamento de
+  // verdade e SAI do saldo — é o que o Lucas decidiu: guardar = aplicar = debitar.
+  // Mas ele não pode contar como gasto no relatório: quem guarda R$ 500 apareceria
+  // gastando R$ 500 a mais, levaria "seu gasto subiu" na cara e seria punido por ter
+  // feito a coisa certa. É o oposto do comportamento que o app quer causar.
+  //
+  // Por isso a separação mora AQUI e não no filtro de quem chama: `gastos` passa a
+  // ser só consumo, `guardado` é uma linha própria, e `saldo` continua descontando
+  // os dois. Quem exibir precisa mostrar as duas linhas juntas — "gastou X · guardou
+  // Y" —, senão a pessoa soma e não fecha com o saldo.
+  const gastosTodos = doMes.filter((l) => l.tipo === "gasto");
+  const gastos = gastosTodos.filter((l) => l.meta_id == null);
+  const aportes = gastosTodos.filter((l) => l.meta_id != null);
+  const guardado = soma(aportes);
 
   const ant = passoMes(ano, mes, -1);
   const doMesAnterior = lancamentosDoMes(lancamentos, ant.ano, ant.mes);
-  const gastosAnterior = doMesAnterior.filter((l) => l.tipo === "gasto");
+  const gastosAnterior = doMesAnterior.filter((l) => l.tipo === "gasto" && l.meta_id == null);
 
-  const receitas = soma(doMes.filter((l) => l.tipo === "receita"));
+  // Resgate ('receita' com meta_id) também não é renda — é dinheiro voltando do
+  // próprio bolso. Fora das receitas, dentro do saldo, pelo mesmo raciocínio.
+  const receitasTodas = doMes.filter((l) => l.tipo === "receita");
+  const receitas = soma(receitasTodas.filter((l) => l.meta_id == null));
+  const resgatado = soma(receitasTodas.filter((l) => l.meta_id != null));
+
   const gastoTotal = soma(gastos);
   const gastoAnterior = soma(gastosAnterior);
 
@@ -131,7 +150,12 @@ export function calcularFechamento(lancamentos, ano, mes, { hoje = new Date(), n
 
     receitas,
     gastoTotal,
-    saldo: receitas - gastoTotal,
+    // Guardado e resgatado entram no saldo mas não nas outras linhas: o dinheiro
+    // saiu (e voltou) da conta de fato, e o saldo é a única linha que responde
+    // "quanto sobrou".
+    guardado,
+    resgatado,
+    saldo: receitas + resgatado - gastoTotal - guardado,
 
     debito: soma(gastos.filter((l) => l.forma_pagamento !== "Crédito")),
     cartao: soma(gastos.filter((l) => l.forma_pagamento === "Crédito")),

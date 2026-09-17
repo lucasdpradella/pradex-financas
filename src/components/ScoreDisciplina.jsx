@@ -53,7 +53,7 @@ const TEMA_CLARO = {
 const corDaFaixa = (c, score) => (score >= 85 ? c.bom : score >= 60 ? c.acento : score >= 30 ? c.alerta : c.ruim);
 
 export default function ScoreDisciplina({
-  lancamentos, ano, mes, plano, trial = null, tetos = [],
+  lancamentos, ano, mes, plano, trial = null, tetos = [], metas = [],
   onQueroTeto, premioResgatadoEm = null, onResgatarPremio, isDesktop = false,
 }) {
   const c = isDesktop ? TEMA_CLARO : TEMA_ESCURO;
@@ -65,12 +65,12 @@ export default function ScoreDisciplina({
 
   const { d, premio } = useMemo(() => {
     const f = calcularFechamento(lancamentos || [], ano, mes);
-    const disc = calcularDisciplina(f, { tetos });
+    const disc = calcularDisciplina(f, { tetos, metas });
     return {
       d: disc,
       premio: avaliarPremio({ score: disc.score, diasDistintos: f.diasComLancamento, resgatadoEm: premioResgatadoEm, plano }),
     };
-  }, [lancamentos, ano, mes, tetos, premioResgatadoEm, plano]);
+  }, [lancamentos, ano, mes, tetos, metas, premioResgatadoEm, plano]);
 
   if (d.vazio) return null;
 

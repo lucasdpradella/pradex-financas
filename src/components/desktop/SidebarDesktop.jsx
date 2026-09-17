@@ -12,6 +12,9 @@ const Icon = ({ name }) => {
     fp: <><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></>,
     orcamento: <><path d="M3 20a9 9 0 1 1 18 0" /><line x1="12" y1="20" x2="16.5" y2="11.5" /><line x1="3" y1="20" x2="21" y2="20" /></>,
     relatorios: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></>,
+    // Cofrinho: a caixinha que enche. Deliberadamente diferente do ícone do
+    // Orçamento (velocímetro), que é a ideia oposta — limite, não acúmulo.
+    metas: <><path d="M4 10h16v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8z" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /><line x1="12" y1="14" x2="12" y2="16" /></>,
   };
   return (
     <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -30,6 +33,9 @@ const ITEMS = [
   // Sem `recurso` DE PROPOSITO: o orcamento nao leva cadeado. A tela abre pra todo
   // mundo e o paywall so aparece no save (ver lib/plano.js, paywallNoSave).
   { key: "orcamento", label: "Orçamento", icon: "orcamento", tela: "orcamento", activeFor: ["orcamento"] },
+  // Metas nasceu em 16/09. Sem `recurso` pelo mesmo motivo do Orçamento: a tela abre
+  // pra todo mundo e o paywall só aparece ao criar a SEGUNDA caixinha.
+  { key: "metas", label: "Metas", icon: "metas", tela: "metas", activeFor: ["metas"] },
   { key: "fp", label: "Planejamento", icon: "fp", tela: "fp", activeFor: ["fp"], recurso: "fp" },
   { key: "relatorios", label: "Relatórios", icon: "relatorios", tela: "relatorios", activeFor: ["relatorios"], recurso: "relatorios" },
 ];

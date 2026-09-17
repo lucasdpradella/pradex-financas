@@ -18,10 +18,16 @@ import { formatarBRL } from "./fechamento";
 // frágil dos quatro — depende de o usuário lembrar de marcar cada gasto.
 //
 // Antes: constancia 40, mesPreenchido 30, evitavel 30, teto 25.
+//
+// `guardou` entrou em 2026-09-16 com a feature METAS (decisão do Lucas). O total
+// passa de 100, o que NÃO é problema: o score é normalizado sobre os componentes
+// aplicáveis, não sobre a soma dos pesos. O teto segue sendo o maior, como ficou
+// decidido em 12/09.
 export const PONTOS = {
   teto: 45,
   constancia: 25,
   mesPreenchido: 20,
+  guardou: 20,
   evitavel: 10,
 };
 
@@ -44,7 +50,7 @@ export const limiarPreenchido = ({ diasNoMes, diasConsiderados, mesCorrente }) =
  * ~75/100 por causa de uma feature que não existe. Quando tetos existirem, o
  * componente entra sozinho sem rebaixar quem já pontuava.
  */
-export function calcularDisciplina(fechamento, { tetos = [] } = {}) {
+export function calcularDisciplina(fechamento, { tetos = [], metas = [] } = {}) {
   const f = fechamento || {};
 
   // Mês sem lançamento nenhum é zero, não "sem dados". Sem esta guarda o componente
@@ -132,6 +138,39 @@ export function calcularDisciplina(fechamento, { tetos = [] } = {}) {
       max: PONTOS.teto,
       pontos: 0,
       detalhe: "nenhum teto cadastrado",
+    });
+  }
+
+  // 5. Guardou em alguma meta — BINÁRIO, e sem olhar valor.
+  //
+  // Um aporte de R$ 5 vale igual a um de R$ 5.000, pela regra inegociável do topo
+  // deste arquivo: pontua comportamento, nunca dinheiro. Binário e não proporcional
+  // (metas alimentadas ÷ ativas) porque proporcional puniria quem cria muitas metas,
+  // e criar meta é justamente o que o produto quer causar.
+  //
+  // Inaplicável pra quem não tem caixinha nenhuma — mesmo tratamento do teto: sai do
+  // numerador E do denominador, e ninguém é rebaixado por feature que não usa.
+  const metasAtivas = (metas || []).filter((m) => m && !m.arquivada);
+  if (metasAtivas.length > 0) {
+    const guardou = Boolean(f.guardado > 0);
+    componentes.push({
+      chave: "guardou",
+      label: "Guardou na meta",
+      aplicavel: true,
+      max: PONTOS.guardou,
+      pontos: guardou ? PONTOS.guardou : 0,
+      detalhe: guardou
+        ? `${formatarBRL(f.guardado)} guardados neste mês`
+        : `${metasAtivas.length === 1 ? "sua caixinha não recebeu" : "nenhuma caixinha recebeu"} aporte neste mês`,
+    });
+  } else {
+    componentes.push({
+      chave: "guardou",
+      label: "Guardou na meta",
+      aplicavel: false,
+      max: PONTOS.guardou,
+      pontos: 0,
+      detalhe: "nenhuma caixinha criada",
     });
   }
 
