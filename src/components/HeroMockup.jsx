@@ -15,9 +15,11 @@
 //
 // Então a cena virou o que ela é: uma imagem.
 //   origem: Chave Mestre/Projetos/PRADEX/marca/home-proposta-visual.png (1122×1402)
-//   recorte: extract 70 572 550 640 — só a cena, sem o texto do hero que fica à
-//            esquerda na arte original (o primeiro corte trouxe um "s leve." fantasma)
-//   saída:   public/hero-cena.webp — 37 KB, contra 1,5 MB do PNG inteiro
+//   recorte: extract 60 516 606 660 — a cena inteira (notebook, caneca, polvo,
+//            celular). O corte NÃO pode ir mais pra esquerda: o texto do hero está
+//            embutido na arte e vem junto. O resto de "leve." que sobra na borda é
+//            apagado pela máscara em gradiente abaixo.
+//   saída:   public/hero-cena.webp — 44 KB, contra 1,5 MB do PNG inteiro
 //
 // O QUE FICA DEVENDO, e precisa de um render novo pra resolver (não de código):
 // a tela dentro da arte diz "Olá, Mariana" e "Abril 2025". A persona da conta demo
@@ -61,8 +63,8 @@ export default function HeroMockup() {
       <img
         className="pdx-hero-mk__img"
         src="/hero-cena.webp"
-        width="550"
-        height="640"
+        width="606"
+        height="660"
         alt="O Pradex aberto no computador mostrando gastos por categoria, e no celular uma conversa no WhatsApp em que a pessoa escreve “gastei 50 no mercado” e o app responde que registrou em Alimentação."
         loading="eager"
         decoding="async"
