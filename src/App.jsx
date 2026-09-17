@@ -41,6 +41,7 @@ import DashboardDesktop from "./components/desktop/DashboardDesktop";
 import CartoesDesktop from "./components/desktop/CartoesDesktop";
 import CategoriasDesktop from "./components/desktop/CategoriasDesktop";
 import BancosDesktop from "./components/desktop/BancosDesktop";
+import PainelMetricas from "./components/desktop/PainelMetricas";
 import { normalizeTelefone, isValidTelefoneBr, formatTelefoneInput } from "./utils/phone";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
@@ -53,7 +54,7 @@ const api = (token) => ({
 });
 
 // Telas que existem só no shell desktop (>=1024px), acessadas pela sidebar.
-const TELAS_DESKTOP = ["cartoes", "categorias", "bancos", "relatorios"];
+const TELAS_DESKTOP = ["cartoes", "categorias", "bancos", "relatorios", "metricas"];
 
 // TOKENS DE CANVAS — o app tem DOIS: claro no desktop (>=1024px) e escuro no
 // celular. Componentes compartilhados pelos dois (fp/, OrcamentoCategoria) não
@@ -1807,7 +1808,7 @@ export default function PradexFinancas() {
       )}
       {isDesktop && (
         <TopBar
-          title={({ dashboard: "Dashboard", historico: "Lançamentos", lancamentos: "Lançamentos", cartoes: "Cartões", categorias: "Categorias", bancos: "Bancos", orcamento: "Orçamento", metas: "Metas", fp: "Planejamento Financeiro", relatorios: "Relatórios" })[tela] || "Pradex"}
+          title={({ dashboard: "Dashboard", historico: "Lançamentos", lancamentos: "Lançamentos", cartoes: "Cartões", categorias: "Categorias", bancos: "Bancos", orcamento: "Orçamento", metas: "Metas", metricas: "Métricas", fp: "Planejamento Financeiro", relatorios: "Relatórios" })[tela] || "Pradex"}
           periodoLabel={tela === "dashboard"
             ? `${monthNames[mesDashboard.mes]} ${mesDashboard.ano}`
             : tela === "relatorios" && podeFp
@@ -2141,6 +2142,15 @@ export default function PradexFinancas() {
           onAtualizar={atualizarCartao}
           onExcluir={excluirCartao}
         />
+      )}
+
+      {/* MÉTRICAS — painel do dono, desktop e só pra super_admin.
+          A checagem aqui é de USABILIDADE (não renderizar tela vazia), não de
+          segurança: quem manda é a RPC `admin_metricas`, que roda SECURITY DEFINER e
+          confere `profiles.role` no banco. Trocar `userRole` no DevTools abre a tela
+          e não devolve número nenhum. */}
+      {tela === "metricas" && isDesktop && userRole === "super_admin" && (
+        <PainelMetricas supabaseUrl={SUPABASE_URL} token={session?.token} />
       )}
 
       {/* CATEGORIAS — desktop (Fase B) */}

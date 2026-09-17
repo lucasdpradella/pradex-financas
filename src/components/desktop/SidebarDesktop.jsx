@@ -15,6 +15,9 @@ const Icon = ({ name }) => {
     // Cofrinho: a caixinha que enche. Deliberadamente diferente do ícone do
     // Orçamento (velocímetro), que é a ideia oposta — limite, não acúmulo.
     metas: <><path d="M4 10h16v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8z" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /><line x1="12" y1="14" x2="12" y2="16" /></>,
+    // Painel do dono: barras subindo com uma seta. Diferente do icone de Relatorios
+    // (folha de papel), que e relatorio do usuario sobre a propria vida.
+    metricas: <><line x1="4" y1="20" x2="4" y2="14" /><line x1="10" y1="20" x2="10" y2="9" /><line x1="16" y1="20" x2="16" y2="12" /><polyline points="14 4 20 4 20 10" /><line x1="20" y1="4" x2="13" y2="11" /></>,
   };
   return (
     <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -38,6 +41,10 @@ const ITEMS = [
   { key: "metas", label: "Metas", icon: "metas", tela: "metas", activeFor: ["metas"] },
   { key: "fp", label: "Planejamento", icon: "fp", tela: "fp", activeFor: ["fp"], recurso: "fp" },
   { key: "relatorios", label: "Relatórios", icon: "relatorios", tela: "relatorios", activeFor: ["relatorios"], recurso: "relatorios" },
+  // Painel do dono. `soAdmin` e não `recurso`: não é plano, é papel — e diferente do
+  // cadeado, este item SOME pra quem não é super_admin. Cadeado existe pra vender o
+  // que a pessoa poderia ter; ninguém vai comprar o painel interno da empresa.
+  { key: "metricas", label: "Métricas", icon: "metricas", tela: "metricas", activeFor: ["metricas"], soAdmin: true },
 ];
 
 const CSS = `
@@ -78,6 +85,7 @@ export default function SidebarDesktop({ tela, setTela, userEmail, userRole, onL
       <nav className="pdx-sb__nav">
         {ITEMS.map((item) => {
           const active = item.activeFor?.includes(tela);
+          if (item.soAdmin && userRole !== "super_admin") return null;
           const trancado = item.recurso ? !temAcesso(plano, item.recurso) : false;
           const desabilitado = Boolean(item.disabled);
           return (
