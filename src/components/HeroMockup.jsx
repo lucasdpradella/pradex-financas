@@ -1,4 +1,4 @@
-// A cena do hero: a arte da proposta visual aprovada pelo Lucas.
+// A cena do hero: a arte da proposta visual, aprovada pelo Lucas.
 //
 // ===== POR QUE É UMA IMAGEM, E NÃO CSS (2026-09-16) =====
 //
@@ -13,47 +13,55 @@
 // volumétrica atrás. CSS desenha retângulos e texto; nada disso sai de CSS. Insistir
 // ali era gastar tempo pra entregar "quase".
 //
-// Então a cena virou o que ela é: uma imagem.
-//   origem: Chave Mestre/Projetos/PRADEX/marca/home-proposta-visual.png (1122×1402)
-//   recorte: extract 60 516 606 660 — a cena inteira (notebook, caneca, polvo,
-//            celular). O corte NÃO pode ir mais pra esquerda: o texto do hero está
-//            embutido na arte e vem junto. O resto de "leve." que sobra na borda é
-//            apagado pela máscara em gradiente abaixo.
-//   saída:   public/hero-cena.webp — 44 KB, contra 1,5 MB do PNG inteiro
+// ===== E POR QUE A ARTE É A SEGUNDA, E NÃO A PRIMEIRA (2026-09-17) =====
 //
-// O QUE FICA DEVENDO, e precisa de um render novo pra resolver (não de código):
-// a tela dentro da arte diz "Olá, Mariana" e "Abril 2025". A persona da conta demo
-// virou LEO DEMO, 19 anos, em 15/09, e a data já nasceu velha. Enquanto for arte
-// ilustrativa com essa ressalva visível, passa; vira problema no dia em que alguém
-// comparar com o app. Ao regerar, pedir a cena SEM o texto do hero embutido.
+// A arte de 16/09 era a PÁGINA inteira renderizada: título, botões e a cena, tudo numa
+// imagem só. Usar só a cena exigia recorte, e o recorte esbarrava no texto do hero,
+// que estava pintado dentro dela — cortar perto trazia "Sua cabeça mais leve." junto,
+// duplicado sobre o texto real da página. Por isso o primeiro corte decepava o
+// notebook e a caneca, e o Lucas viu na hora: "a imagem ficou na metade".
 //
-// Se um dia esta imagem precisar ser reconstruída em código (acessibilidade, peso,
-// dados vivos), o desenho anterior está no histórico do git — foi apagado por ser
-// código morto, não por estar errado.
+// A correção não era de código. O Codex (que tem o ImageGen) gerou a cena ISOLADA,
+// quadrada e com respiro nas bordas, e de quebra corrigiu os dados da tela — a versão
+// anterior dizia "Olá, Mariana" e "Abril 2025", com a persona aposentada em 15/09 e
+// uma data que já nasceu velha.
+//
+//   origem:  Chave Mestre/Projetos/PRADEX/marca/2026-09-17_home-cena.png (1600×1600)
+//   spec:    briefs/home-visual-conversao.md, seção "Render novo da cena"
+//   saída:   public/hero-cena.webp — 1100×1100, 62 KB, SEM recorte nenhum
+//
+// Se a arte for regerada de novo, vale o mesmo spec: só a cena, quadrada, fundo
+// #0C0E14, respiro em volta, nenhum texto de página embutido. É o que permite trocar
+// o arquivo sem tocar em uma linha de código.
+//
+// Se um dia esta imagem precisar virar código (acessibilidade, peso, dados vivos), o
+// desenho em CSS está no histórico do git — foi apagado por ser código morto, não por
+// estar errado.
 import React from "react";
 
 export default function HeroMockup() {
   return (
     <div className="pdx-hero-mk">
       <style>{`
-        .pdx-hero-mk { position: relative; display: flex; flex-direction: column; align-items: center; }
+        .pdx-hero-mk { position: relative; display: flex; justify-content: center; }
         /* A luz azul que existe DENTRO do render, estendida pra fora dele: sem isso a
-           imagem termina num retângulo seco no meio do fundo chapado da página. */
+           imagem termina num quadrado seco no meio do fundo chapado da página. */
         .pdx-hero-mk::before {
-          content: ""; position: absolute; inset: -12% -10% -6%; z-index: 0; pointer-events: none;
-          background: radial-gradient(58% 52% at 52% 42%, rgba(79,70,229,0.34), rgba(12,14,20,0) 72%);
+          content: ""; position: absolute; inset: -8%; z-index: 0; pointer-events: none;
+          background: radial-gradient(56% 50% at 52% 40%, rgba(79,70,229,0.30), rgba(12,14,20,0) 72%);
         }
         .pdx-hero-mk__img {
           position: relative; z-index: 1; display: block;
-          width: 100%; max-width: 520px; height: auto;
-          /* As bordas do recorte se dissolvem no fundo em vez de virar moldura. O
-             fundo da arte é o mesmo #0C0E14 da página, então o fade é invisível —
-             some só a linha reta do corte. */
-          -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 7%, #000 93%, transparent 100%),
-                              linear-gradient(to bottom, transparent 0%, #000 5%, #000 95%, transparent 100%);
+          width: 100%; max-width: 560px; height: auto;
+          /* Fade curto só pra dissolver a borda do quadrado no fundo da página. Na
+             arte de 16/09 ele precisava ser de 7% pra comer o texto que vinha no
+             recorte; agora a cena já vem com respiro, então 3% basta e nenhum objeto
+             da cena é tocado. */
+          -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 3%, #000 97%, transparent 100%),
+                              linear-gradient(to bottom, transparent 0%, #000 3%, #000 97%, transparent 100%);
           -webkit-mask-composite: source-in;
-          mask-image: linear-gradient(to right, transparent 0%, #000 7%, #000 93%, transparent 100%),
-                      linear-gradient(to bottom, transparent 0%, #000 5%, #000 95%, transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0%, #000 3%, #000 97%, transparent 100%),
+                      linear-gradient(to bottom, transparent 0%, #000 3%, #000 97%, transparent 100%);
           mask-composite: intersect;
         }
       `}</style>
@@ -63,9 +71,9 @@ export default function HeroMockup() {
       <img
         className="pdx-hero-mk__img"
         src="/hero-cena.webp"
-        width="606"
-        height="660"
-        alt="O Pradex aberto no computador mostrando gastos por categoria, e no celular uma conversa no WhatsApp em que a pessoa escreve “gastei 50 no mercado” e o app responde que registrou em Alimentação."
+        width="1100"
+        height="1100"
+        alt="O Pradex aberto no computador mostrando receitas, despesas e os gastos por categoria, e ao lado um celular com uma conversa no WhatsApp em que a pessoa escreve “gastei R$ 50 no mercado” e o app responde que registrou em Alimentação."
         loading="eager"
         decoding="async"
       />
