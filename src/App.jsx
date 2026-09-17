@@ -243,6 +243,19 @@ export default function PradexFinancas() {
     try { localStorage.removeItem("pdx_convite"); } catch { /* modo privado: só não lembra */ }
   };
 
+  // Clique em "Quero o Essencial" / "Quero o Assistente" na home pública.
+  //
+  // NÃO concede plano e NÃO abre checkout: leva pro CADASTRO guardando a escolha, que
+  // volta como convite assim que a pessoa entra (ConvitePlano). Sem conta não há o que
+  // assinar, e mandar direto pro pagamento seria cobrar de quem ainda não tem onde
+  // usar o que comprou. Mesmo mecanismo do link `?plano=`, acionado por clique.
+  const escolherPlanoNaHome = (plano) => {
+    setPlanoConvite(plano);
+    try { localStorage.setItem("pdx_convite", plano); } catch { /* modo privado: só não lembra */ }
+    setAuthMode("cadastro");
+    setAuthErro("");
+  };
+
   const podeZap = podeUsarWhatsapp(plano, trial);
   const podeFp = temAcesso(plano, "fp");
   const [tela, setTela] = useState("dashboard");
@@ -1688,7 +1701,14 @@ export default function PradexFinancas() {
   );
 
   if (!session) return (
-    <Landing>
+    // `onComecar` conserta o pior achado da auditoria de 16/09: "Criar conta grátis"
+    // levava a #entrar com o formulário aberto em ENTRAR. Quem clicava em criar conta
+    // caía numa tela de login — e não adianta a oferta funcionar depois do cadastro
+    // (PR #72) se o botão de cadastrar manda pro lugar errado.
+    <Landing
+      onComecar={(modo) => { setAuthMode(modo === "login" ? "login" : "cadastro"); setAuthErro(""); }}
+      onEscolherPlano={escolherPlanoNaHome}
+    >
         <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", border: "1px solid #1E2330" }}>
           <div style={{ display: "flex", background: "#0C0E14", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem" }}>
             {["login", "cadastro"].map(m => (
