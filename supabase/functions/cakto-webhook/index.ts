@@ -53,11 +53,18 @@ const TOLERANCIA_TIMESTAMP_S = 60 * 45;
 // acontece; se a Z-API estiver fora, a pessoa tem que continuar com acesso. Por isso
 // tudo aqui é try/catch que só loga, e o resultado do envio NUNCA muda a resposta.
 //
-// SECRETS QUE PRECISAM ESTAR NESTA FUNÇÃO (as três da Z-API já existem em
-// `trial-lembretes`; aqui precisam ser adicionadas de novo, secret é por função):
-//   ZAPI_INSTANCE, ZAPI_TOKEN, ZAPI_CLIENT_TOKEN
-//   ALERTA_WHATSAPP — número do Lucas, formato Z-API com DDI: 55DDNNNNNNNNN
-// Sem ALERTA_WHATSAPP, o aviso é pulado e o log diz isso em alto e bom som — o
+// SECRETS. No Supabase o secret é do PROJETO, não da função — todas as Edge
+// Functions enxergam os mesmos. Então ZAPI_INSTANCE, ZAPI_TOKEN e ZAPI_CLIENT_TOKEN
+// já estão disponíveis aqui, porque `trial-lembretes` as usa. A única que falta é:
+//
+//   supabase secrets set ALERTA_WHATSAPP=55DDNNNNNNNNN --project-ref sjvuhqqsjboncwpboclv
+//   supabase functions deploy cakto-webhook --project-ref sjvuhqqsjboncwpboclv
+//
+// O deploy é obrigatório: push no `main` publica o FRONT na Vercel e não toca nas
+// Edge Functions. Sem ele este arquivo fica no repo e a função em produção continua
+// a versão antiga, sem avisar nada.
+//
+// Sem ALERTA_WHATSAPP o aviso é pulado e o log diz isso em alto e bom som — o
 // silêncio de 16/09 não pode acontecer de novo por variável esquecida.
 const ZAPI_INSTANCE = Deno.env.get("ZAPI_INSTANCE") ?? "";
 const ZAPI_TOKEN = Deno.env.get("ZAPI_TOKEN") ?? "";
