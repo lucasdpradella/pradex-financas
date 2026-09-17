@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Como usar o Pradex — guia completo</title>
+  <meta name="theme-color" content="#0C0E14" />
+
+  <!-- POR QUE ISTO É UMA PÁGINA, E NÃO UM PDF (2026-09-17).
+       Existia um "Guia completo" em PDF, de 27/05/2026, 15 páginas. Quatro meses
+       depois ele estava errado em quase tudo o que importa: apontava pra
+       `pradex-financas.vercel.app` (o domínio virou pradex.com.br), dizia "app
+       gratuito" (hoje há Essencial e Assistente), e ensinava abas que não existem
+       mais — havia uma aba "IA" e uma "FP" que viraram outra coisa.
+       Ninguém errou: PDF não se atualiza, e cada cópia enviada a um cliente vira uma
+       versão errada pra sempre. Página viva conserta com um deploy, e o link que o
+       cliente recebeu continua valendo.
+
+       ⚠️ QUEM MEXER AQUI: só documente o que está EM PRODUÇÃO. Feature em PR aberto
+       não entra — em 17/09 as METAS (caixinhas) estavam prontas no PR #73 e ficaram
+       de fora por não terem sido mergeadas. Quando subirem, acrescentar uma seção. -->
+  <meta name="description" content="Guia de uso do Pradex Finanças: como lançar gastos no app e pelo WhatsApp, usar cartões e parcelas, definir teto por categoria e entender o score de disciplina." />
+  <link rel="canonical" href="https://pradex.com.br/guia" />
+
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="Pradex Finanças" />
+  <meta property="og:title" content="Como usar o Pradex — guia completo" />
+  <meta property="og:description" content="Do primeiro lançamento ao teto por categoria: o passo a passo do Pradex Finanças." />
+  <meta property="og:url" content="https://pradex.com.br/guia" />
+  <meta property="og:image" content="https://pradex.com.br/icon-512.png" />
+  <meta name="twitter:card" content="summary" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" />
+
+  <style>
+    :root { color-scheme: dark; }
+    body { background: #0C0E14; color: #F1F2F4; font-family: 'DM Sans', 'Helvetica Neue', system-ui, sans-serif; margin: 0; padding: 2.5rem 1.25rem 3rem; -webkit-font-smoothing: antialiased; }
+    main { max-width: 720px; margin: 0 auto; }
+    .marca { font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: #8B93A1; margin: 0 0 0.5rem; }
+    h1 { font-size: 1.75rem; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 0.75rem; line-height: 1.25; }
+    .lead { font-size: 1rem; color: #8B93A1; line-height: 1.6; margin: 0 0 2rem; }
+    h2 { font-size: 1.15rem; font-weight: 700; margin: 2.5rem 0 0.7rem; letter-spacing: -0.01em; }
+    h3 { font-size: 0.95rem; font-weight: 600; margin: 1.4rem 0 0.4rem; }
+    p, li { font-size: 0.92rem; color: #C9CFDA; line-height: 1.65; }
+    ul, ol { padding-left: 1.15rem; }
+    li { margin-bottom: 0.4rem; }
+    a { color: #6366F1; }
+    strong { color: #F1F2F4; }
+    .indice { border: 1px solid #2C3344; border-radius: 12px; padding: 1rem 1.15rem; background: #151821; margin-bottom: 2rem; }
+    .indice p { margin: 0 0 0.5rem; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: #8B93A1; }
+    .indice ol { margin: 0; padding-left: 1.1rem; }
+    .indice li { margin-bottom: 0.25rem; }
+    .caixa { border: 1px solid #2C3344; border-radius: 12px; padding: 0.9rem 1.15rem; background: #151821; margin: 1rem 0; }
+    .caixa p:last-child { margin-bottom: 0; }
+    .zap { border-color: #25D36635; background: #25D3660F; }
+    .dica { border-color: #6366F140; background: #6366F10F; }
+    .exemplo { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; color: #F1F2F4; background: #0C0E14; border: 1px solid #2C3344; border-radius: 8px; padding: 0.5rem 0.7rem; display: inline-block; margin: 0.15rem 0; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.88rem; }
+    th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid #1E2330; vertical-align: top; }
+    th { color: #8B93A1; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+    td { color: #C9CFDA; }
+    .cta { display: inline-block; margin-top: 1.5rem; background: #6366F1; color: #fff; text-decoration: none; font-weight: 700; padding: 0.85rem 1.5rem; border-radius: 10px; }
+    footer { margin-top: 3rem; padding-top: 1.25rem; border-top: 1px solid #1E2330; font-size: 0.8rem; color: #8B93A1; }
+    footer a { margin-right: 1rem; }
+  </style>
+</head>
+<body>
+<main>
+  <p class="marca">Pradex Finanças</p>
+  <h1>Como usar o Pradex</h1>
+  <p class="lead">
+    Do primeiro lançamento ao teto por categoria. Dá pra ler inteiro em uns 10 minutos —
+    ou pular direto pro que você precisa agora.
+  </p>
+
+  <nav class="indice">
+    <p>Neste guia</p>
+    <ol>
+      <li><a href="#comecar">Comece por aqui</a></li>
+      <li><a href="#lancar">Lançar um gasto</a></li>
+      <li><a href="#whatsapp">Lançar pelo WhatsApp</a></li>
+      <li><a href="#cartoes">Cartões e parcelas</a></li>
+      <li><a href="#teto">Teto por categoria</a></li>
+      <li><a href="#score">Score de disciplina</a></li>
+      <li><a href="#planos">O que vem em cada plano</a></li>
+      <li><a href="#duvidas">Dúvidas comuns</a></li>
+    </ol>
+  </nav>
+
+  <h2 id="comecar">1. Comece por aqui</h2>
+  <p>
+    O Pradex abre em <a href="https://pradex.com.br">pradex.com.br</a>, no celular ou no
+    computador — é o mesmo endereço e a mesma conta nos dois. Dá pra instalar como app:
+    no Android, "Adicionar à tela inicial"; no iPhone, botão de compartilhar →
+    "Adicionar à Tela de Início".
+  </p>
+  <p>
+    <strong>Nos primeiros dias, faça só uma coisa: registre todo gasto.</strong> Não
+    precisa categorizar direitinho nem configurar nada antes. O resto do app — os
+    gráficos, o teto, o score — só tem o que mostrar depois que existem lançamentos.
+  </p>
+  <div class="caixa dica">
+    <p><strong>Uma dica que muda o resultado:</strong> registre na hora, não no fim do dia.
+    O que o app resolve não é a conta, é a memória — e a memória do café das 15h já foi
+    embora às 22h.</p>
+  </div>
+
+  <h2 id="lancar">2. Lançar um gasto</h2>
+  <p>No celular, toque em <strong>Lançar</strong> na barra de baixo. Você informa:</p>
+  <ul>
+    <li><strong>Descrição e valor</strong> — "mercado", "uber", "assinatura".</li>
+    <li><strong>Gasto ou receita</strong> — o botão muda de cor: vermelho pra gasto, verde pra receita.</li>
+    <li><strong>Categoria</strong> — as padrão já vêm prontas, e você cria as suas em Categorias.</li>
+    <li><strong>Forma de pagamento</strong> — débito, crédito, dinheiro, PIX. No crédito, dá pra escolher o cartão.</li>
+  </ul>
+  <p>
+    Tem dois interruptores que valem conhecer: <strong>parcelar</strong>, que espalha a
+    compra pelos próximos meses automaticamente, e <strong>recorrente</strong>, pro que
+    se repete todo mês (aluguel, streaming, academia) e você não quer digitar de novo.
+  </p>
+
+  <h3>O gasto evitável</h3>
+  <p>
+    Ao editar um lançamento você pode marcá-lo como <strong>evitável</strong> — aquele
+    que, olhando de fora, não precisava. Não é julgamento moral: é o único número do app
+    que mostra quanto do seu mês foi escolha, e não obrigação. No Dashboard ele vira o
+    card que mostra o que aquele dinheiro renderia investido.
+  </p>
+
+  <h2 id="whatsapp">3. Lançar pelo WhatsApp</h2>
+  <p>
+    Esta é a parte do <strong>Essencial</strong>. Você manda uma mensagem e o gasto entra
+    organizado, sem abrir o app:
+  </p>
+  <p>
+    <span class="exemplo">gastei 50 no mercado</span><br />
+    <span class="exemplo">almoço 38 no crédito nubank</span><br />
+    <span class="exemplo">recebi 1800 de salário</span>
+  </p>
+  <p>
+    Funciona por <strong>áudio</strong> também — falar "almoço 38 no crédito" andando na
+    rua é mais rápido que qualquer app, e cai organizado do mesmo jeito.
+  </p>
+  <div class="caixa zap">
+    <p>
+      <strong>Antes de tudo, cadastre seu WhatsApp no app</strong>, em Planejamento →
+      Perfil. É por esse número que o agente reconhece você. Se mandar de outro número,
+      ele não vai saber de quem é.
+    </p>
+    <p style="margin-top:0.6rem">
+      O agente atende em <a href="https://wa.me/5511924568633">wa.me/5511924568633</a>.
+    </p>
+  </div>
+  <p>
+    Se ele ficar em dúvida sobre o que você quis dizer, pergunta antes de gravar. E o que
+    entrar por lá aparece no app na mesma hora — é o mesmo lançamento, não uma cópia.
+  </p>
+
+  <h2 id="cartoes">4. Cartões e parcelas</h2>
+  <p>
+    Cadastre seus cartões em <strong>Cartões</strong> (no computador, na barra lateral).
+    A partir daí, todo gasto no crédito pode ser ligado a um cartão, e o app separa o que
+    saiu da conta do que vai cair na fatura.
+  </p>
+  <p>
+    Compra parcelada vira várias linhas, uma por mês, com o sufixo <strong>(1/10)</strong>,
+    <strong>(2/10)</strong> e assim por diante. Isso significa que o mês que vem já nasce
+    sabendo o que você deve — que é justamente o que costuma pegar as pessoas de surpresa.
+  </p>
+
+  <h2 id="teto">5. Teto por categoria</h2>
+  <p>
+    Também do <strong>Essencial</strong>. Você diz quanto quer gastar no máximo em cada
+    categoria e o app acompanha. Se passar, ele mostra.
+  </p>
+  <ul>
+    <li>No celular: aba <strong>Teto</strong>, na barra de baixo.</li>
+    <li>No computador: <strong>Orçamento</strong>, na barra lateral.</li>
+  </ul>
+  <p>
+    Deixe em branco a categoria que não quer limitar. E não precisa refazer todo mês: o
+    teto continua valendo nos meses seguintes até você mudar.
+  </p>
+  <div class="caixa dica">
+    <p><strong>Comece baixo, não alto.</strong> Teto folgado não muda comportamento nenhum —
+    ele nunca estoura, e você nunca descobre nada. O teto útil é o que aperta um pouco.</p>
+  </div>
+
+  <h2 id="score">6. Score de disciplina</h2>
+  <p>
+    É a nota de 0 a 100 no topo do Dashboard, e ela é de graça pra todo mundo. O que ela
+    mede é <strong>comportamento, nunca dinheiro</strong> — quem ganha R$ 2 mil e registra
+    todo dia tira mais que quem ganha R$ 30 mil e lança uma vez no mês.
+  </p>
+  <table>
+    <tr><th>O que conta</th><th>O que é</th></tr>
+    <tr><td>Dentro do teto</td><td>Cumprir o limite que você mesmo definiu. É o de maior peso.</td></tr>
+    <tr><td>Constância</td><td>Em quantos dias do mês você registrou alguma coisa.</td></tr>
+    <tr><td>Mês preenchido</td><td>Chegar a 20 dias com lançamento.</td></tr>
+    <tr><td>Gasto evitável</td><td>O evitável caindo em relação ao mês passado.</td></tr>
+  </table>
+  <p>
+    O que você ainda não usa não conta contra você: sem teto cadastrado, esse item
+    simplesmente sai da conta em vez de puxar sua nota pra baixo.
+  </p>
+
+  <h2 id="planos">7. O que vem em cada plano</h2>
+  <table>
+    <tr><th>Plano</th><th>O que inclui</th></tr>
+    <tr>
+      <td><strong>Free</strong><br />R$ 0</td>
+      <td>Registro de gastos e receitas sem limite, cartões e parcelas, histórico, dashboard e o score de disciplina.</td>
+    </tr>
+    <tr>
+      <td><strong>Essencial</strong><br />R$ 29,90/mês</td>
+      <td>Tudo do Free, mais lançar pelo WhatsApp (texto e áudio) e o teto por categoria.</td>
+    </tr>
+    <tr>
+      <td><strong>Assistente</strong><br />R$ 79,90/mês</td>
+      <td>Tudo do Essencial, mais o Planejamento Financeiro completo (perfil, objetivos, rendas, investimentos, bens e o Diagnóstico) e os Relatórios.</td>
+    </tr>
+  </table>
+  <p>
+    O app continua seu se você cancelar: o que sai são os recursos pagos, não os seus
+    lançamentos. E o cancelamento é quando você quiser, sem falar com ninguém.
+  </p>
+
+  <h2 id="duvidas">8. Dúvidas comuns</h2>
+
+  <h3>Preciso conectar meu banco?</h3>
+  <p>
+    Não, e o Pradex não faz isso. Ele não pede senha de banco, não acessa conta e não lê
+    cartão. Você registra o que quiser, do jeito que quiser.
+  </p>
+
+  <h3>Onde ficam os meus dados?</h3>
+  <p>
+    Na sua conta, em servidor, com acesso isolado por usuário — não no navegador. Trocar
+    de celular ou limpar o histórico não apaga nada. Você pode excluir tudo quando quiser
+    em <a href="/excluir-conta">pradex.com.br/excluir-conta</a>.
+    Detalhes em <a href="/privacidade">Privacidade</a>.
+  </p>
+
+  <h3>Usei no celular, aparece no computador?</h3>
+  <p>Aparece. É a mesma conta e os mesmos dados — muda só o tamanho da tela.</p>
+
+  <h3>O agente do WhatsApp errou a categoria. E agora?</h3>
+  <p>
+    É só editar o lançamento no app, como qualquer outro. E você pode responder ao agente
+    ali mesmo dizendo o que era.
+  </p>
+
+  <h3>Tenho uma dúvida que não está aqui.</h3>
+  <p>
+    Responda a conversa do agente no WhatsApp, ou escreva para
+    <a href="mailto:pradex.financas@gmail.com">pradex.financas@gmail.com</a>.
+  </p>
+
+  <a class="cta" href="https://pradex.com.br">Abrir o Pradex</a>
+
+  <footer>
+    <p>
+      Feito por Lucas D'Angelo Pradella, assessor de investimentos na Nobel Capital.
+      O Pradex é um app de organização financeira: não faz recomendação de investimento
+      nem promete rentabilidade.
+    </p>
+    <a href="/">Início</a>
+    <a href="/sobre">Sobre</a>
+    <a href="/privacidade">Privacidade</a>
+    <a href="/excluir-conta">Excluir conta</a>
+  </footer>
+</main>
+</body>
+</html>
