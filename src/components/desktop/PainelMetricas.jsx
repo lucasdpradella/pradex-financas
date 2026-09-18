@@ -60,7 +60,17 @@ function Card({ rotulo, valor, sub, alerta }) {
   );
 }
 
-export default function PainelMetricas({ supabaseUrl, token }) {
+// ⚠️ `apiKey` e `token` são COISAS DIFERENTES, e trocá-las foi o bug que derrubou
+// este painel no primeiro uso em produção ("Invalid API key", 17/09):
+//   apikey        -> a chave PUBLICÁVEL do projeto, igual pra todo mundo. É o que
+//                    identifica o projeto no PostgREST.
+//   Authorization -> o access_token da SESSÃO, que é quem diz qual usuário é.
+// Mandar o token nos dois lugares faz o PostgREST rejeitar antes de chegar na RPC —
+// nem dá tempo de a checagem de super_admin rodar.
+//
+// O resto do app nunca errou isso porque passa pelo helper `api()` do App.jsx. Este
+// componente montava o header na mão, e foi só aqui que a diferença apareceu.
+export default function PainelMetricas({ supabaseUrl, apiKey, token }) {
   const [m, setM] = useState(null);
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(true);
@@ -73,7 +83,7 @@ export default function PainelMetricas({ supabaseUrl, token }) {
       try {
         const res = await fetch(`${supabaseUrl}/rest/v1/rpc/admin_metricas`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", apikey: token, Authorization: `Bearer ${token}` },
+          headers: { "Content-Type": "application/json", apikey: apiKey, Authorization: `Bearer ${token}` },
           body: "{}",
         });
         const corpo = await res.json().catch(() => null);
@@ -100,7 +110,7 @@ export default function PainelMetricas({ supabaseUrl, token }) {
       }
     })();
     return () => { vivo = false; };
-  }, [supabaseUrl, token]);
+  }, [supabaseUrl, apiKey, token]);
 
   if (carregando) {
     return <p style={{ color: t.textSecondary, fontSize: "0.9rem" }}>Carregando…</p>;
