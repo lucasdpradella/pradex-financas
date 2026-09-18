@@ -83,15 +83,18 @@ export default function DashboardDesktop({
     // A duplicação estava documentada como risco no topo do fechamento.js e cobrou o
     // preço exatamente aqui. Enquanto as duas contas existirem, QUALQUER regra nova
     // precisa entrar nos dois lugares.
+    // `abate_saldo !== false` (18/09): o aporte de dinheiro que já estava guardado
+    // enche a caixinha mas não passou pela conta neste mês — fica fora do saldo.
+    const aporteDoMes = (l) => l.meta_id != null && l.abate_saldo !== false;
     const gastosTodos = lancMes.filter((l) => l.tipo === "gasto");
     const gastosMes = gastosTodos.filter((l) => l.meta_id == null);
-    const guardado = soma(gastosTodos.filter((l) => l.meta_id != null));
+    const guardado = soma(gastosTodos.filter(aporteDoMes));
 
     // Resgate ('receita' com meta_id) não é renda: é dinheiro voltando do próprio
     // bolso. Fora das receitas, dentro do saldo.
     const receitasTodas = lancMes.filter((l) => l.tipo === "receita");
     const receitas = soma(receitasTodas.filter((l) => l.meta_id == null));
-    const resgatado = soma(receitasTodas.filter((l) => l.meta_id != null));
+    const resgatado = soma(receitasTodas.filter(aporteDoMes));
 
     const gastoTotal = soma(gastosMes);
     const debito = soma(gastosMes.filter((l) => l.forma_pagamento !== "Crédito"));

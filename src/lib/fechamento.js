@@ -106,9 +106,15 @@ export function calcularFechamento(lancamentos, ano, mes, { hoje = new Date(), n
   // ser só consumo, `guardado` é uma linha própria, e `saldo` continua descontando
   // os dois. Quem exibir precisa mostrar as duas linhas juntas — "gastou X · guardou
   // Y" —, senão a pessoa soma e não fecha com o saldo.
+  //
+  // `abate_saldo === false` (18/09) é o aporte de dinheiro que JÁ estava guardado
+  // antes da caixinha existir. Ele não passou pela conta neste mês, então fica fora
+  // de TODAS as linhas daqui — inclusive de `guardado`, que responde "quanto saiu da
+  // conta pra poupança neste mês". Quem quer o total acumulado da caixinha pergunta
+  // pra `acumuladoDaMeta` (lib/metas.js), que conta os dois.
   const gastosTodos = doMes.filter((l) => l.tipo === "gasto");
   const gastos = gastosTodos.filter((l) => l.meta_id == null);
-  const aportes = gastosTodos.filter((l) => l.meta_id != null);
+  const aportes = gastosTodos.filter((l) => l.meta_id != null && l.abate_saldo !== false);
   const guardado = soma(aportes);
 
   const ant = passoMes(ano, mes, -1);
@@ -119,7 +125,7 @@ export function calcularFechamento(lancamentos, ano, mes, { hoje = new Date(), n
   // próprio bolso. Fora das receitas, dentro do saldo, pelo mesmo raciocínio.
   const receitasTodas = doMes.filter((l) => l.tipo === "receita");
   const receitas = soma(receitasTodas.filter((l) => l.meta_id == null));
-  const resgatado = soma(receitasTodas.filter((l) => l.meta_id != null));
+  const resgatado = soma(receitasTodas.filter((l) => l.meta_id != null && l.abate_saldo !== false));
 
   const gastoTotal = soma(gastos);
   const gastoAnterior = soma(gastosAnterior);

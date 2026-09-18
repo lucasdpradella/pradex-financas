@@ -7,6 +7,12 @@
 // 'receita' com o mesmo `meta_id`. Não existe tabela de aportes: o histórico da
 // caixinha É o histórico de lançamentos.
 //
+// COM UMA EXCEÇÃO, a partir de 18/09: `abate_saldo = false` marca o dinheiro que JÁ
+// estava guardado antes de a caixinha existir. Ele enche a barra e não toca no mês —
+// senão quem cria "Viagem" com R$ 2.000 já juntados nasce com R$ 2.000 de saldo
+// negativo por um dinheiro que saiu da conta meses atrás. Continua sendo lançamento
+// (uma fonte só); o que muda é se as agregações do mês o contam.
+//
 // Por isso tudo aqui recebe `lancamentos` e devolve conta — não há segunda fonte pra
 // consultar, e é isso que impede as duas de divergirem.
 
@@ -26,6 +32,15 @@ export const LIMITE_FREE = 1;
 const num = (v) => Number(v || 0);
 
 export const ehAporte = (lancamento) => lancamento?.meta_id != null;
+
+/**
+ * Este lançamento entra nas contas do mês (saldo, guardado, resgatado)?
+ *
+ * Lê `!== false` e não `=== true` de propósito: a coluna nasceu em 18/09 e tudo que
+ * veio antes — e tudo que chega de um cliente antigo em cache — vem com o campo
+ * ausente. Ausente tem que significar "abate", que é o comportamento de sempre.
+ */
+export const abateSaldo = (lancamento) => lancamento?.abate_saldo !== false;
 
 // Lançamentos de consumo — o que a pessoa realmente gastou. É o filtro que impede o
 // dinheiro guardado de se disfarçar de gasto no relatório.
@@ -90,17 +105,27 @@ export function limiteDeMetas(plano, metas, { temAcessoPago = false } = {}) {
  * seria a forma mais fácil de o aporte do WhatsApp não bater com o da tela.
  *
  * `resgate` inverte o tipo: o dinheiro está voltando pra conta.
+ * `abateSaldo = false` é o dinheiro que já estava guardado — enche a caixinha sem
+ * mexer no mês (ver o cabeçalho do arquivo).
  */
-export function montarLancamentoAporte({ meta, valor, data, userId, resgate = false, forma = null }) {
+export function montarLancamentoAporte({ meta, valor, data, userId, resgate = false, forma = null, abateSaldo: abate = true }) {
   const v = Number(valor);
   if (!meta?.id) return { erro: "Meta inválida." };
   if (!Number.isFinite(v) || v <= 0) return { erro: "Informe um valor maior que zero." };
   // Crédito nunca: viraria fatura fingindo de poupança.
-  const formaOk = forma && FORMAS_APORTE.includes(forma) ? forma : null;
+  // Forma de pagamento só existe quando o dinheiro se moveu agora — num aporte que
+  // não abate, dizer "PIX" afirmaria um PIX de hoje que não aconteceu.
+  const formaOk = abate !== false && forma && FORMAS_APORTE.includes(forma) ? forma : null;
+
+  const naoAbate = abate === false;
 
   return {
     lancamento: {
-      descricao: resgate ? `Resgate — ${meta.nome}` : `Guardei — ${meta.nome}`,
+      // A descrição diz de onde veio o dinheiro, porque na lista de lançamentos o
+      // aporte que não abate aparece junto dos outros e não teria como se explicar.
+      descricao: resgate
+        ? `Resgate — ${meta.nome}${naoAbate ? " (não voltou pra conta)" : ""}`
+        : `Guardei — ${meta.nome}${naoAbate ? " (já estava guardado)" : ""}`,
       valor: Math.round(v * 100) / 100,
       tipo: resgate ? "receita" : "gasto",
       categoria: CATEGORIA_META,
@@ -109,6 +134,7 @@ export function montarLancamentoAporte({ meta, valor, data, userId, resgate = fa
       forma_pagamento: formaOk,
       cartao_id: null,
       meta_id: meta.id,
+      abate_saldo: !naoAbate,
       // Guardar dinheiro nunca é gasto evitável — é o oposto do que o campo mede.
       poderia_ter_evitado: false,
       recorrente: false,
@@ -130,6 +156,12 @@ export function montarLancamentoAporte({ meta, valor, data, userId, resgate = fa
  * proporcional puniria quem cria muitas metas, e criar meta é o comportamento que o
  * produto quer causar.
  */
+// `abateSaldo(l)` no filtro (18/09): só pontua o dinheiro que saiu da conta NESTE
+// mês. Aporte de dinheiro que já estava guardado é registro retroativo — acontece uma
+// vez, quando a caixinha nasce, e dar 20 pontos por isso premiaria o cadastro em vez
+// do hábito. O score mede o que a pessoa fez no mês, não o que ela tinha antes.
 export function guardouNoMes(lancamentosDoMes) {
-  return (lancamentosDoMes || []).some((l) => ehAporte(l) && l.tipo === "gasto" && num(l.valor) > 0);
+  return (lancamentosDoMes || []).some(
+    (l) => ehAporte(l) && abateSaldo(l) && l.tipo === "gasto" && num(l.valor) > 0,
+  );
 }

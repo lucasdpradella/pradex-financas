@@ -32,6 +32,10 @@ const COR = {
 
 const hoje = () => new Date().toISOString().split("T")[0];
 
+// `abateSaldo: true` é o padrão e continua sendo o caso normal — quem guarda, guarda
+// hoje, e o dinheiro sai da conta hoje. O `false` é a exceção de estreia (ver abaixo).
+const aporteVazio = () => ({ valor: "", data: hoje(), forma: "", resgate: false, abateSaldo: true });
+
 const inputBase = {
   background: COR.campo,
   border: `1px solid ${COR.borda}`,
@@ -61,7 +65,7 @@ export default function MetasCaixinhas({
   const [abrindoForm, setAbrindoForm] = useState(false);
   const [nova, setNova] = useState({ nome: "", valor_alvo: "", aplicado_em: "", prazo: "" });
   const [aporteDe, setAporteDe] = useState(null);   // meta.id
-  const [aporte, setAporte] = useState({ valor: "", data: hoje(), forma: "", resgate: false });
+  const [aporte, setAporte] = useState(aporteVazio());
   const [erro, setErro] = useState("");
   const [paywall, setPaywall] = useState(false);
 
@@ -110,8 +114,15 @@ export default function MetasCaixinhas({
     const v = parseValor(aporte.valor);
     if (v === null || Number.isNaN(v) || v <= 0) { setErro("Informe um valor maior que zero."); return; }
     setErro("");
-    onAportar?.({ meta, valor: v, data: aporte.data || hoje(), forma: aporte.forma || null, resgate: aporte.resgate });
-    setAporte({ valor: "", data: hoje(), forma: "", resgate: false });
+    onAportar?.({
+      meta,
+      valor: v,
+      data: aporte.data || hoje(),
+      forma: aporte.forma || null,
+      resgate: aporte.resgate,
+      abateSaldo: aporte.abateSaldo,
+    });
+    setAporte(aporteVazio());
     setAporteDe(null);
   }
 
@@ -121,8 +132,9 @@ export default function MetasCaixinhas({
         Caixinhas
       </p>
       <p style={{ margin: "0 0 0.9rem", fontSize: "0.78rem", color: COR.medio, lineHeight: 1.45 }}>
-        Quanto você quer juntar, e pra quê. Toda vez que guardar, avisa aqui — o valor
-        sai do seu saldo do mês, como saiu da sua conta de verdade.
+        Quanto você quer juntar, e pra quê. Toda vez que guardar, avisa aqui — por
+        padrão o valor sai do seu saldo do mês, como saiu da sua conta de verdade. Se
+        o dinheiro já estava guardado de antes, você diz, e o saldo não muda.
       </p>
 
       {comDados.length > 0 && (
@@ -157,7 +169,7 @@ export default function MetasCaixinhas({
               </p>
               <button
                 type="button"
-                onClick={() => { setAporteDe(aporteDe === m.id ? null : m.id); setAporte({ valor: "", data: hoje(), forma: "", resgate: false }); setErro(""); }}
+                onClick={() => { setAporteDe(aporteDe === m.id ? null : m.id); setAporte(aporteVazio()); setErro(""); }}
                 className="pdx-tap"
                 style={{ background: "transparent", border: `1px solid ${COR.acento}`, borderRadius: "8px", color: COR.acento, fontSize: "0.75rem", fontWeight: 700, padding: "0.35rem 0.7rem", cursor: "pointer", fontFamily: "inherit" }}
               >
@@ -190,20 +202,6 @@ export default function MetasCaixinhas({
                     style={inputBase}
                   />
                 </div>
-                {/* Crédito não está na lista de propósito: guardar dinheiro no crédito
-                    geraria fatura e dívida fingindo de poupança (ver lib/metas.js). */}
-                <select
-                  value={aporte.forma}
-                  onChange={(e) => setAporte((a) => ({ ...a, forma: e.target.value }))}
-                  aria-label={aporte.resgate ? "Pra onde voltou" : "De onde saiu"}
-                  style={{ ...inputBase, marginTop: "0.5rem", appearance: "none" }}
-                >
-                  {/* O rótulo acompanha a ação: guardando, o dinheiro SAI de algum
-                      lugar; tirando, ele VOLTA pra algum lugar. */}
-                  <option value="">{aporte.resgate ? "Pra onde voltou (opcional)" : "De onde saiu (opcional)"}</option>
-                  {FORMAS_APORTE.map((f) => <option key={f} value={f}>{f}</option>)}
-                </select>
-
                 {/* DUAS OPÇÕES VISÍVEIS, E NÃO UM CHECKBOX (corrigido em 18/09).
                     Antes isto era uma caixinha "Na verdade eu tirei dinheiro daqui", e
                     o Lucas não entendeu no primeiro uso: "se clicar ele tira do saldo,
@@ -214,38 +212,69 @@ export default function MetasCaixinhas({
                     Agora as duas ações aparecem lado a lado, sempre, com o efeito no
                     saldo dito em português embaixo. Ninguém precisa deduzir o que o
                     estado não-marcado de uma caixa significa. */}
-                <div style={{ display: "flex", gap: "0.4rem", marginTop: "0.6rem" }}>
-                  {[
-                    { chave: false, label: "Guardei" },
-                    { chave: true, label: "Tirei da caixinha" },
-                  ].map((op) => {
-                    const ativo = aporte.resgate === op.chave;
-                    return (
-                      <button
-                        key={op.label}
-                        type="button"
-                        onClick={() => setAporte((a) => ({ ...a, resgate: op.chave }))}
-                        className="pdx-tap"
-                        style={{
-                          flex: 1, padding: "0.5rem", borderRadius: "8px", cursor: "pointer",
-                          fontSize: "0.78rem", fontWeight: 700, fontFamily: "inherit",
-                          border: `1px solid ${ativo ? COR.acento : COR.borda}`,
-                          background: ativo ? COR.acento : "transparent",
-                          color: ativo ? "#fff" : COR.medio,
-                        }}
-                      >
-                        {op.label}
-                      </button>
-                    );
-                  })}
-                </div>
+                <EscolhaDupla
+                  titulo="O que aconteceu"
+                  valor={aporte.resgate}
+                  // Trocar de guardar pra tirar reseta o efeito no saldo: "já estava
+                  // guardado" e "não voltou pra conta" são perguntas diferentes, e
+                  // herdar a resposta da outra seria responder por quem está usando.
+                  onMudar={(v) => setAporte((a) => ({ ...a, resgate: v, abateSaldo: true }))}
+                  opcoes={[{ chave: false, label: "Guardei" }, { chave: true, label: "Tirei da caixinha" }]}
+                />
+
+                {/* O DINHEIRO SE MOVEU AGORA? (18/09, pedido do Lucas: "deixa a opção
+                    dele abater ou não do saldo".)
+
+                    Existe pelo caso de estreia, que é o primeiro que todo mundo vive:
+                    a pessoa cria "Viagem — R$ 5.000" e já tem R$ 2.000 juntados de
+                    antes. Sem esta escolha, registrar esses R$ 2.000 faria o mês dela
+                    nascer com R$ 2.000 negativos por um dinheiro que saiu da conta
+                    meses atrás — ou ela mentiria o valor, e aí a barra nunca mais bate
+                    com a vida.
+
+                    "Saiu da conta agora" segue sendo o padrão porque segue sendo a
+                    verdade quase sempre. */}
+                <EscolhaDupla
+                  titulo="Esse dinheiro se moveu agora?"
+                  valor={aporte.abateSaldo}
+                  onMudar={(v) => setAporte((a) => ({ ...a, abateSaldo: v, forma: v ? a.forma : "" }))}
+                  opcoes={
+                    aporte.resgate
+                      ? [{ chave: true, label: "Voltou pra conta" }, { chave: false, label: "Não passou pela conta" }]
+                      : [{ chave: true, label: "Saiu da conta agora" }, { chave: false, label: "Já estava guardado" }]
+                  }
+                />
+
+                {/* Crédito não está na lista de propósito: guardar dinheiro no crédito
+                    geraria fatura e dívida fingindo de poupança (ver lib/metas.js).
+                    Só aparece quando o dinheiro se moveu agora — perguntar "de onde
+                    saiu" sobre um dinheiro que já estava guardado não tem resposta. */}
+                {aporte.abateSaldo && (
+                  <select
+                    value={aporte.forma}
+                    onChange={(e) => setAporte((a) => ({ ...a, forma: e.target.value }))}
+                    aria-label={aporte.resgate ? "Pra onde voltou" : "De onde saiu"}
+                    style={{ ...inputBase, marginTop: "0.6rem", appearance: "none" }}
+                  >
+                    {/* O rótulo acompanha a ação: guardando, o dinheiro SAI de algum
+                        lugar; tirando, ele VOLTA pra algum lugar. */}
+                    <option value="">{aporte.resgate ? "Pra onde voltou (opcional)" : "De onde saiu (opcional)"}</option>
+                    {FORMAS_APORTE.map((f) => <option key={f} value={f}>{f}</option>)}
+                  </select>
+                )}
 
                 {/* A frase é o ponto inteiro da mudança: diz o que vai acontecer com o
-                    saldo ANTES de a pessoa confirmar. */}
-                <p style={{ margin: "0.5rem 0 0", fontSize: "0.72rem", color: COR.medio, lineHeight: 1.45 }}>
+                    saldo ANTES de a pessoa confirmar. Os quatro casos estão escritos
+                    por extenso porque montar a frase por pedaços produziria português
+                    torto no cruzamento menos comum. */}
+                <p style={{ margin: "0.6rem 0 0", fontSize: "0.72rem", color: COR.medio, lineHeight: 1.45 }}>
                   {aporte.resgate
-                    ? "O valor volta pro seu saldo do mês e sai da caixinha."
-                    : "O valor sai do seu saldo do mês e entra na caixinha."}
+                    ? aporte.abateSaldo
+                      ? "O valor volta pro seu saldo do mês e sai da caixinha."
+                      : "O valor sai da caixinha. Seu saldo do mês não muda."
+                    : aporte.abateSaldo
+                      ? "O valor sai do seu saldo do mês e entra na caixinha."
+                      : "O valor entra na caixinha. Seu saldo do mês não muda."}
                 </p>
 
                 <button
@@ -346,6 +375,47 @@ export default function MetasCaixinhas({
 
       {paywall && <PaywallMetas email={email} onFechar={() => setPaywall(false)} />}
     </section>
+  );
+}
+
+/**
+ * Duas opções lado a lado, sempre visíveis, com o título em cima.
+ *
+ * É o padrão de escolha binária desta tela — e existe como componente porque são duas
+ * perguntas seguidas ("o que aconteceu" e "o dinheiro se moveu agora"), e duas cópias
+ * do mesmo bloco de estilo é como uma delas fica visualmente diferente da outra sem
+ * ninguém perceber.
+ */
+function EscolhaDupla({ titulo, valor, onMudar, opcoes }) {
+  return (
+    <div style={{ marginTop: "0.7rem" }}>
+      <p style={{ margin: "0 0 0.35rem", fontSize: "0.68rem", color: COR.fraco, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+        {titulo}
+      </p>
+      <div style={{ display: "flex", gap: "0.4rem" }}>
+        {opcoes.map((op) => {
+          const ativo = valor === op.chave;
+          return (
+            <button
+              key={op.label}
+              type="button"
+              onClick={() => onMudar(op.chave)}
+              aria-pressed={ativo}
+              className="pdx-tap"
+              style={{
+                flex: 1, padding: "0.5rem 0.4rem", borderRadius: "8px", cursor: "pointer",
+                fontSize: "0.76rem", fontWeight: 700, fontFamily: "inherit", lineHeight: 1.2,
+                border: `1px solid ${ativo ? COR.acento : COR.borda}`,
+                background: ativo ? COR.acento : "transparent",
+                color: ativo ? "#fff" : COR.medio,
+              }}
+            >
+              {op.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

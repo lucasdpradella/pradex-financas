@@ -13,3 +13,6 @@ supabase/.temp/
 pradex-cenarios/
 
 .claude/
+
+# Credenciais da instancia Z-API do numero do Pradex (nao versionar)
+.env.zapi
