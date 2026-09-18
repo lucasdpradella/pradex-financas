@@ -228,3 +228,70 @@ describe("guardouNoMes e o componente do score", () => {
     expect(comp.pontos).toBe(comp.max);
   });
 });
+
+// ============================================================================
+// abate_saldo — o aporte que NÃO mexe no mês (18/09)
+// ============================================================================
+// Pedido do Lucas: "deixa a opção dele abater ou não do saldo". O caso que motivou é
+// a estreia: quem cria "Viagem — R$ 5.000" já tendo R$ 2.000 juntados não pode ver o
+// mês nascer com R$ 2.000 negativos por um dinheiro que saiu da conta meses atrás.
+describe("aporte que não abate do saldo", () => {
+  it("enche a caixinha igual: o acumulado conta os dois", () => {
+    const ls = [
+      lanc({ meta_id: 7, valor: 2000, abate_saldo: false }),  // já estava guardado
+      lanc({ meta_id: 7, valor: 300 }),                        // saiu da conta agora
+    ];
+    expect(acumuladoDaMeta(ls, 7)).toBe(2300);
+  });
+
+  it("fica fora do saldo, do guardado e do gasto do mês", () => {
+    const ls = [
+      lanc({ tipo: "receita", valor: 1000, data_lancamento: "2026-09-01" }),
+      lanc({ meta_id: 7, valor: 2000, data_lancamento: "2026-09-02", abate_saldo: false }),
+    ];
+    const f = calcularFechamento(ls, 2026, 8, { hoje: new Date("2026-09-30T12:00:00") });
+    expect(f.guardado).toBe(0);
+    expect(f.gastoTotal).toBe(0);
+    expect(f.saldo).toBe(1000);   // e não -1000
+  });
+
+  it("resgate que não passou pela conta também não entra no saldo", () => {
+    const ls = [
+      lanc({ tipo: "receita", valor: 1000, data_lancamento: "2026-09-01" }),
+      lanc({ tipo: "receita", valor: 500, data_lancamento: "2026-09-03", meta_id: 7, abate_saldo: false }),
+    ];
+    const f = calcularFechamento(ls, 2026, 8, { hoje: new Date("2026-09-30T12:00:00") });
+    expect(f.resgatado).toBe(0);
+    expect(f.saldo).toBe(1000);
+  });
+
+  // A coluna nasceu em 18/09: tudo que veio antes chega sem o campo, e ausente
+  // precisa significar "abate" — senão um dia de lançamentos antigos sumiria do saldo.
+  it("campo ausente é tratado como abate (compatibilidade)", () => {
+    const ls = [lanc({ meta_id: 7, valor: 300, data_lancamento: "2026-09-02" })];
+    const f = calcularFechamento(ls, 2026, 8, { hoje: new Date("2026-09-30T12:00:00") });
+    expect(f.guardado).toBe(300);
+    expect(f.saldo).toBe(-300);
+  });
+
+  it("não pontua o score: premiaria o cadastro em vez do hábito", () => {
+    expect(guardouNoMes([lanc({ valor: 2000, meta_id: 7, abate_saldo: false })])).toBe(false);
+    expect(guardouNoMes([lanc({ valor: 20, meta_id: 7 })])).toBe(true);
+  });
+
+  it("montarLancamentoAporte marca a coluna e dispensa a forma de pagamento", () => {
+    const { lancamento } = montarLancamentoAporte({
+      meta, valor: 2000, data: "2026-09-18", userId: "u1", abateSaldo: false, forma: "PIX",
+    });
+    expect(lancamento.abate_saldo).toBe(false);
+    // Dizer "PIX" afirmaria um PIX de hoje que não aconteceu.
+    expect(lancamento.forma_pagamento).toBe(null);
+    expect(lancamento.descricao).toContain("já estava guardado");
+  });
+
+  it("o padrão continua sendo abater — guardar = aplicar = debitar", () => {
+    const { lancamento } = montarLancamentoAporte({ meta, valor: 300, data: "2026-09-18", userId: "u1" });
+    expect(lancamento.abate_saldo).toBe(true);
+    expect(lancamento.descricao).toBe("Guardei — Viagem");
+  });
+});

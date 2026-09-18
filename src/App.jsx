@@ -862,16 +862,19 @@ export default function PradexFinancas() {
     } finally { setSalvandoMeta(false); }
   };
 
-  // Guardar dinheiro é LANÇAMENTO, não registro paralelo: sai do saldo do mês como
-  // saiu da conta (decisão do Lucas, 16/09). Por isso isto escreve em `Lancamentos` e
-  // não numa tabela de aportes — que não existe.
+  // Guardar dinheiro é LANÇAMENTO, não registro paralelo: por padrão sai do saldo do
+  // mês como saiu da conta (decisão do Lucas, 16/09). Por isso isto escreve em
+  // `Lancamentos` e não numa tabela de aportes — que não existe.
+  //
+  // `abateSaldo = false` (18/09) é o dinheiro que já estava guardado antes da caixinha
+  // existir: vira lançamento do mesmo jeito, mas as agregações do mês o ignoram.
   //
   // Quem marca a meta como concluída é a trigger no banco, não esta função: o aporte
   // pode nascer de três lugares (aqui, a tela de Lançar e o WhatsApp) e a regra de
   // conclusão replicada em três clientes vira três regras diferentes no primeiro bug.
-  const aportarNaMeta = async ({ meta, valor, data, forma, resgate }) => {
+  const aportarNaMeta = async ({ meta, valor, data, forma, resgate, abateSaldo = true }) => {
     if (!session?.token) return;
-    const { lancamento, erro } = montarLancamentoAporte({ meta, valor, data, forma, resgate, userId: session.user.id });
+    const { lancamento, erro } = montarLancamentoAporte({ meta, valor, data, forma, resgate, abateSaldo, userId: session.user.id });
     if (erro) { setErroMeta(erro); return; }
 
     setSalvandoMeta(true);
@@ -2732,9 +2735,11 @@ export default function PradexFinancas() {
         // Aporte de caixinha fora de gasto e de receita, dentro do saldo (mesma regra
         // de lib/fechamento.js e do DashboardDesktop).
         const receitasMes = lancMes.filter(l => l.tipo === "receita" && l.meta_id == null).reduce((s, l) => s + Number(l.valor), 0);
-        const resgatadoMes = lancMes.filter(l => l.tipo === "receita" && l.meta_id != null).reduce((s, l) => s + Number(l.valor), 0);
+        // `abate_saldo !== false`: aporte de dinheiro que já estava guardado não
+        // passou pela conta neste mês e não entra no saldo.
+        const resgatadoMes = lancMes.filter(l => l.tipo === "receita" && l.meta_id != null && l.abate_saldo !== false).reduce((s, l) => s + Number(l.valor), 0);
         const gastosMes = lancMes.filter(l => l.tipo === "gasto" && l.meta_id == null).reduce((s, l) => s + Number(l.valor), 0);
-        const guardadoMes = lancMes.filter(l => l.tipo === "gasto" && l.meta_id != null).reduce((s, l) => s + Number(l.valor), 0);
+        const guardadoMes = lancMes.filter(l => l.tipo === "gasto" && l.meta_id != null && l.abate_saldo !== false).reduce((s, l) => s + Number(l.valor), 0);
         const gastosDebitoMes = lancMes.filter(l => l.tipo === "gasto" && l.meta_id == null && l.forma_pagamento !== "Crédito").reduce((s, l) => s + Number(l.valor), 0);
         const gastosCartaoMes = lancMes.filter(l => l.tipo === "gasto" && l.meta_id == null && l.forma_pagamento === "Crédito").reduce((s, l) => s + Number(l.valor), 0);
         const saldoMes = receitasMes + resgatadoMes - gastosMes - guardadoMes;
