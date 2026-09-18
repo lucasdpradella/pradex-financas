@@ -160,7 +160,7 @@ export default function MetasCaixinhas({
                 className="pdx-tap"
                 style={{ background: "transparent", border: `1px solid ${COR.acento}`, borderRadius: "8px", color: COR.acento, fontSize: "0.75rem", fontWeight: 700, padding: "0.35rem 0.7rem", cursor: "pointer", fontFamily: "inherit" }}
               >
-                {aporteDe === m.id ? "fechar" : "Guardei"}
+                {aporteDe === m.id ? "fechar" : "Guardei / tirei"}
               </button>
             </div>
 
@@ -194,25 +194,58 @@ export default function MetasCaixinhas({
                 <select
                   value={aporte.forma}
                   onChange={(e) => setAporte((a) => ({ ...a, forma: e.target.value }))}
-                  aria-label="De onde saiu"
+                  aria-label={aporte.resgate ? "Pra onde voltou" : "De onde saiu"}
                   style={{ ...inputBase, marginTop: "0.5rem", appearance: "none" }}
                 >
-                  <option value="">De onde saiu (opcional)</option>
+                  {/* O rótulo acompanha a ação: guardando, o dinheiro SAI de algum
+                      lugar; tirando, ele VOLTA pra algum lugar. */}
+                  <option value="">{aporte.resgate ? "Pra onde voltou (opcional)" : "De onde saiu (opcional)"}</option>
                   {FORMAS_APORTE.map((f) => <option key={f} value={f}>{f}</option>)}
                 </select>
 
-                <label style={{ display: "flex", alignItems: "center", gap: "0.45rem", margin: "0.6rem 0 0", fontSize: "0.75rem", color: COR.medio, cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={aporte.resgate}
-                    onChange={(e) => setAporte((a) => ({ ...a, resgate: e.target.checked }))}
-                  />
-                  {/* Resgate é aporte negativo: vira 'receita' com o mesmo meta_id e o
-                      dinheiro volta pro saldo. Sem isto, tirar da caixinha só seria
-                      possível apagando histórico — e aí o progresso deixaria de ser
-                      auditável. */}
-                  Na verdade eu tirei dinheiro daqui
-                </label>
+                {/* DUAS OPÇÕES VISÍVEIS, E NÃO UM CHECKBOX (corrigido em 18/09).
+                    Antes isto era uma caixinha "Na verdade eu tirei dinheiro daqui", e
+                    o Lucas não entendeu no primeiro uso: "se clicar ele tira do saldo,
+                    se não clicar não tira" — ambíguo em dois níveis. "Tirei daqui"
+                    podia ser da conta OU da caixinha, e o efeito no saldo não estava
+                    escrito em lugar nenhum; ficava na cabeça de quem escreveu o código.
+
+                    Agora as duas ações aparecem lado a lado, sempre, com o efeito no
+                    saldo dito em português embaixo. Ninguém precisa deduzir o que o
+                    estado não-marcado de uma caixa significa. */}
+                <div style={{ display: "flex", gap: "0.4rem", marginTop: "0.6rem" }}>
+                  {[
+                    { chave: false, label: "Guardei" },
+                    { chave: true, label: "Tirei da caixinha" },
+                  ].map((op) => {
+                    const ativo = aporte.resgate === op.chave;
+                    return (
+                      <button
+                        key={op.label}
+                        type="button"
+                        onClick={() => setAporte((a) => ({ ...a, resgate: op.chave }))}
+                        className="pdx-tap"
+                        style={{
+                          flex: 1, padding: "0.5rem", borderRadius: "8px", cursor: "pointer",
+                          fontSize: "0.78rem", fontWeight: 700, fontFamily: "inherit",
+                          border: `1px solid ${ativo ? COR.acento : COR.borda}`,
+                          background: ativo ? COR.acento : "transparent",
+                          color: ativo ? "#fff" : COR.medio,
+                        }}
+                      >
+                        {op.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* A frase é o ponto inteiro da mudança: diz o que vai acontecer com o
+                    saldo ANTES de a pessoa confirmar. */}
+                <p style={{ margin: "0.5rem 0 0", fontSize: "0.72rem", color: COR.medio, lineHeight: 1.45 }}>
+                  {aporte.resgate
+                    ? "O valor volta pro seu saldo do mês e sai da caixinha."
+                    : "O valor sai do seu saldo do mês e entra na caixinha."}
+                </p>
 
                 <button
                   type="button"
@@ -221,7 +254,7 @@ export default function MetasCaixinhas({
                   className="pdx-tap"
                   style={{ marginTop: "0.6rem", width: "100%", padding: "0.65rem", border: "none", borderRadius: "9px", background: COR.acento, color: "#fff", fontSize: "0.82rem", fontWeight: 700, cursor: salvando ? "not-allowed" : "pointer", opacity: salvando ? 0.7 : 1, fontFamily: "inherit" }}
                 >
-                  {salvando ? "Salvando..." : aporte.resgate ? "Registrar retirada" : "Registrar que guardei"}
+                  {salvando ? "Salvando..." : aporte.resgate ? "Confirmar retirada" : "Confirmar que guardei"}
                 </button>
               </div>
             )}
