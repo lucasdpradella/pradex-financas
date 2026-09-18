@@ -1,276 +1,704 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Como usar o Pradex — guia completo</title>
-  <meta name="theme-color" content="#0C0E14" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Como usar o Pradex — manual completo</title>
+<meta name="description" content="Manual do Pradex Finanças: como lançar gastos no app e pelo WhatsApp, usar cartões e parcelas, definir teto por categoria, criar metas e entender o score de disciplina. Com print de cada tela." />
+<link rel="canonical" href="https://pradex.com.br/guia" />
 
-  <!-- POR QUE ISTO É UMA PÁGINA, E NÃO UM PDF (2026-09-17).
-       Existia um "Guia completo" em PDF, de 27/05/2026, 15 páginas. Quatro meses
-       depois ele estava errado em quase tudo o que importa: apontava pra
-       `pradex-financas.vercel.app` (o domínio virou pradex.com.br), dizia "app
-       gratuito" (hoje há Essencial e Assistente), e ensinava abas que não existem
-       mais — havia uma aba "IA" e uma "FP" que viraram outra coisa.
-       Ninguém errou: PDF não se atualiza, e cada cópia enviada a um cliente vira uma
-       versão errada pra sempre. Página viva conserta com um deploy, e o link que o
-       cliente recebeu continua valendo.
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="Pradex Finanças" />
+<meta property="og:title" content="Como usar o Pradex em 10 minutos" />
+<meta property="og:description" content="Do primeiro gasto anotado à sua primeira meta batida. Com print de cada tela e onde clicar." />
+<meta property="og:url" content="https://pradex.com.br/guia" />
+<meta property="og:image" content="https://pradex.com.br/icon-512.png" />
+<meta name="twitter:card" content="summary" />
+<meta name="theme-color" content="#0C0E14" />
 
-       ⚠️ QUEM MEXER AQUI: só documente o que está EM PRODUÇÃO. Feature em PR aberto
-       não entra — em 17/09 as METAS (caixinhas) estavam prontas no PR #73 e ficaram
-       de fora por não terem sido mergeadas. Quando subirem, acrescentar uma seção. -->
-  <meta name="description" content="Guia de uso do Pradex Finanças: como lançar gastos no app e pelo WhatsApp, usar cartões e parcelas, definir teto por categoria e entender o score de disciplina." />
-  <link rel="canonical" href="https://pradex.com.br/guia" />
 
-  <meta property="og:type" content="article" />
-  <meta property="og:site_name" content="Pradex Finanças" />
-  <meta property="og:title" content="Como usar o Pradex — guia completo" />
-  <meta property="og:description" content="Do primeiro lançamento ao teto por categoria: o passo a passo do Pradex Finanças." />
-  <meta property="og:url" content="https://pradex.com.br/guia" />
-  <meta property="og:image" content="https://pradex.com.br/icon-512.png" />
-  <meta name="twitter:card" content="summary" />
+<!--
+  MANUAL DO PRADEX — v2, 18/09/2026. ESTA É A CÓPIA PUBLICADA (pradex.com.br/guia).
 
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" />
+  ⚠️ A FONTE é Chave Mestre/Projetos/PRADEX/manual/index.html. Editar aqui e não lá
+  faz as duas divergirem — e é a de lá que alguém vai abrir da próxima vez. Mexa na
+  fonte e regere esta com scripts/montar-guia.mjs.
 
-  <style>
-    :root { color-scheme: dark; }
-    body { background: #0C0E14; color: #F1F2F4; font-family: 'DM Sans', 'Helvetica Neue', system-ui, sans-serif; margin: 0; padding: 2.5rem 1.25rem 3rem; -webkit-font-smoothing: antialiased; }
-    main { max-width: 720px; margin: 0 auto; }
-    .marca { font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: #8B93A1; margin: 0 0 0.5rem; }
-    h1 { font-size: 1.75rem; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 0.75rem; line-height: 1.25; }
-    .lead { font-size: 1rem; color: #8B93A1; line-height: 1.6; margin: 0 0 2rem; }
-    h2 { font-size: 1.15rem; font-weight: 700; margin: 2.5rem 0 0.7rem; letter-spacing: -0.01em; }
-    h3 { font-size: 0.95rem; font-weight: 600; margin: 1.4rem 0 0.4rem; }
-    p, li { font-size: 0.92rem; color: #C9CFDA; line-height: 1.65; }
-    ul, ol { padding-left: 1.15rem; }
-    li { margin-bottom: 0.4rem; }
-    a { color: #6366F1; }
-    strong { color: #F1F2F4; }
-    .indice { border: 1px solid #2C3344; border-radius: 12px; padding: 1rem 1.15rem; background: #151821; margin-bottom: 2rem; }
-    .indice p { margin: 0 0 0.5rem; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: #8B93A1; }
-    .indice ol { margin: 0; padding-left: 1.1rem; }
-    .indice li { margin-bottom: 0.25rem; }
-    .caixa { border: 1px solid #2C3344; border-radius: 12px; padding: 0.9rem 1.15rem; background: #151821; margin: 1rem 0; }
-    .caixa p:last-child { margin-bottom: 0; }
-    .zap { border-color: #25D36635; background: #25D3660F; }
-    .dica { border-color: #6366F140; background: #6366F10F; }
-    .exemplo { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; color: #F1F2F4; background: #0C0E14; border: 1px solid #2C3344; border-radius: 8px; padding: 0.5rem 0.7rem; display: inline-block; margin: 0.15rem 0; }
-    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.88rem; }
-    th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid #1E2330; vertical-align: top; }
-    th { color: #8B93A1; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
-    td { color: #C9CFDA; }
-    .cta { display: inline-block; margin-top: 1.5rem; background: #6366F1; color: #fff; text-decoration: none; font-weight: 700; padding: 0.85rem 1.5rem; border-radius: 10px; }
-    footer { margin-top: 3rem; padding-top: 1.25rem; border-top: 1px solid #1E2330; font-size: 0.8rem; color: #8B93A1; }
-    footer a { margin-right: 1rem; }
-  </style>
+  ⚠️ PARA QUEM FOR MELHORAR A APARÊNCIA (Gemini / GPT / Grok):
+
+  MEXA SÓ NO BLOCO DE ESTILO. O HTML abaixo é semântico e o conteúdo foi conferido contra o
+  app em produção. Reestilizar é bem-vindo; reescrever texto, não.
+
+  NÃO PODE MUDAR, em hipótese nenhuma:
+    - o SVG do mascote, logo abaixo (é o polvo OFICIAL, escolhido em 15/09 — não trocar por emoji,
+      não "melhorar" o desenho, não usar outro polvo). A v1 deste manual usou 🐙 e foi
+      rejeitada exatamente por isso.
+    - preços: R$ 0 / R$ 29,90 / R$ 79,90, e o que cada plano inclui
+    - o número do agente (5511924568633) e os endereços pradex.com.br
+    - a regra do score: pontua comportamento, nunca dinheiro
+    - os prints em img/ — são telas reais da conta de demonstração
+
+  PALETA OFICIAL: fundo #0C0E14, indigo #4F46E5, indigo claro #8189F7,
+  ciano #22D3EE, fonte DM Sans. Nada de bronze, roxo néon ou gradiente arco-íris.
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" />
+
+<style>
+:root {
+  --bg: #0C0E14;
+  --surface: #151821;
+  --surface2: #1E2330;
+  --linha: #2C3344;
+  --texto: #F1F2F4;
+  --medio: #8B93A1;
+  --fraco: #5C6570;
+  --indigo: #4F46E5;
+  --indigo-claro: #8189F7;
+  --ciano: #22D3EE;
+  --verde: #2FBF8A;
+  --laranja: #E8943A;
+  --zap: #25D366;
+}
+* { box-sizing: border-box; }
+html { color-scheme: dark; scroll-behavior: smooth; }
+::selection { background: rgba(79,70,229,0.45); color: #fff; }
+body {
+  margin: 0; color: var(--texto);
+  font-family: "DM Sans", "Segoe UI", system-ui, sans-serif;
+  line-height: 1.65; -webkit-font-smoothing: antialiased;
+  background:
+    radial-gradient(920px 480px at 50% -120px, rgba(79,70,229,0.22), transparent 58%),
+    radial-gradient(640px 380px at 100% 18%, rgba(34,211,238,0.05), transparent 52%),
+    radial-gradient(520px 320px at 0% 72%, rgba(79,70,229,0.06), transparent 50%),
+    var(--bg);
+}
+body::before {
+  content: "";
+  position: fixed; inset: 0; pointer-events: none; z-index: 80;
+  opacity: 0.035; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
+}
+body::after {
+  content: "";
+  position: fixed; top: 0; left: 0; right: 0; height: 1px; z-index: 90; pointer-events: none;
+  background: linear-gradient(90deg, transparent 8%, var(--indigo) 38%, var(--ciano) 50%, var(--indigo) 62%, transparent 92%);
+}
+main { max-width: 860px; margin: 0 auto; padding: 0 20px 96px; }
+
+/* capa */
+.capa { text-align: center; padding: 80px 20px 56px; position: relative; }
+.capa::before {
+  content: "";
+  position: absolute; left: 50%; top: 24px; transform: translateX(-50%);
+  width: min(520px, 92vw); height: 300px; pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 42%, rgba(79,70,229,0.38) 0%, rgba(34,211,238,0.10) 38%, transparent 68%);
+}
+.capa::after {
+  content: "";
+  position: absolute; left: 50%; top: 64px; transform: translateX(-50%);
+  width: 148px; height: 148px; border-radius: 50%; pointer-events: none;
+  border: 1px solid rgba(129,137,247,0.28);
+  box-shadow: 0 0 48px rgba(79,70,229,0.22), inset 0 0 36px rgba(79,70,229,0.10);
+}
+.capa svg {
+  width: 104px; height: 104px; position: relative; z-index: 1;
+  filter:
+    drop-shadow(0 10px 22px rgba(79,70,229,0.55))
+    drop-shadow(0 0 40px rgba(34,211,238,0.18));
+}
+.capa h1 {
+  font-size: clamp(2.15rem, 6.4vw, 3.2rem);
+  margin: 22px 0 10px; letter-spacing: -0.038em; font-weight: 700; line-height: 1.12;
+  position: relative; z-index: 1;
+}
+.capa h1 span {
+  background: linear-gradient(92deg, var(--indigo-claro) 10%, var(--ciano) 90%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.capa p {
+  color: var(--medio); font-size: 1.08rem; margin: 0 auto; max-width: 30em;
+  position: relative; z-index: 1;
+}
+.capa .selo {
+  display: inline-block; margin-top: 24px; padding: 7px 16px; border-radius: 99px;
+  background: rgba(79,70,229,0.14);
+  border: 1px solid rgba(129,137,247,0.38);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 0 0 1px rgba(34,211,238,0.06), 0 8px 24px rgba(79,70,229,0.16);
+  font-size: 0.78rem; color: var(--indigo-claro); font-weight: 600; letter-spacing: 0.08em;
+  position: relative; z-index: 1;
+}
+
+/* sumário */
+.sumario {
+  background: linear-gradient(180deg, rgba(255,255,255,0.035), transparent 42%), var(--surface);
+  border: 1px solid rgba(44,51,68,0.95);
+  border-radius: 16px; padding: 22px 26px; margin-bottom: 56px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 18px 40px rgba(0,0,0,0.28);
+}
+.sumario p { margin: 0 0 12px; font-size: 0.7rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--fraco); font-weight: 600; }
+.sumario ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 32px; }
+.sumario li { margin-bottom: 6px; }
+.sumario a { color: var(--texto); text-decoration: none; transition: color 0.15s; }
+.sumario a:hover { color: var(--indigo-claro); }
+
+/* seções */
+section { margin-bottom: 64px; scroll-margin-top: 24px; }
+h2 { font-size: 1.52rem; margin: 0 0 6px; letter-spacing: -0.025em; display: flex; align-items: center; gap: 12px; }
+h2 .n {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+  background: linear-gradient(160deg, #6366F1, var(--indigo));
+  color: #fff; font-size: 0.95rem; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 0 4px rgba(79,70,229,0.18), 0 8px 18px rgba(79,70,229,0.32);
+}
+h2 .tag {
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 99px;
+  background: rgba(34,211,238,0.10); color: var(--ciano);
+  border: 1px solid rgba(34,211,238,0.32);
+}
+h3 { font-size: 1.04rem; margin: 28px 0 6px; letter-spacing: -0.02em; }
+.intro { color: var(--medio); margin: 0 0 22px 46px; }
+p { margin: 0 0 12px; }
+a { color: var(--indigo-claro); }
+a:hover { color: var(--ciano); }
+strong { color: #fff; }
+
+/* passo a passo */
+.passos { list-style: none; counter-reset: p; margin: 0; padding: 0; }
+.passos > li {
+  counter-increment: p; position: relative; padding: 0 0 22px 46px; margin: 0;
+  border-left: 2px solid rgba(79,70,229,0.28);
+}
+.passos > li:last-child { border-left-color: transparent; padding-bottom: 0; }
+.passos > li::before {
+  content: counter(p); position: absolute; left: -15px; top: -2px;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--indigo); color: #fff;
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 0 2px rgba(79,70,229,0.28);
+  font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; justify-content: center;
+}
+.passos > li b { display: block; margin-bottom: 2px; color: #fff; }
+.passos > li p { margin: 0 0 6px; color: var(--medio); font-size: 0.95rem; }
+
+/* prints — chassis de celular */
+figure {
+  margin: 28px 0 8px;
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+}
+figure img {
+  width: 100%; max-width: 264px; display: block;
+  border-radius: 36px;
+  border: 11px solid #141824;
+  border-top-width: 15px;
+  border-bottom-width: 18px;
+  background: #07080C;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.10),
+    0 0 0 3px #0A0C12,
+    inset 0 1px 0 rgba(255,255,255,0.16),
+    0 2px 3px rgba(0,0,0,0.45),
+    0 14px 28px rgba(0,0,0,0.50),
+    0 36px 64px rgba(0,0,0,0.42),
+    0 48px 96px rgba(79,70,229,0.16);
+}
+figure::before {
+  content: "";
+  position: absolute; top: 7px; left: 50%; transform: translateX(-50%);
+  width: 68px; height: 8px; border-radius: 99px; z-index: 2; pointer-events: none;
+  background: #05060A;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.05), inset 0 1px 1px rgba(0,0,0,0.85);
+}
+figure::after {
+  content: "";
+  position: absolute; top: 15px; left: 12px; right: 12px;
+  height: 72px; pointer-events: none; z-index: 1;
+  background: linear-gradient(180deg, rgba(255,255,255,0.08), transparent 78%);
+  border-radius: 24px 24px 0 0;
+}
+figure.larga img { max-width: 300px; }
+figure.larga { margin-left: auto; margin-right: auto; }
+figcaption {
+  margin-top: 14px; font-size: 0.8rem; color: var(--fraco);
+  max-width: 280px; line-height: 1.45; letter-spacing: 0.005em;
+}
+figure.larga figcaption { max-width: 300px; }
+
+.lado { display: flex; gap: 36px; align-items: flex-start; flex-wrap: wrap; }
+.lado > div { flex: 1; min-width: 260px; }
+.lado figure { margin-top: 0; flex: 0 0 auto; }
+
+/* caixas */
+.caixa {
+  border: 1px solid var(--linha);
+  border-left: 3px solid var(--indigo);
+  background: linear-gradient(90deg, rgba(79,70,229,0.10), var(--surface) 36%);
+  border-radius: 14px; padding: 16px 18px; margin: 18px 0;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 10px 28px rgba(0,0,0,0.18);
+}
+.caixa.zap {
+  border-left-color: var(--zap);
+  background: linear-gradient(90deg, rgba(37,211,102,0.10), var(--surface) 36%);
+}
+.caixa.atencao {
+  border-left-color: var(--laranja);
+  background: linear-gradient(90deg, rgba(232,148,58,0.10), var(--surface) 36%);
+}
+.caixa .t { font-weight: 700; margin-bottom: 4px; color: var(--indigo-claro); }
+.caixa.zap .t { color: #4ADE80; }
+.caixa.atencao .t { color: var(--laranja); }
+.caixa p:last-child { margin-bottom: 0; }
+.caixa p { color: var(--medio); font-size: 0.95rem; }
+
+.exemplo {
+  font-family: ui-monospace, Consolas, monospace; font-size: 0.86rem;
+  background: rgba(12,14,20,0.75);
+  border: 1px solid var(--linha);
+  border-left: 2px solid var(--ciano);
+  border-radius: 8px;
+  padding: 7px 12px; display: inline-block; margin: 3px 6px 3px 0; color: var(--texto);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.93rem; }
+th {
+  text-align: left; padding: 10px 12px; font-size: 0.68rem; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--fraco); font-weight: 600;
+  border-bottom: 1px solid var(--linha);
+}
+td { padding: 11px 12px; border-bottom: 1px solid var(--surface2); color: var(--medio); vertical-align: top; }
+td strong { color: var(--texto); }
+tr:hover td { background: rgba(255,255,255,0.015); }
+
+.planos { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin: 24px 0; align-items: stretch; }
+.plano {
+  background: linear-gradient(180deg, #1A1F2C 0%, var(--surface) 100%);
+  border: 1px solid var(--surface2);
+  border-radius: 18px; padding: 24px 22px 22px;
+  position: relative;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 12px 28px rgba(0,0,0,0.18);
+  transition: transform 0.28s cubic-bezier(.2,.7,.2,1), border-color 0.28s, box-shadow 0.28s;
+}
+.plano:hover {
+  transform: translateY(-4px);
+  border-color: rgba(129,137,247,0.32);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 18px 40px rgba(0,0,0,0.28);
+}
+.plano.destaque {
+  transform: translateY(-6px);
+  background: linear-gradient(165deg, rgba(79,70,229,0.22) 0%, #171B27 44%);
+  border-color: rgba(129,137,247,0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    0 0 0 1px rgba(79,70,229,0.28),
+    0 22px 50px rgba(79,70,229,0.24);
+}
+.plano.destaque:hover {
+  transform: translateY(-8px);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.12),
+    0 0 0 1px rgba(79,70,229,0.35),
+    0 28px 56px rgba(79,70,229,0.30);
+}
+.plano.destaque::before {
+  content: "";
+  position: absolute; top: 0; left: 22px; right: 22px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--indigo-claro), var(--ciano), transparent);
+}
+.plano.destaque::after {
+  content: "";
+  position: absolute; inset: auto 18% -18px 18%; height: 28px;
+  background: rgba(79,70,229,0.35); filter: blur(18px); z-index: -1; pointer-events: none;
+}
+.plano .nome { font-weight: 700; font-size: 1.08rem; letter-spacing: -0.01em; }
+.plano.destaque .nome { color: var(--indigo-claro); }
+.plano .preco { font-size: 1.78rem; font-weight: 700; margin: 6px 0 12px; letter-spacing: -0.03em; }
+.plano.destaque .preco { color: #fff; }
+.plano .preco small { font-size: 0.78rem; color: var(--medio); font-weight: 600; letter-spacing: 0; }
+.plano ul { margin: 0; padding-left: 18px; font-size: 0.9rem; color: var(--medio); }
+.plano li { margin-bottom: 6px; }
+.plano.destaque li::marker { color: var(--ciano); }
+
+footer {
+  margin-top: 72px; padding-top: 24px;
+  border-top: 1px solid var(--surface2);
+  font-size: 0.82rem; color: var(--fraco); line-height: 1.55;
+}
+
+@media (max-width: 700px) {
+  .sumario ol { columns: 1; }
+  .intro { margin-left: 0; }
+  .lado { gap: 22px; }
+  .lado figure, figure, figure.larga { margin-left: auto; margin-right: auto; }
+  .capa { padding: 56px 12px 40px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .plano, .plano:hover, .plano.destaque, .plano.destaque:hover { transition: none; transform: none; }
+}
+</style>
 </head>
 <body>
 <main>
-  <p class="marca">Pradex Finanças</p>
-  <h1>Como usar o Pradex</h1>
-  <p class="lead">
-    Do primeiro lançamento ao teto por categoria. Dá pra ler inteiro em uns 10 minutos —
-    ou pular direto pro que você precisa agora.
-  </p>
 
-  <nav class="indice">
-    <p>Neste guia</p>
-    <ol>
-      <li><a href="#comecar">Comece por aqui</a></li>
-      <li><a href="#lancar">Lançar um gasto</a></li>
-      <li><a href="#whatsapp">Lançar pelo WhatsApp</a></li>
-      <li><a href="#cartoes">Cartões e parcelas</a></li>
-      <li><a href="#teto">Teto por categoria</a></li>
-      <li><a href="#score">Score de disciplina</a></li>
-      <li><a href="#planos">O que vem em cada plano</a></li>
-      <li><a href="#duvidas">Dúvidas comuns</a></li>
-    </ol>
-  </nav>
+<div class="capa">
+  <!-- MASCOTE OFICIAL — cópia fiel de marca/2026-09-15_mascote-polvo_OFICIAL.svg.
+       NÃO substituir por emoji nem redesenhar. -->
+  <svg viewBox="0 0 200 200" role="img" aria-label="Mascote do Pradex">
+    <defs>
+      <linearGradient id="pele" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#8189F7"/><stop offset="1" stop-color="#4F46E5"/>
+      </linearGradient>
+      <linearGradient id="olho" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#67E8F9"/><stop offset="1" stop-color="#22D3EE"/>
+      </linearGradient>
+    </defs>
+    <g fill="#5B54E8">
+      <path d="M56 120 C34 128 24 146 30 160 C34 170 46 172 52 164 C57 157 50 152 45 156 C41 159 40 153 44 148 C50 140 60 136 66 136 Z"/>
+      <path d="M144 120 C166 128 176 146 170 160 C166 170 154 172 148 164 C143 157 150 152 155 156 C159 159 160 153 156 148 C150 140 140 136 134 136 Z"/>
+      <path d="M74 134 C70 150 72 164 80 172 C86 178 94 174 93 166 C92 158 84 158 84 150 C84 144 86 138 88 134 Z"/>
+      <path d="M126 134 C130 150 128 164 120 172 C114 178 106 174 107 166 C108 158 116 158 116 150 C116 144 114 138 112 134 Z"/>
+      <path d="M100 136 C94 150 94 164 100 176 C106 164 106 150 100 136 Z"/>
+    </g>
+    <path fill="url(#pele)" d="M100 16 C146 16 174 48 174 90 C174 118 158 138 132 144 C122 146 110 147 100 147 C90 147 78 146 68 144 C42 138 26 118 26 90 C26 48 54 16 100 16 Z"/>
+    <path fill="#3F37C9" opacity=".20" d="M100 16 C54 16 26 48 26 90 C26 118 42 138 68 144 C78 146 90 147 100 147 Z"/>
+    <path fill="#332B9E" opacity=".62" d="M50 84 L92 96 L92 87 L50 73 Z"/>
+    <path fill="#332B9E" opacity=".62" d="M150 72 L110 92 L110 83 L150 63 Z"/>
+    <path fill="url(#olho)" d="M52 92 L88 102 L84 119 L53 113 Z"/>
+    <path fill="url(#olho)" d="M148 84 L114 100 L118 117 L148 106 Z"/>
+    <path fill="none" stroke="#2A2270" stroke-width="7" stroke-linecap="round"
+          d="M70 131 C86 137 104 139 118 136 C129 133 136 127 139 120"/>
+  </svg>
 
-  <h2 id="comecar">1. Comece por aqui</h2>
-  <p>
-    O Pradex abre em <a href="https://pradex.com.br">pradex.com.br</a>, no celular ou no
-    computador — é o mesmo endereço e a mesma conta nos dois. Dá pra instalar como app:
-    no Android, "Adicionar à tela inicial"; no iPhone, botão de compartilhar →
-    "Adicionar à Tela de Início".
-  </p>
-  <p>
-    <strong>Nos primeiros dias, faça só uma coisa: registre todo gasto.</strong> Não
-    precisa categorizar direitinho nem configurar nada antes. O resto do app — os
-    gráficos, o teto, o score — só tem o que mostrar depois que existem lançamentos.
-  </p>
-  <div class="caixa dica">
-    <p><strong>Uma dica que muda o resultado:</strong> registre na hora, não no fim do dia.
-    O que o app resolve não é a conta, é a memória — e a memória do café das 15h já foi
-    embora às 22h.</p>
+  <h1>Como usar o Pradex<br /><span>em 10 minutos</span></h1>
+  <p>Do primeiro gasto anotado à sua primeira meta batida. Com print de cada tela e onde clicar.</p>
+  <div class="selo">pradex.com.br</div>
+</div>
+
+<nav class="sumario">
+  <p>Neste manual</p>
+  <ol>
+    <li><a href="#comecar">Criar conta e entrar</a></li>
+    <li><a href="#lancar">Lançar seu primeiro gasto</a></li>
+    <li><a href="#dashboard">Entender o Dashboard</a></li>
+    <li><a href="#whatsapp">Lançar pelo WhatsApp</a></li>
+    <li><a href="#cartoes">Cartões e parcelas</a></li>
+    <li><a href="#teto">Teto por categoria</a></li>
+    <li><a href="#metas">Metas: as caixinhas</a></li>
+    <li><a href="#score">Score de disciplina</a></li>
+    <li><a href="#planos">Planos</a></li>
+    <li><a href="#duvidas">Dúvidas comuns</a></li>
+  </ol>
+</nav>
+
+<section id="comecar">
+  <h2><span class="n">1</span>Criar conta e entrar</h2>
+  <p class="intro">Leva um minuto. Não precisa de cartão.</p>
+  <ol class="passos">
+    <li>
+      <b>Abra pradex.com.br</b>
+      <p>No celular ou no computador — é o mesmo endereço e a mesma conta nos dois.</p>
+    </li>
+    <li>
+      <b>Toque em "Começar grátis"</b>
+      <p>O formulário abre já no modo de criar conta.</p>
+    </li>
+    <li>
+      <b>Preencha nome, e-mail, senha, data de nascimento e WhatsApp</b>
+      <p>O WhatsApp importa: é por ele que o agente vai te reconhecer depois. Use o número que você usa de verdade.</p>
+    </li>
+    <li>
+      <b>Instale como app (opcional, mas recomendado)</b>
+      <p>No Android: menu do navegador → "Adicionar à tela inicial". No iPhone: botão de compartilhar → "Adicionar à Tela de Início". Fica com ícone próprio, como qualquer app.</p>
+    </li>
+  </ol>
+  <div class="caixa">
+    <p class="t">Nos primeiros dias, faça só uma coisa</p>
+    <p>Registre todo gasto. Não precisa categorizar direitinho nem configurar nada antes — o resto do app (gráficos, teto, metas, score) só tem o que mostrar depois que existem lançamentos.</p>
+  </div>
+</section>
+
+<section id="lancar">
+  <h2><span class="n">2</span>Lançar seu primeiro gasto</h2>
+  <p class="intro">A tela que você vai usar todo dia.</p>
+  <div class="lado">
+    <div>
+      <ol class="passos">
+        <li>
+          <b>Toque em "Lançar" na barra de baixo</b>
+          <p>É a segunda aba.</p>
+        </li>
+        <li>
+          <b>Escolha Gasto ou Receita</b>
+          <p>O botão muda de cor: vermelho para gasto, verde para receita.</p>
+        </li>
+        <li>
+          <b>Preencha descrição e valor</b>
+          <p>"mercado", "uber", "assinatura". Simples assim.</p>
+        </li>
+        <li>
+          <b>Escolha a categoria</b>
+          <p>As padrão já vêm prontas. Você cria as suas em Categorias.</p>
+        </li>
+        <li>
+          <b>Escolha a forma de pagamento</b>
+          <p>Débito, crédito, dinheiro ou PIX. No crédito, dá pra escolher qual cartão.</p>
+        </li>
+        <li>
+          <b>Toque em Adicionar</b>
+          <p>Pronto. Ele já aparece no Histórico e no Dashboard.</p>
+        </li>
+      </ol>
+    </div>
+    <figure>
+      <img src="/guia/lancar.webp" alt="Tela de lançamento do Pradex, com os campos de descrição, valor, categoria e forma de pagamento" />
+      <figcaption>A tela de Lançar. Os dois interruptores embaixo são "parcelar" e "recorrente".</figcaption>
+    </figure>
   </div>
 
-  <h2 id="lancar">2. Lançar um gasto</h2>
-  <p>No celular, toque em <strong>Lançar</strong> na barra de baixo. Você informa:</p>
-  <ul>
-    <li><strong>Descrição e valor</strong> — "mercado", "uber", "assinatura".</li>
-    <li><strong>Gasto ou receita</strong> — o botão muda de cor: vermelho pra gasto, verde pra receita.</li>
-    <li><strong>Categoria</strong> — as padrão já vêm prontas, e você cria as suas em Categorias.</li>
-    <li><strong>Forma de pagamento</strong> — débito, crédito, dinheiro, PIX. No crédito, dá pra escolher o cartão.</li>
-  </ul>
-  <p>
-    Tem dois interruptores que valem conhecer: <strong>parcelar</strong>, que espalha a
-    compra pelos próximos meses automaticamente, e <strong>recorrente</strong>, pro que
-    se repete todo mês (aluguel, streaming, academia) e você não quer digitar de novo.
-  </p>
+  <h3>Parcelar e recorrente</h3>
+  <p><strong>Parcelar</strong> espalha a compra pelos próximos meses sozinho: uma compra em 10x vira 10 linhas, com o sufixo (1/10), (2/10) e assim por diante. <strong>Recorrente</strong> é pro que se repete todo mês — aluguel, streaming, academia — e você não quer digitar de novo.</p>
 
   <h3>O gasto evitável</h3>
-  <p>
-    Ao editar um lançamento você pode marcá-lo como <strong>evitável</strong> — aquele
-    que, olhando de fora, não precisava. Não é julgamento moral: é o único número do app
-    que mostra quanto do seu mês foi escolha, e não obrigação. No Dashboard ele vira o
-    card que mostra o que aquele dinheiro renderia investido.
-  </p>
+  <p>Ao editar um lançamento, dá pra marcá-lo como <strong>evitável</strong>: aquele que, olhando de fora, não precisava. Não é julgamento moral — é o único número do app que separa o que foi escolha do que foi obrigação.</p>
+</section>
 
-  <h2 id="whatsapp">3. Lançar pelo WhatsApp</h2>
-  <p>
-    Esta é a parte do <strong>Essencial</strong>. Você manda uma mensagem e o gasto entra
-    organizado, sem abrir o app:
-  </p>
-  <p>
-    <span class="exemplo">gastei 50 no mercado</span><br />
-    <span class="exemplo">almoço 38 no crédito nubank</span><br />
-    <span class="exemplo">recebi 1800 de salário</span>
-  </p>
-  <p>
-    Funciona por <strong>áudio</strong> também — falar "almoço 38 no crédito" andando na
-    rua é mais rápido que qualquer app, e cai organizado do mesmo jeito.
-  </p>
+<section id="dashboard">
+  <h2><span class="n">3</span>Entender o Dashboard</h2>
+  <p class="intro">Tudo que importa do mês, numa tela.</p>
+  <div class="lado">
+    <figure>
+      <img src="/guia/dashboard.webp" alt="Dashboard do Pradex com ganhos, débito, cartões, score de disciplina e gastos por categoria" />
+      <figcaption>Dashboard de uma conta de demonstração.</figcaption>
+    </figure>
+    <div>
+      <table>
+        <tr><th>O que é</th><th>O que mostra</th></tr>
+        <tr><td><strong>Ganhos / Débito / Cartões</strong></td><td>O resumo do mês em três números.</td></tr>
+        <tr><td><strong>Disciplina</strong></td><td>Sua nota de 0 a 100. Toque para abrir e ver de onde vem cada ponto.</td></tr>
+        <tr><td><strong>Botão do arrependimento</strong></td><td>Quanto você marcou como evitável e o que aquilo renderia investido.</td></tr>
+        <tr><td><strong>Resumo dos gastos</strong></td><td>Quanto saiu da conta e quanto vai cair na fatura.</td></tr>
+        <tr><td><strong>Gastos por categoria</strong></td><td>Onde o dinheiro foi. Com teto definido, a barra mostra quanto já foi usado.</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="whatsapp">
+  <h2><span class="n">4</span>Lançar pelo WhatsApp <span class="tag">Essencial</span></h2>
+  <p class="intro">O jeito mais rápido de registrar: sem abrir o app.</p>
+  <ol class="passos">
+    <li>
+      <b>Cadastre seu WhatsApp no app</b>
+      <p>Em Planejamento → Perfil. É por esse número que o agente te reconhece. Se você mandar de outro, ele não vai saber de quem é.</p>
+    </li>
+    <li>
+      <b>Salve o contato do Pradex</b>
+      <p>O agente atende em <a href="https://wa.me/5511924568633">wa.me/5511924568633</a>.</p>
+    </li>
+    <li>
+      <b>Mande o gasto como você falaria pra um amigo</b>
+      <p>
+        <span class="exemplo">gastei 50 no mercado</span>
+        <span class="exemplo">almoço 38 no crédito nubank</span>
+        <span class="exemplo">recebi 1800 de salário</span>
+      </p>
+    </li>
+    <li>
+      <b>Confira no app</b>
+      <p>O que entra por lá aparece no app na mesma hora. É o mesmo lançamento, não uma cópia.</p>
+    </li>
+  </ol>
   <div class="caixa zap">
-    <p>
-      <strong>Antes de tudo, cadastre seu WhatsApp no app</strong>, em Planejamento →
-      Perfil. É por esse número que o agente reconhece você. Se mandar de outro número,
-      ele não vai saber de quem é.
-    </p>
-    <p style="margin-top:0.6rem">
-      O agente atende em <a href="https://wa.me/5511924568633">wa.me/5511924568633</a>.
-    </p>
+    <p class="t">Funciona por áudio também</p>
+    <p>Falar "almoço 38 no crédito" andando na rua é mais rápido que qualquer app, e cai organizado do mesmo jeito. Se o agente ficar em dúvida, ele pergunta antes de gravar.</p>
   </div>
-  <p>
-    Se ele ficar em dúvida sobre o que você quis dizer, pergunta antes de gravar. E o que
-    entrar por lá aparece no app na mesma hora — é o mesmo lançamento, não uma cópia.
-  </p>
+</section>
 
-  <h2 id="cartoes">4. Cartões e parcelas</h2>
-  <p>
-    Cadastre seus cartões em <strong>Cartões</strong> (no computador, na barra lateral).
-    A partir daí, todo gasto no crédito pode ser ligado a um cartão, e o app separa o que
-    saiu da conta do que vai cair na fatura.
-  </p>
-  <p>
-    Compra parcelada vira várias linhas, uma por mês, com o sufixo <strong>(1/10)</strong>,
-    <strong>(2/10)</strong> e assim por diante. Isso significa que o mês que vem já nasce
-    sabendo o que você deve — que é justamente o que costuma pegar as pessoas de surpresa.
-  </p>
+<section id="cartoes">
+  <h2><span class="n">5</span>Cartões e parcelas</h2>
+  <p class="intro">Pra parar de ser pego de surpresa pela fatura.</p>
+  <ol class="passos">
+    <li>
+      <b>Cadastre seus cartões</b>
+      <p>No computador, em "Cartões" na barra lateral.</p>
+    </li>
+    <li>
+      <b>Ligue cada gasto no crédito ao cartão certo</b>
+      <p>Na hora de lançar, escolhendo "Crédito", aparece a lista dos seus cartões.</p>
+    </li>
+    <li>
+      <b>Veja os próximos meses no Histórico</b>
+      <p>As parcelas futuras já estão lá, com o sufixo (n/N). O mês que vem nasce sabendo o que você deve.</p>
+    </li>
+  </ol>
+  <figure class="larga">
+    <img src="/guia/historico.webp" alt="Histórico de lançamentos do Pradex, com filtro por mês e parcelas identificadas" />
+    <figcaption>O Histórico mês a mês. Use as setas pra navegar entre meses.</figcaption>
+  </figure>
+</section>
 
-  <h2 id="teto">5. Teto por categoria</h2>
-  <p>
-    Também do <strong>Essencial</strong>. Você diz quanto quer gastar no máximo em cada
-    categoria e o app acompanha. Se passar, ele mostra.
-  </p>
-  <ul>
-    <li>No celular: aba <strong>Teto</strong>, na barra de baixo.</li>
-    <li>No computador: <strong>Orçamento</strong>, na barra lateral.</li>
-  </ul>
-  <p>
-    Deixe em branco a categoria que não quer limitar. E não precisa refazer todo mês: o
-    teto continua valendo nos meses seguintes até você mudar.
-  </p>
-  <div class="caixa dica">
-    <p><strong>Comece baixo, não alto.</strong> Teto folgado não muda comportamento nenhum —
-    ele nunca estoura, e você nunca descobre nada. O teto útil é o que aperta um pouco.</p>
+<section id="teto">
+  <h2><span class="n">6</span>Teto por categoria <span class="tag">Essencial</span></h2>
+  <p class="intro">Você diz o limite, o app avisa quando chega perto.</p>
+  <div class="lado">
+    <div>
+      <ol class="passos">
+        <li>
+          <b>Abra a aba "Metas" e escolha "Tetos"</b>
+          <p>No computador é "Orçamento", na barra lateral.</p>
+        </li>
+        <li>
+          <b>Escreva quanto quer gastar no máximo em cada categoria</b>
+          <p>Deixe em branco as que não quer limitar.</p>
+        </li>
+        <li>
+          <b>Toque em "Salvar tetos"</b>
+          <p>Não precisa refazer todo mês: o teto continua valendo até você mudar.</p>
+        </li>
+      </ol>
+      <div class="caixa atencao">
+        <p class="t">Comece baixo, não alto</p>
+        <p>Teto folgado não muda comportamento nenhum — nunca estoura e você nunca descobre nada. O teto útil é o que aperta um pouco.</p>
+      </div>
+    </div>
+    <figure>
+      <img src="/guia/teto.webp" alt="Tela de teto por categoria, com o valor definido e o quanto já foi gasto em cada uma" />
+      <figcaption>Abaixo de cada categoria aparece quanto você já gastou nela no mês.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="metas">
+  <h2><span class="n">7</span>Metas: as caixinhas de guardar</h2>
+  <p class="intro">O teto cuida do que você não quer gastar. A meta cuida do que você quer juntar.</p>
+  <div class="lado">
+    <div>
+      <ol class="passos">
+        <li>
+          <b>Abra "Metas" e toque em "+ Nova caixinha"</b>
+          <p>No computador, "Metas" fica na barra lateral.</p>
+        </li>
+        <li>
+          <b>Dê um nome e diga quanto quer juntar</b>
+          <p>"Viagem pro Chile — R$ 5.000". Prazo é opcional.</p>
+        </li>
+        <li>
+          <b>Anote onde o dinheiro está (opcional)</b>
+          <p>"caixinha do Nubank", "CDB Inter". É lembrete seu: o app não consulta banco nenhum.</p>
+        </li>
+        <li>
+          <b>Toda vez que guardar, toque em "Guardei / tirei"</b>
+          <p>Escolha <strong>Guardei</strong>, informe o valor e confirme. A barra enche.</p>
+        </li>
+        <li>
+          <b>Precisou tirar? Use "Tirei da caixinha"</b>
+          <p>O valor volta pro seu saldo e sai da meta. Nada é apagado — o histórico fica.</p>
+        </li>
+      </ol>
+    </div>
+    <figure>
+      <img src="/guia/metas.webp" alt="Tela de metas do Pradex com duas caixinhas, barra de progresso e quanto falta para cada uma" />
+      <figcaption>Cada caixinha mostra quanto já tem, quanto falta e onde o dinheiro está guardado.</figcaption>
+    </figure>
   </div>
 
-  <h2 id="score">6. Score de disciplina</h2>
-  <p>
-    É a nota de 0 a 100 no topo do Dashboard, e ela é de graça pra todo mundo. O que ela
-    mede é <strong>comportamento, nunca dinheiro</strong> — quem ganha R$ 2 mil e registra
-    todo dia tira mais que quem ganha R$ 30 mil e lança uma vez no mês.
-  </p>
-  <table>
-    <tr><th>O que conta</th><th>O que é</th></tr>
-    <tr><td>Dentro do teto</td><td>Cumprir o limite que você mesmo definiu. É o de maior peso.</td></tr>
-    <tr><td>Constância</td><td>Em quantos dias do mês você registrou alguma coisa.</td></tr>
-    <tr><td>Mês preenchido</td><td>Chegar a 20 dias com lançamento.</td></tr>
-    <tr><td>Gasto evitável</td><td>O evitável caindo em relação ao mês passado.</td></tr>
-  </table>
-  <p>
-    O que você ainda não usa não conta contra você: sem teto cadastrado, esse item
-    simplesmente sai da conta em vez de puxar sua nota pra baixo.
-  </p>
+  <div class="caixa">
+    <p class="t">Guardar sai do seu saldo — e isso é de propósito</p>
+    <p>Quando você registra que guardou R$ 300, o valor sai do saldo do mês, porque saiu da sua conta de verdade. Mas ele <strong>não</strong> vira gasto: aparece numa linha própria, "Guardou". Você continua vendo separado o que consumiu e o que poupou.</p>
+  </div>
 
-  <h2 id="planos">7. O que vem em cada plano</h2>
-  <table>
-    <tr><th>Plano</th><th>O que inclui</th></tr>
-    <tr>
-      <td><strong>Free</strong><br />R$ 0</td>
-      <td>Registro de gastos e receitas sem limite, cartões e parcelas, histórico, dashboard e o score de disciplina.</td>
-    </tr>
-    <tr>
-      <td><strong>Essencial</strong><br />R$ 29,90/mês</td>
-      <td>Tudo do Free, mais lançar pelo WhatsApp (texto e áudio) e o teto por categoria.</td>
-    </tr>
-    <tr>
-      <td><strong>Assistente</strong><br />R$ 79,90/mês</td>
-      <td>Tudo do Essencial, mais o Planejamento Financeiro completo (perfil, objetivos, rendas, investimentos, bens e o Diagnóstico) e os Relatórios.</td>
-    </tr>
-  </table>
-  <p>
-    O app continua seu se você cancelar: o que sai são os recursos pagos, não os seus
-    lançamentos. E o cancelamento é quando você quiser, sem falar com ninguém.
-  </p>
+  <p>No plano Free você tem <strong>uma</strong> caixinha. No Essencial, quantas quiser.</p>
+</section>
 
-  <h2 id="duvidas">8. Dúvidas comuns</h2>
+<section id="score">
+  <h2><span class="n">8</span>Score de disciplina</h2>
+  <p class="intro">Sua nota de 0 a 100, no topo do Dashboard. De graça pra todo mundo.</p>
+  <p>O que ela mede é <strong>comportamento, nunca dinheiro</strong>. Quem ganha R$ 2 mil e registra todo dia tira mais que quem ganha R$ 30 mil e lança uma vez no mês.</p>
+  <table>
+    <tr><th>O que conta</th><th>Como pontuar</th></tr>
+    <tr><td><strong>Dentro do teto</strong></td><td>Cumprir o limite que você mesmo definiu. É o de maior peso.</td></tr>
+    <tr><td><strong>Constância</strong></td><td>Registrar em muitos dias do mês, não tudo de uma vez.</td></tr>
+    <tr><td><strong>Mês preenchido</strong></td><td>Chegar a 20 dias com lançamento.</td></tr>
+    <tr><td><strong>Guardou na meta</strong></td><td>Ter guardado em alguma caixinha no mês. R$ 5 vale o mesmo que R$ 5.000.</td></tr>
+    <tr><td><strong>Gasto evitável</strong></td><td>O evitável caindo em relação ao mês passado.</td></tr>
+  </table>
+  <p>O que você ainda não usa não conta contra você: sem teto cadastrado, ou sem nenhuma caixinha, esses itens saem da conta em vez de puxar sua nota pra baixo.</p>
+</section>
+
+<section id="planos">
+  <h2><span class="n">9</span>Planos</h2>
+  <div class="planos">
+    <div class="plano">
+      <div class="nome">Free</div>
+      <div class="preco">R$ 0</div>
+      <ul>
+        <li>Gastos e receitas sem limite</li>
+        <li>Cartões e parcelas</li>
+        <li>Histórico e dashboard</li>
+        <li>Score de disciplina</li>
+        <li>1 caixinha de meta</li>
+      </ul>
+    </div>
+    <div class="plano destaque">
+      <div class="nome">Essencial</div>
+      <div class="preco">R$ 29,90<small>/mês</small></div>
+      <ul>
+        <li>Tudo do Free</li>
+        <li>Lançar pelo WhatsApp, texto e áudio</li>
+        <li>Teto por categoria</li>
+        <li>Caixinhas ilimitadas</li>
+      </ul>
+    </div>
+    <div class="plano">
+      <div class="nome">Assistente</div>
+      <div class="preco">R$ 79,90<small>/mês</small></div>
+      <ul>
+        <li>Tudo do Essencial</li>
+        <li>Planejamento Financeiro completo</li>
+        <li>Relatórios</li>
+      </ul>
+    </div>
+  </div>
+  <p>O app continua seu se você cancelar: o que sai são os recursos pagos, não os seus lançamentos. E cancela quando quiser, sem falar com ninguém.</p>
+</section>
+
+<section id="duvidas">
+  <h2><span class="n">10</span>Dúvidas comuns</h2>
 
   <h3>Preciso conectar meu banco?</h3>
-  <p>
-    Não, e o Pradex não faz isso. Ele não pede senha de banco, não acessa conta e não lê
-    cartão. Você registra o que quiser, do jeito que quiser.
-  </p>
+  <p>Não, e o Pradex não faz isso. Ele não pede senha de banco, não acessa conta e não lê cartão.</p>
 
   <h3>Onde ficam os meus dados?</h3>
-  <p>
-    Na sua conta, em servidor, com acesso isolado por usuário — não no navegador. Trocar
-    de celular ou limpar o histórico não apaga nada. Você pode excluir tudo quando quiser
-    em <a href="/excluir-conta">pradex.com.br/excluir-conta</a>.
-    Detalhes em <a href="/privacidade">Privacidade</a>.
-  </p>
+  <p>Na sua conta, em servidor, com acesso isolado por usuário — não no navegador. Trocar de celular ou limpar o histórico não apaga nada. Você pode excluir tudo quando quiser em <strong>pradex.com.br/excluir-conta</strong>.</p>
 
   <h3>Usei no celular, aparece no computador?</h3>
-  <p>Aparece. É a mesma conta e os mesmos dados — muda só o tamanho da tela.</p>
+  <p>Aparece. Mesma conta, mesmos dados — muda só o tamanho da tela.</p>
 
-  <h3>O agente do WhatsApp errou a categoria. E agora?</h3>
-  <p>
-    É só editar o lançamento no app, como qualquer outro. E você pode responder ao agente
-    ali mesmo dizendo o que era.
-  </p>
+  <h3>O agente errou a categoria. E agora?</h3>
+  <p>É só editar o lançamento no app, como qualquer outro. E dá pra responder ao agente ali mesmo dizendo o que era.</p>
 
   <h3>Tenho uma dúvida que não está aqui.</h3>
-  <p>
-    Responda a conversa do agente no WhatsApp, ou escreva para
-    <a href="mailto:pradex.financas@gmail.com">pradex.financas@gmail.com</a>.
-  </p>
+  <p>Responda a conversa do agente no WhatsApp, ou escreva para <a href="mailto:pradex.financas@gmail.com">pradex.financas@gmail.com</a>.</p>
+</section>
 
-  <a class="cta" href="https://pradex.com.br">Abrir o Pradex</a>
+<footer>
+  Pradex Finanças — pradex.com.br · Manual de 18/09/2026.<br />
+  Feito por Lucas D'Angelo Pradella, assessor de investimentos na Nobel Capital.
+  O Pradex é um app de organização financeira: não faz recomendação de investimento nem promete rentabilidade.<br /><br />
+  <a href="/">Início</a> ·
+  <a href="/sobre">Sobre</a> ·
+  <a href="/privacidade">Privacidade</a> ·
+  <a href="/excluir-conta">Excluir conta</a>
+</footer>
 
-  <footer>
-    <p>
-      Feito por Lucas D'Angelo Pradella, assessor de investimentos na Nobel Capital.
-      O Pradex é um app de organização financeira: não faz recomendação de investimento
-      nem promete rentabilidade.
-    </p>
-    <a href="/">Início</a>
-    <a href="/sobre">Sobre</a>
-    <a href="/privacidade">Privacidade</a>
-    <a href="/excluir-conta">Excluir conta</a>
-  </footer>
 </main>
 </body>
 </html>
