@@ -74,8 +74,25 @@ export default function DashboardDesktop({
     };
 
     const lancMes = doMes(ano, mes);
-    const gastosMes = lancMes.filter((l) => l.tipo === "gasto");
-    const receitas = soma(lancMes.filter((l) => l.tipo === "receita"));
+
+    // APORTE DE META NÃO É CONSUMO. Esta tela tem a própria agregação, escrita antes
+    // de `lib/fechamento.js` existir — e quando as METAS entraram (17/09) só o
+    // fechamento aprendeu a separar poupança de gasto. Resultado: "Metas" apareceu
+    // como categoria no Gasto por categoria, e o Lucas viu na hora.
+    //
+    // A duplicação estava documentada como risco no topo do fechamento.js e cobrou o
+    // preço exatamente aqui. Enquanto as duas contas existirem, QUALQUER regra nova
+    // precisa entrar nos dois lugares.
+    const gastosTodos = lancMes.filter((l) => l.tipo === "gasto");
+    const gastosMes = gastosTodos.filter((l) => l.meta_id == null);
+    const guardado = soma(gastosTodos.filter((l) => l.meta_id != null));
+
+    // Resgate ('receita' com meta_id) não é renda: é dinheiro voltando do próprio
+    // bolso. Fora das receitas, dentro do saldo.
+    const receitasTodas = lancMes.filter((l) => l.tipo === "receita");
+    const receitas = soma(receitasTodas.filter((l) => l.meta_id == null));
+    const resgatado = soma(receitasTodas.filter((l) => l.meta_id != null));
+
     const gastoTotal = soma(gastosMes);
     const debito = soma(gastosMes.filter((l) => l.forma_pagamento !== "Crédito"));
     const cartao = soma(gastosMes.filter((l) => l.forma_pagamento === "Crédito"));
@@ -95,7 +112,7 @@ export default function DashboardDesktop({
 
     // Mês anterior, só pro delta do gasto total.
     const ant = passoMes(ano, mes, -1);
-    const gastoAnterior = soma(doMes(ant.ano, ant.mes).filter((l) => l.tipo === "gasto"));
+    const gastoAnterior = soma(doMes(ant.ano, ant.mes).filter((l) => l.tipo === "gasto" && l.meta_id == null));
 
     // Tendência: os 6 meses até o selecionado (inclusive).
     const tendencia = Array.from({ length: 6 }, (_, i) => {
@@ -105,16 +122,18 @@ export default function DashboardDesktop({
         key: prefixoDe(a, m),
         label: MESES[m],
         ano: a,
-        receita: soma(doPeriodo.filter((l) => l.tipo === "receita")),
-        gasto: soma(doPeriodo.filter((l) => l.tipo === "gasto")),
+        receita: soma(doPeriodo.filter((l) => l.tipo === "receita" && l.meta_id == null)),
+        gasto: soma(doPeriodo.filter((l) => l.tipo === "gasto" && l.meta_id == null)),
       };
     });
     const maxTend = Math.max(...tendencia.flatMap((x) => [x.receita, x.gasto]), 1);
 
     return {
       vazio: lancMes.length === 0,
-      receitas, gastoTotal, debito, cartao, evitavel,
-      saldo: receitas - gastoTotal,
+      receitas, gastoTotal, debito, cartao, evitavel, guardado,
+      // O aporte saiu da conta de verdade, então DESCONTA do saldo — mesmo não sendo
+      // consumo. É a regra do Lucas: guardar = aplicar = debitar.
+      saldo: receitas + resgatado - gastoTotal - guardado,
       categorias, maxCat,
       gastoAnterior, mesAnterior: `${MESES[ant.mes]}/${ant.ano}`,
       tendencia, maxTend,
@@ -125,6 +144,11 @@ export default function DashboardDesktop({
     { label: "Receitas", value: dados.receitas, color: t.receita },
     { label: "Débito", value: dados.debito, color: t.gasto },
     { label: "Cartão", value: dados.cartao, color: t.gasto },
+    // O card de Guardou só aparece quando houve aporte. Sem ele, o dinheiro que saiu
+    // do saldo não estaria explicado em lugar nenhum da tela — a pessoa veria o saldo
+    // menor e nenhuma linha dizendo pra onde foi. Com aporte zerado seria só um zero
+    // ocupando espaço.
+    ...(dados.guardado > 0 ? [{ label: "Guardou", value: dados.guardado, color: t.accent }] : []),
     { label: "Saldo", value: dados.saldo, color: dados.saldo >= 0 ? t.receita : t.gasto },
   ];
 
