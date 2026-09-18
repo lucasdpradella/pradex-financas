@@ -2170,7 +2170,7 @@ export default function PradexFinancas() {
           confere `profiles.role` no banco. Trocar `userRole` no DevTools abre a tela
           e não devolve número nenhum. */}
       {tela === "metricas" && isDesktop && userRole === "super_admin" && (
-        <PainelMetricas supabaseUrl={SUPABASE_URL} token={session?.token} />
+        <PainelMetricas supabaseUrl={SUPABASE_URL} apiKey={SUPABASE_KEY} token={session?.token} />
       )}
 
       {/* CATEGORIAS — desktop (Fase B) */}
