@@ -14,6 +14,7 @@ import {
   conteudoUpgrade,
   planoDaUrl,
   PRECO,
+  checkoutComEmail,
 } from "../src/lib/plano";
 
 describe("normalizePlano", () => {
@@ -294,5 +295,44 @@ describe("planoDaUrl", () => {
   // 'none' passa em PLANOS mas nao e plano vendavel: convite pra ele e ruido.
   it("'none' nao e convite", () => {
     expect(planoDaUrl("?plano=none")).toBeNull();
+  });
+});
+
+// ===== E-mail pré-preenchido no checkout (2026-09-18) =====
+//
+// O Augusto comprou com um e-mail e criou a conta com outro, 2h depois. Como o
+// webhook casa compra com conta PELO E-MAIL, a assinatura dele não virou acesso e ele
+// passou dois dias pagando sem ter o produto.
+describe("checkoutComEmail", () => {
+  it("acrescenta o e-mail na URL limpa", () => {
+    expect(checkoutComEmail("https://pay.cakto.com.br/abc", "a@b.com"))
+      .toBe("https://pay.cakto.com.br/abc?email=a%40b.com");
+  });
+
+  it("usa & quando a URL ja tem querystring", () => {
+    expect(checkoutComEmail("https://pay.cakto.com.br/abc?utm=x", "a@b.com"))
+      .toBe("https://pay.cakto.com.br/abc?utm=x&email=a%40b.com");
+  });
+
+  it("escapa o que precisa ser escapado", () => {
+    expect(checkoutComEmail("https://x.com/c", "no+me@ex.com.br"))
+      .toContain("email=no%2Bme%40ex.com.br");
+  });
+
+  // Sem e-mail a URL volta intacta: `?email=` vazio so sujaria o link e o analytics.
+  it("sem e-mail, devolve a URL como estava", () => {
+    for (const v of ["", "   ", null, undefined]) {
+      expect(checkoutComEmail("https://pay.cakto.com.br/abc", v)).toBe("https://pay.cakto.com.br/abc");
+    }
+  });
+
+  it("sem URL nao inventa link", () => {
+    expect(checkoutComEmail(null, "a@b.com")).toBeNull();
+    expect(checkoutComEmail(undefined, "a@b.com")).toBeUndefined();
+  });
+
+  it("aceita os dois checkouts reais", () => {
+    expect(checkoutComEmail(CHECKOUT.essencial, "x@y.com")).toContain("a2xpq3u?email=");
+    expect(checkoutComEmail(CHECKOUT.assistente, "x@y.com")).toContain("4pteia8?email=");
   });
 });

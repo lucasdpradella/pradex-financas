@@ -1,4 +1,4 @@
-import { conteudoUpgrade } from "../lib/plano";
+import { conteudoUpgrade, checkoutComEmail } from "../lib/plano";
 
 // CTA de upgrade. Ocupa o lugar do recurso bloqueado em vez de deixar buraco: `card`
 // entra no slot do card do WhatsApp no dashboard, `tela` ocupa a tela cheia (FP, Relatórios).
@@ -34,7 +34,7 @@ const BOTAO = {
 // ⚠️ Este card renderiza nos DOIS canvas: no mobile sobre #0C0E14 (escuro) e no
 // desktop sobre #F1F3F9 (claro). Sem isso, #F1F2F4 de titulo sobre fundo claro da
 // ~1.1:1 — texto branco em fundo branco. Achado da auditoria de tema de 13/09.
-export default function UpgradePlano({ plano, recurso, variant = "card", trial = null, onIniciarTrial, carregando = false, isDesktop = false }) {
+export default function UpgradePlano({ plano, recurso, variant = "card", trial = null, onIniciarTrial, carregando = false, isDesktop = false, email }) {
   const cTitulo = isDesktop ? "#111827" : "#F1F2F4";
   const cCorpo  = isDesktop ? "#4B5563" : "#8B93A1";
   const { titulo, descricao, nota, cta, href, modo, ctaSecundario, hrefSecundario } = conteudoUpgrade(plano, recurso, { trial });
@@ -86,7 +86,7 @@ export default function UpgradePlano({ plano, recurso, variant = "card", trial =
             </button>
           ) : (
             <a
-              href={href}
+              href={checkoutComEmail(href, email)}
               target="_blank"
               rel="noopener noreferrer"
               style={{ ...BOTAO, marginTop: "0.9rem" }}
@@ -101,7 +101,7 @@ export default function UpgradePlano({ plano, recurso, variant = "card", trial =
           {acaoTrial && ctaSecundario && hrefSecundario && (
             <p style={{ margin: "0.7rem 0 0", fontSize: "0.76rem", lineHeight: 1.45 }}>
               <a
-                href={hrefSecundario}
+                href={checkoutComEmail(hrefSecundario, email)}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ color: "#6366F1", fontWeight: 700, textDecoration: "underline" }}

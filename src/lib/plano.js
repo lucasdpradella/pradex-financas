@@ -157,6 +157,36 @@ export const podeUsarRecurso = (plano, recurso, trial, hoje = new Date()) =>
 
 export const checkoutPara = (recurso) => CHECKOUT[planoNecessario(recurso)];
 
+/**
+ * Acrescenta `?email=` ao link do checkout.
+ *
+ * POR QUE ISTO EXISTE (2026-09-18). O Augusto comprou o Essencial às 17:12 com
+ * `augusto.santosalmeida@outlook.com` e criou a conta no app às 19:46 com
+ * `guto@innovabr.com.br`. Duas horas e dois e-mails — e como o webhook casa compra
+ * com conta PELO E-MAIL, a assinatura dele não virou acesso. Ficou dois dias pagando
+ * sem ter o que comprou, e ninguém ficou sabendo.
+ *
+ * Não foi erro dele: o checkout da Cakto e o app são sistemas que não se conhecem, e
+ * o fluxo deixava a pessoa digitar qualquer e-mail. Pré-preencher com o e-mail da
+ * SESSÃO fecha a maior parte dessa porta — quem já está logado chega na Cakto com o
+ * campo certo preenchido.
+ *
+ * Não resolve 100%: o campo continua editável, e quem paga ANTES de criar conta não
+ * passa por aqui. Por isso o aviso de "pagou e não liberou" (cakto-webhook) continua
+ * sendo a rede de segurança, não um extra.
+ *
+ * Verificado contra o checkout real em 18/09: `?email=` preenche o campo.
+ */
+export function checkoutComEmail(url, email) {
+  if (!url) return url;
+  const limpo = String(email ?? "").trim();
+  // Sem e-mail, devolve a URL intacta em vez de um `?email=` vazio, que só sujaria o
+  // link e o analytics da Cakto.
+  if (!limpo) return url;
+  const separador = url.includes("?") ? "&" : "?";
+  return `${url}${separador}email=${encodeURIComponent(limpo)}`;
+}
+
 const ROTULO = { essencial: "Essencial", assistente: "Assistente" };
 
 const COPY = {

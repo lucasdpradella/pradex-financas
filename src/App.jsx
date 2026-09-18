@@ -2115,12 +2115,13 @@ export default function PradexFinancas() {
         {/* Convite e card do agente: ate 16/09 NENHUM dos dois existia no desktop.
             Quem abria o link no computador nao via preco, teste nem botao — e link
             e justamente como a indicacao chega. */}
-        <ConvitePlano planoConvite={planoConvite} plano={plano} isDesktop={isDesktop} onFechar={dispensarConvite} />
+        <ConvitePlano planoConvite={planoConvite} plano={plano} email={session?.user?.email} isDesktop={isDesktop} onFechar={dispensarConvite} />
         <CardAgente
           plano={plano}
           trial={trial}
           podeZap={podeZap}
           isDesktop={isDesktop}
+          email={session?.user?.email}
           onIniciarTrial={iniciarTrial}
           carregando={iniciandoTrial}
         />
@@ -2132,6 +2133,7 @@ export default function PradexFinancas() {
           plano={plano}
           trial={trial}
           isDesktop={isDesktop}
+          email={session?.user?.email}
           tetos={orcamentos}
           metas={metas}
           onQueroTeto={() => { if (isDesktop) { setTela("orcamento"); } else { setMetasAba("tetos"); setTela("metas"); } }}
@@ -2246,6 +2248,7 @@ export default function PradexFinancas() {
                 return categories.gasto.map((cat) => [cat, doMes.filter((l) => l.categoria === cat).reduce((s, l) => s + Number(l.valor), 0)]);
               })(),
             )}
+            email={session?.user?.email}
             salvando={salvandoOrcamento}
             erroExterno={erroOrcamento}
             onSalvar={(linhas) => salvarOrcamentos(linhas, mesDashboard.ano, mesDashboard.mes)}
@@ -2296,6 +2299,7 @@ export default function PradexFinancas() {
               lancamentos={lancamentos}
               plano={plano}
               temAcessoPago={temAcesso(plano, "orcamento")}
+              email={session?.user?.email}
               salvando={salvandoMeta}
               erroExterno={erroMeta}
               onCriar={criarMeta}
@@ -2317,6 +2321,7 @@ export default function PradexFinancas() {
                   return categories.gasto.map((cat) => [cat, doMes.filter((l) => l.categoria === cat).reduce((s, l) => s + Number(l.valor), 0)]);
                 })(),
               )}
+              email={session?.user?.email}
               salvando={salvandoOrcamento}
               erroExterno={erroOrcamento}
               onSalvar={(linhas) => salvarOrcamentos(linhas, mesDashboard.ano, mesDashboard.mes)}
@@ -2370,7 +2375,7 @@ export default function PradexFinancas() {
           )}
           {/* Convite do link `?plano=`, antes do card: quem chegou ja convencido nao
               deve ter que passar os olhos pela oferta de teste primeiro. */}
-          <ConvitePlano planoConvite={planoConvite} plano={plano} isDesktop={isDesktop} onFechar={dispensarConvite} />
+          <ConvitePlano planoConvite={planoConvite} plano={plano} email={session?.user?.email} isDesktop={isDesktop} onFechar={dispensarConvite} />
           {/* Card do agente: os TRES casos moram em CardAgente.jsx agora, porque
               este bloco so existia AQUI — ou seja, so no mobile. Ver o comentario
               no topo do componente. */}
@@ -2379,6 +2384,7 @@ export default function PradexFinancas() {
             trial={trial}
             podeZap={podeZap}
             isDesktop={isDesktop}
+            email={session?.user?.email}
             onIniciarTrial={iniciarTrial}
             carregando={iniciandoTrial}
           />
@@ -2889,7 +2895,7 @@ export default function PradexFinancas() {
         <div>
           <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Relatórios</p>
           <div style={{ marginBottom: "1rem" }}><PreviaBorrada recurso="relatorios" /></div>
-          <UpgradePlano isDesktop={isDesktop} plano={plano} recurso="relatorios" variant="tela" />
+          <UpgradePlano isDesktop={isDesktop} email={session?.user?.email} plano={plano} recurso="relatorios" variant="tela" />
         </div>
       )}
 
@@ -2910,7 +2916,7 @@ export default function PradexFinancas() {
               vazia nao dava. O desenho e inventado — nenhum dado do usuario e
               buscado aqui (ver PreviaBorrada.jsx). */}
           <div style={{ marginBottom: "1rem" }}><PreviaBorrada recurso="fp" /></div>
-          <UpgradePlano isDesktop={isDesktop} plano={plano} recurso="fp" variant="tela" />
+          <UpgradePlano isDesktop={isDesktop} email={session?.user?.email} plano={plano} recurso="fp" variant="tela" />
         </div>
       )}
 

@@ -18,13 +18,14 @@ import UpgradePlano from "./UpgradePlano";
 //   - sem nada -> UpgradePlano, que é o convite
 const WA_LINK = "https://wa.me/5511924568633?text=Oi%21%20Quero%20come%C3%A7ar%20a%20usar%20o%20Pradex%20pelo%20WhatsApp.";
 
-export default function CardAgente({ plano, trial, podeZap, isDesktop = false, onIniciarTrial, carregando = false }) {
+export default function CardAgente({ plano, trial, podeZap, isDesktop = false, onIniciarTrial, carregando = false, email }) {
   if (temAcesso(plano, "whatsapp")) return null;
 
   if (!podeZap) {
     return (
       <UpgradePlano
         isDesktop={isDesktop}
+        email={email}
         plano={plano}
         recurso="whatsapp"
         variant="card"

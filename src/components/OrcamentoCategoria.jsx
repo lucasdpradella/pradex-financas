@@ -11,7 +11,7 @@
 // Copy: briefs/2026-09-12_copy-paywall.md (variação "caos leve").
 
 import React, { useEffect, useMemo, useState } from "react";
-import { paywallNoSave } from "../lib/plano";
+import { paywallNoSave, checkoutComEmail } from "../lib/plano";
 
 // `toFixed(2).replace(".", ",")` nao poe separador de milhar: "R$ 2421,00" ao lado de
 // "R$ 33.782,00" nos cards do topo, na mesma tela. Acima de mil, a vista tropeca.
@@ -71,7 +71,7 @@ export function parseValor(bruto) {
   return Number.isFinite(n) ? n : NaN;
 }
 
-export default function OrcamentoCategoria({ categorias = [], tetos = [], plano, trial = null, gastosPorCategoria = {}, onSalvar, salvando = false, erroExterno = "" }) {
+export default function OrcamentoCategoria({ categorias = [], tetos = [], plano, trial = null, gastosPorCategoria = {}, onSalvar, salvando = false, erroExterno = "", email }) {
   const doGasto = useMemo(
     () => categorias.filter((c) => (c.tipo ?? "gasto") === "gasto").map((c) => c.nome).filter(Boolean),
     [categorias],
@@ -185,7 +185,7 @@ export default function OrcamentoCategoria({ categorias = [], tetos = [], plano,
         {salvando ? "Salvando..." : "Salvar tetos"}
       </button>
 
-      {paywall && <PaywallOrcamento bloqueio={paywall} onFechar={() => setPaywall(null)} />}
+      {paywall && <PaywallOrcamento bloqueio={paywall} email={email} onFechar={() => setPaywall(null)} />}
     </section>
   );
 }
@@ -193,7 +193,7 @@ export default function OrcamentoCategoria({ categorias = [], tetos = [], plano,
 // O paywall é modal e não tela: a pessoa volta exatamente pro que estava preenchendo
 // quando clica em "agora não". Mandar ela pra outra tela apagaria o trabalho dela e
 // transformaria um convite em punição.
-function PaywallOrcamento({ bloqueio, onFechar }) {
+function PaywallOrcamento({ bloqueio, email, onFechar }) {
   return (
     <div
       role="dialog"
@@ -214,7 +214,7 @@ function PaywallOrcamento({ bloqueio, onFechar }) {
         </p>
 
         <a
-          href={bloqueio.checkout || "#"}
+          href={checkoutComEmail(bloqueio.checkout, email) || "#"}
           target="_blank"
           rel="noopener noreferrer"
           className="pdx-tap"
