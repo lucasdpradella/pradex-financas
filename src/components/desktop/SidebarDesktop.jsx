@@ -51,7 +51,14 @@ const CSS = `
 .pdx-sb { position: fixed; top: 0; left: 0; bottom: 0; width: ${SIDEBAR_WIDTH}px; background: ${t.sidebarBg}; color: ${t.sidebarText}; display: flex; flex-direction: column; font-family: 'DM Sans', 'Helvetica Neue', sans-serif; z-index: 40; }
 .pdx-sb__logo { display: flex; align-items: center; gap: 0.55rem; padding: 1.4rem 1.25rem 1.1rem; color: ${t.sidebarLogo}; font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; }
 .pdx-sb__logo span { width: 26px; height: 26px; border-radius: 8px; background: rgba(255,255,255,0.16); display: flex; align-items: center; justify-content: center; font-size: 0.9rem; }
-.pdx-sb__nav { flex: 1; padding: 0.5rem 0.75rem; overflow-y: auto; }
+/* A barra de rolagem da sidebar ficava visível desde que a lista passou de 7 pra 9
+   itens (Metas e Métricas, 17/09) — uma barrinha cinza clara cortando o indigo, que
+   o Lucas pediu pra tirar. O scroll CONTINUA funcionando (roda, touch, teclado): só
+   a barra some. Em tela de altura normal os 9 itens cabem e nem há o que rolar.
+   Se um dia a lista crescer a ponto de sumir item de verdade, a resposta é agrupar
+   ou encolher o item — não trazer a barra de volta. */
+.pdx-sb__nav { flex: 1; padding: 0.5rem 0.75rem; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.pdx-sb__nav::-webkit-scrollbar { width: 0; height: 0; display: none; }
 .pdx-sb__item { display: flex; align-items: center; gap: 0.7rem; width: 100%; box-sizing: border-box; padding: 0.6rem 0.75rem; margin-bottom: 0.15rem; border: none; border-radius: 9px; background: transparent; color: ${t.sidebarText}; font-size: 0.9rem; font-weight: 500; font-family: inherit; cursor: pointer; text-align: left; transition: background 0.15s, color 0.15s; }
 .pdx-sb__item:hover:not(:disabled) { background: rgba(255,255,255,0.10); color: #fff; }
 .pdx-sb__item.is-active { background: ${t.sidebarActiveBg}; color: ${t.sidebarActiveText}; font-weight: 600; }

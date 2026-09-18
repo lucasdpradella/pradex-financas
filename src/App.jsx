@@ -1511,8 +1511,10 @@ export default function PradexFinancas() {
   };
 
   const mesAtual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
-  const gastos = lancamentos.filter(l => l.tipo === "gasto" && l.data_lancamento?.startsWith(mesAtual));
-  const receitas = lancamentos.filter(l => l.tipo === "receita" && l.data_lancamento?.startsWith(mesAtual));
+  // `meta_id == null` nos dois: aporte de caixinha sai do saldo, mas não é consumo
+  // nem renda. Mesma regra de lib/fechamento.js — ver o bloco lá pro porquê.
+  const gastos = lancamentos.filter(l => l.tipo === "gasto" && l.meta_id == null && l.data_lancamento?.startsWith(mesAtual));
+  const receitas = lancamentos.filter(l => l.tipo === "receita" && l.meta_id == null && l.data_lancamento?.startsWith(mesAtual));
   const totalReceitas = receitas.reduce((s, l) => s + Number(l.valor), 0);
   const totalGastos = gastos.reduce((s, l) => s + Number(l.valor), 0);
   const taxaMensal = 0.009;
@@ -2721,11 +2723,15 @@ export default function PradexFinancas() {
         const { ano, mes } = mesHistorico;
         const prefixo = `${ano}-${String(mes + 1).padStart(2, "0")}`;
         const lancMes = lancamentos.filter(l => l.data_lancamento?.startsWith(prefixo));
-        const receitasMes = lancMes.filter(l => l.tipo === "receita").reduce((s, l) => s + Number(l.valor), 0);
-        const gastosMes = lancMes.filter(l => l.tipo === "gasto").reduce((s, l) => s + Number(l.valor), 0);
-        const gastosDebitoMes = lancMes.filter(l => l.tipo === "gasto" && l.forma_pagamento !== "Crédito").reduce((s, l) => s + Number(l.valor), 0);
-        const gastosCartaoMes = lancMes.filter(l => l.tipo === "gasto" && l.forma_pagamento === "Crédito").reduce((s, l) => s + Number(l.valor), 0);
-        const saldoMes = receitasMes - gastosMes;
+        // Aporte de caixinha fora de gasto e de receita, dentro do saldo (mesma regra
+        // de lib/fechamento.js e do DashboardDesktop).
+        const receitasMes = lancMes.filter(l => l.tipo === "receita" && l.meta_id == null).reduce((s, l) => s + Number(l.valor), 0);
+        const resgatadoMes = lancMes.filter(l => l.tipo === "receita" && l.meta_id != null).reduce((s, l) => s + Number(l.valor), 0);
+        const gastosMes = lancMes.filter(l => l.tipo === "gasto" && l.meta_id == null).reduce((s, l) => s + Number(l.valor), 0);
+        const guardadoMes = lancMes.filter(l => l.tipo === "gasto" && l.meta_id != null).reduce((s, l) => s + Number(l.valor), 0);
+        const gastosDebitoMes = lancMes.filter(l => l.tipo === "gasto" && l.meta_id == null && l.forma_pagamento !== "Crédito").reduce((s, l) => s + Number(l.valor), 0);
+        const gastosCartaoMes = lancMes.filter(l => l.tipo === "gasto" && l.meta_id == null && l.forma_pagamento === "Crédito").reduce((s, l) => s + Number(l.valor), 0);
+        const saldoMes = receitasMes + resgatadoMes - gastosMes - guardadoMes;
         const evitaveisMes = lancMes.filter(l => l.poderia_ter_evitado && l.tipo === "gasto").reduce((s, l) => s + Number(l.valor), 0);
         const navegarMes = (dir) => { setMesHistorico(prev => { let m = prev.mes + dir, a = prev.ano; if (m > 11) { m = 0; a++; } if (m < 0) { m = 11; a--; } return { mes: m, ano: a }; }); };
         const gastosCat = categories.gasto.map(cat => ({ cat, total: lancMes.filter(l => l.tipo === "gasto" && l.categoria === cat).reduce((s, l) => s + Number(l.valor), 0) })).filter(x => x.total > 0).sort((a, b) => b.total - a.total);
