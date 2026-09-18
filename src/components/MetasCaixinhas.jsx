@@ -14,7 +14,7 @@
 
 import React, { useMemo, useState } from "react";
 import { comProgresso, metasAtivas, limiteDeMetas, LIMITE_FREE, FORMAS_APORTE } from "../lib/metas";
-import { CHECKOUT, PRECO } from "../lib/plano";
+import { CHECKOUT, PRECO, checkoutComEmail } from "../lib/plano";
 import { parseValor } from "./OrcamentoCategoria";
 
 const formatBRL = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -56,6 +56,7 @@ export default function MetasCaixinhas({
   onCriar,
   onAportar,
   onArquivar,
+  email,
 }) {
   const [abrindoForm, setAbrindoForm] = useState(false);
   const [nova, setNova] = useState({ nome: "", valor_alvo: "", aplicado_em: "", prazo: "" });
@@ -343,14 +344,14 @@ export default function MetasCaixinhas({
         <p style={{ margin: "0.7rem 0 0", fontSize: "0.78rem", color: "var(--danger, #E06C65)", lineHeight: 1.4 }}>{erroExterno || erro}</p>
       )}
 
-      {paywall && <PaywallMetas onFechar={() => setPaywall(false)} />}
+      {paywall && <PaywallMetas email={email} onFechar={() => setPaywall(false)} />}
     </section>
   );
 }
 
 // Modal, não tela: a pessoa volta exatamente pro que estava fazendo ao clicar em
 // "agora não". Mandar pra outra tela transformaria um convite em punição.
-function PaywallMetas({ onFechar }) {
+function PaywallMetas({ email, onFechar }) {
   return (
     <div
       role="dialog"
@@ -370,7 +371,7 @@ function PaywallMetas({ onFechar }) {
           Você tem {LIMITE_FREE === 1 ? "uma caixinha" : `${LIMITE_FREE} caixinhas`} no plano grátis. A vida raramente cabe em uma só — viagem, reserva e o curso não esperam a vez.
         </p>
         <a
-          href={CHECKOUT.essencial}
+          href={checkoutComEmail(CHECKOUT.essencial, email)}
           target="_blank"
           rel="noopener noreferrer"
           className="pdx-tap"

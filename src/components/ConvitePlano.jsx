@@ -1,4 +1,4 @@
-import { CHECKOUT, PRECO, temAcesso } from "../lib/plano";
+import { CHECKOUT, PRECO, temAcesso, checkoutComEmail } from "../lib/plano";
 
 // Banner de convite — aparece quando a pessoa chegou por um link com `?plano=`.
 //
@@ -22,7 +22,7 @@ const DESCRICAO = {
   assistente: "Tudo do Essencial mais o Planejamento Financeiro completo.",
 };
 
-export default function ConvitePlano({ planoConvite, plano, isDesktop = false, onFechar }) {
+export default function ConvitePlano({ planoConvite, plano, email, isDesktop = false, onFechar }) {
   if (!planoConvite) return null;
   // Já tem o que o convite oferece: o banner viraria cobrança de quem já pagou.
   if (temAcesso(plano, planoConvite === "assistente" ? "fp" : "whatsapp")) return null;
@@ -41,7 +41,7 @@ export default function ConvitePlano({ planoConvite, plano, isDesktop = false, o
           {DESCRICAO[planoConvite]} Sem esperar os 14 dias de teste.
         </p>
         <a
-          href={CHECKOUT[planoConvite]}
+          href={checkoutComEmail(CHECKOUT[planoConvite], email)}
           target="_blank"
           rel="noopener noreferrer"
           className="pdx-tap"
