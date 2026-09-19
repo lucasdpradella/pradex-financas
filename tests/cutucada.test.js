@@ -5,7 +5,7 @@
 // resposta é um tropeço; a mesma frase chegando sozinha às 10h é invasão.
 import { describe, it, expect } from "vitest";
 import {
-  montarCutucada, comAvisoDeModoPesado, escolherAlvo, PRIORIDADE,
+  montarCutucada, comAvisoDeModoPesado, escolherAlvo, janelaDoMes, PRIORIDADE,
 } from "../supabase/functions/agente-cutucada/mensagens.ts";
 
 const TONS = ["seco", "caos", "elogio"];
@@ -148,5 +148,59 @@ describe("aviso do modo pesado", () => {
     const m = comAvisoDeModoPesado("base", cobranca, "seco", 0).toLowerCase();
     expect(m).toContain("modo leve");
     expect(m).toContain("em breve");
+  });
+});
+
+// ============================================================================
+// janelaDoMes — o bug de 19/09, virado teste
+// ============================================================================
+// O Lucas recebeu "Educação em 289% do teto" tendo gasto 72%. A query filtrava
+// `data_lancamento >= 2026-09-01` e mais nada, o que não seleciona "este mês" e sim
+// "deste mês em diante": as 9 parcelas futuras de um curso (R$ 6.501) entraram na
+// conta de setembro (R$ 2.167).
+//
+// O bug não foi uma conta errada — foi um LIMITE AUSENTE, que é invisível numa
+// revisão porque não há nada escrito pra ler errado. Estes testes existem pra que a
+// ausência passe a falhar em vez de passar despercebida.
+describe("janelaDoMes", () => {
+  it("o fim existe, e é o primeiro dia do mês seguinte", () => {
+    const j = janelaDoMes(new Date("2026-09-19T12:00:00Z"));
+    expect(j.inicio).toBe("2026-09-01");
+    expect(j.fim).toBe("2026-10-01");
+  });
+
+  it("o fim é EXCLUSIVO: o último dia do mês entra, o primeiro do seguinte não", () => {
+    const { inicio, fim } = janelaDoMes(new Date("2026-09-19T12:00:00Z"));
+    const dentro = (d) => d >= inicio && d < fim;
+    expect(dentro("2026-09-01")).toBe(true);
+    expect(dentro("2026-09-30")).toBe(true);
+    expect(dentro("2026-10-01")).toBe(false);   // a parcela de outubro
+    expect(dentro("2026-08-31")).toBe(false);
+  });
+
+  it("dezembro vira janeiro do ano seguinte", () => {
+    const j = janelaDoMes(new Date("2026-12-15T12:00:00Z"));
+    expect(j.inicio).toBe("2026-12-01");
+    expect(j.fim).toBe("2027-01-01");
+  });
+
+  it("funciona no primeiro e no último dia do mês", () => {
+    expect(janelaDoMes(new Date("2026-02-01T00:30:00Z"))).toEqual({ inicio: "2026-02-01", fim: "2026-03-01" });
+    expect(janelaDoMes(new Date("2026-02-28T23:30:00Z"))).toEqual({ inicio: "2026-02-01", fim: "2026-03-01" });
+  });
+
+  // O caso real, com os números que saíram no WhatsApp dele.
+  it("a parcela futura fica de fora — o caso Educação", () => {
+    const { inicio, fim } = janelaDoMes(new Date("2026-09-19T12:00:00Z"));
+    const lancamentos = [
+      { data: "2026-09-05", valor: 2167 },   // setembro de verdade
+      { data: "2026-10-05", valor: 2167 },   // parcelas futuras
+      { data: "2026-11-05", valor: 2167 },
+      { data: "2026-12-05", valor: 2167 },
+    ];
+    const doMes = lancamentos.filter((l) => l.data >= inicio && l.data < fim);
+    expect(doMes.reduce((s, l) => s + l.valor, 0)).toBe(2167);
+    // Teto de R$ 3.000: 72%, e não 289%.
+    expect(Math.round((2167 / 3000) * 100)).toBe(72);
   });
 });

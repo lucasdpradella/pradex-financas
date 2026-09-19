@@ -373,13 +373,25 @@ async function getTetosDoMes(supabase: SupabaseClient, userId: string) {
   try {
     const hoje = new Date();
     const primeiroDia = `${hoje.getUTCFullYear()}-${String(hoje.getUTCMonth() + 1).padStart(2, "0")}-01`;
+    // 🐛 CORRIGIDO EM 19/09. `gte(primeiroDia)` sozinho não seleciona "este mês":
+    // seleciona "deste mês em diante", e portanto somava as PARCELAS FUTURAS de
+    // compras parceladas ao gasto do mês corrente. Quem parcelou um curso em 6x via
+    // a categoria estourada seis vezes de uma vez.
+    //
+    // O bug estava aqui desde 12/09 e ninguém tinha visto, porque o agente só
+    // menciona teto quando é relevante pro que a pessoa acabou de lançar. Apareceu
+    // quando a cutucada (que fala sozinha) copiou esta função e mandou "Educação em
+    // 289% do teto" pro Lucas, que tinha gasto 72%.
+    const prox = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth() + 1, 1));
+    const primeiroDiaProximoMes = prox.toISOString().slice(0, 10);
 
     const [orcRes, gastoRes] = await Promise.all([
       // mes <= atual, mais recente primeiro: teto vale pros meses seguintes ate ser
       // mudado (mesma regra do app). Filtrar por mes exato faria o agente nao ver o
       // teto de quem cadastrou mes passado — e ai tela e agente discordariam.
       supabase.from("orcamentos").select("categoria, limite, mes").eq("user_id", userId).lte("mes", primeiroDia).order("mes", { ascending: false }),
-      supabase.from("Lancamentos").select("valor, categoria").eq("user_id", userId).eq("tipo", "gasto").gte("data_lancamento", primeiroDia),
+      supabase.from("Lancamentos").select("valor, categoria").eq("user_id", userId).eq("tipo", "gasto")
+        .gte("data_lancamento", primeiroDia).lt("data_lancamento", primeiroDiaProximoMes),
     ]);
     if (orcRes.error || !orcRes.data?.length) return [];
 
