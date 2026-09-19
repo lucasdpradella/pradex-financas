@@ -13,7 +13,10 @@
 // foi o que deixou o Orçamento preto no desktop até 16/09 (PR #71).
 
 import React, { useMemo, useState } from "react";
-import { comProgresso, metasAtivas, limiteDeMetas, LIMITE_FREE, FORMAS_APORTE } from "../lib/metas";
+import {
+  comProgresso, metasAtivas, limiteDeMetas, LIMITE_FREE, FORMAS_APORTE,
+  DIFICULDADES, DIFICULDADE_PADRAO, dificuldadeDe, mensagemDoMarco, pontosDoMarco,
+} from "../lib/metas";
 import { CHECKOUT, PRECO, checkoutComEmail } from "../lib/plano";
 import { parseValor } from "./OrcamentoCategoria";
 
@@ -61,9 +64,11 @@ export default function MetasCaixinhas({
   onAportar,
   onArquivar,
   email,
+  celebracao = null,
+  onFecharCelebracao,
 }) {
   const [abrindoForm, setAbrindoForm] = useState(false);
-  const [nova, setNova] = useState({ nome: "", valor_alvo: "", aplicado_em: "", prazo: "" });
+  const [nova, setNova] = useState({ nome: "", valor_alvo: "", aplicado_em: "", prazo: "", dificuldade: DIFICULDADE_PADRAO });
   const [aporteDe, setAporteDe] = useState(null);   // meta.id
   const [aporte, setAporte] = useState(aporteVazio());
   const [erro, setErro] = useState("");
@@ -105,8 +110,9 @@ export default function MetasCaixinhas({
       valor_alvo: alvo,
       aplicado_em: nova.aplicado_em.trim() || null,
       prazo: nova.prazo || null,
+      dificuldade: nova.dificuldade || DIFICULDADE_PADRAO,
     });
-    setNova({ nome: "", valor_alvo: "", aplicado_em: "", prazo: "" });
+    setNova({ nome: "", valor_alvo: "", aplicado_em: "", prazo: "", dificuldade: DIFICULDADE_PADRAO });
     setAbrindoForm(false);
   }
 
@@ -177,11 +183,14 @@ export default function MetasCaixinhas({
               </button>
             </div>
 
-            {m.aplicado_em && (
-              <p style={{ margin: "0.4rem 0 0", fontSize: "0.7rem", color: COR.fraco }}>
-                onde está: {m.aplicado_em}
-              </p>
-            )}
+            {/* A dificuldade fica visível no card porque ela é o que o dono
+                prometeu a si mesmo — e é com base nela que o app fala com ele
+                depois ("você marcou difícil e sentou"). Escondida, viraria um
+                número secreto que só o ranking usa. */}
+            <p style={{ margin: "0.45rem 0 0", fontSize: "0.7rem", color: COR.fraco }}>
+              {dificuldadeDe(m).label.toLowerCase()}
+              {m.aplicado_em ? ` · onde está: ${m.aplicado_em}` : ""}
+            </p>
 
             {aporteDe === m.id && (
               <div style={{ marginTop: "0.7rem", paddingTop: "0.7rem", borderTop: `1px solid ${COR.borda}` }}>
@@ -346,6 +355,47 @@ export default function MetasCaixinhas({
             aria-label="Onde está guardado"
             style={{ ...inputBase, marginTop: "0.5rem" }}
           />
+
+          {/* DIFICULDADE — declarada por quem cria, porque só ela sabe.
+              O app não lê conta nem renda, e a mesma meta de R$ 5.000 é trivial pra
+              um e brutal pra outro.
+
+              Cada opção mostra a FRASE embaixo, e não só o rótulo. Isso não é
+              enfeite: se fossem só "fácil/moderada/difícil", todo mundo marcaria
+              difícil — não por má-fé, por otimismo sobre o próprio esforço — e o
+              peso deixaria de diferenciar qualquer coisa. A frase descreve o mês da
+              pessoa, então ela responde sobre a vida dela e a resposta sai honesta. */}
+          <div style={{ marginTop: "0.8rem" }}>
+            <p style={{ margin: "0 0 0.35rem", fontSize: "0.68rem", color: COR.fraco, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              Quão difícil vai ser
+            </p>
+            <div style={{ display: "flex", gap: "0.4rem" }}>
+              {DIFICULDADES.map((d) => {
+                const ativo = nova.dificuldade === d.chave;
+                return (
+                  <button
+                    key={d.chave}
+                    type="button"
+                    onClick={() => setNova((n) => ({ ...n, dificuldade: d.chave }))}
+                    aria-pressed={ativo}
+                    className="pdx-tap"
+                    style={{
+                      flex: 1, minWidth: 0, padding: "0.5rem 0.35rem", borderRadius: "8px", cursor: "pointer",
+                      fontSize: "0.76rem", fontWeight: 700, fontFamily: "inherit",
+                      border: `1px solid ${ativo ? COR.acento : COR.borda}`,
+                      background: ativo ? COR.acento : "transparent",
+                      color: ativo ? "#fff" : COR.medio,
+                    }}
+                  >
+                    {d.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p style={{ margin: "0.4rem 0 0", fontSize: "0.72rem", color: COR.medio, lineHeight: 1.45 }}>
+              “{dificuldadeDe({ dificuldade: nova.dificuldade }).frase}”
+            </p>
+          </div>
           <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.7rem" }}>
             <button
               type="button"
@@ -383,7 +433,73 @@ export default function MetasCaixinhas({
       )}
 
       {paywall && <PaywallMetas email={email} onFechar={() => setPaywall(false)} />}
+      {celebracao && <Celebracao {...celebracao} onFechar={onFecharCelebracao} />}
     </section>
+  );
+}
+
+/**
+ * A comemoração de um marco.
+ *
+ * EXISTE POR CAUSA DE UMA PERGUNTA DO LUCAS (19/09): "coloquei uma meta de casamento,
+ * 100 mil. Até juntar 100 mil o cara nunca será recompensado por ter chegado?" Até
+ * aqui só a conclusão era celebrada — numa meta grande, isso é um silêncio de dois
+ * anos enquanto a pessoa faz tudo certo.
+ *
+ * Aparece UMA vez, na hora do aporte que cravou o marco (quem compara o antes e o
+ * depois é o App). Não reaparece ao abrir a tela: o `marco_max` já subiu, e
+ * comemorar o mesmo 50% toda vez transformaria conquista em ruído.
+ *
+ * Sem confete e sem "parabéns!!!": quem guarda R$ 200 por mês há um ano não quer
+ * animação, quer ser visto. O tom é o de alguém que estava acompanhando.
+ */
+function Celebracao({ meta, marco, onFechar }) {
+  const { titulo, frase } = mensagemDoMarco(marco, meta);
+  const pontos = pontosDoMarco(marco, meta?.dificuldade);
+  const fechou = marco === 100;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={titulo}
+      onClick={onFechar}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 120, display: "flex", alignItems: "center", justifyContent: "center", padding: "1.2rem" }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ width: "100%", maxWidth: "380px", background: COR.bg, border: `1px solid ${fechou ? COR.ok : COR.acento}`, borderRadius: "16px", padding: "1.5rem 1.3rem", boxSizing: "border-box", textAlign: "center" }}
+      >
+        <p style={{ margin: "0 0 0.15rem", fontSize: "0.7rem", color: COR.fraco, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+          {meta?.nome}
+        </p>
+        <p style={{ margin: "0 0 0.5rem", fontSize: "1.35rem", fontWeight: 700, color: fechou ? COR.ok : COR.texto, letterSpacing: "-0.02em" }}>
+          {titulo}
+        </p>
+        <p style={{ margin: "0 0 1.1rem", fontSize: "0.85rem", color: COR.medio, lineHeight: 1.5 }}>
+          {frase}
+        </p>
+
+        {/* A barra aparece cheia até o marco: é a imagem do que foi conquistado, não
+            do que falta. O número de pontos vem junto porque é ele que vai pro
+            ranking — e ficar sabendo só na hora do placar seria tarde. */}
+        <div style={{ height: "8px", background: COR.campo, borderRadius: "999px", overflow: "hidden", marginBottom: "0.6rem" }}>
+          <div style={{ height: "100%", width: `${marco}%`, background: fechou ? COR.ok : COR.acento, borderRadius: "999px" }} />
+        </div>
+        <p style={{ margin: "0 0 1.2rem", fontSize: "0.75rem", color: COR.fraco }}>
+          +{pontos} pontos · meta {dificuldadeDe(meta).label.toLowerCase()}
+        </p>
+
+        <button
+          type="button"
+          onClick={onFechar}
+          className="pdx-tap"
+          style={{ width: "100%", padding: "0.8rem", border: "none", borderRadius: "10px", background: fechou ? COR.ok : COR.acento, color: "#fff", fontSize: "0.88rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
+        >
+          {fechou ? "Essa é minha" : "Seguir"}
+        </button>
+      </div>
+    </div>
   );
 }
 

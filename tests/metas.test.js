@@ -11,6 +11,13 @@ import {
   CATEGORIA_META,
   FORMAS_APORTE,
   LIMITE_FREE,
+  DIFICULDADES,
+  DIFICULDADE_PADRAO,
+  dificuldadeDe,
+  MARCOS,
+  pontosDoMarco,
+  marcosAlcancados,
+  mensagemDoMarco,
 } from "../src/lib/metas";
 import { calcularFechamento } from "../src/lib/fechamento";
 import { calcularDisciplina } from "../src/lib/disciplina";
@@ -310,5 +317,105 @@ describe("aporte que não abate do saldo", () => {
     const { lancamento } = montarLancamentoAporte({ meta, valor: 300, data: "2026-09-18", userId: "u1" });
     expect(lancamento.abate_saldo).toBe(true);
     expect(lancamento.descricao).toBe("Guardei — Viagem");
+  });
+});
+
+// ============================================================================
+// Dificuldade, marcos e pontos (19/09)
+// ============================================================================
+// O problema, nas palavras do Lucas: "coloquei uma meta de casamento, 100 mil. Até
+// juntar 100 mil o cara nunca será recompensado por ter chegado?"
+describe("dificuldade declarada", () => {
+  it("as três opções existem com peso crescente", () => {
+    expect(DIFICULDADES.map((d) => d.chave)).toEqual(["facil", "moderada", "dificil"]);
+    expect(DIFICULDADES.map((d) => d.peso)).toEqual([2, 3, 4]);
+  });
+
+  // Difícil vale o DOBRO de fácil, e não o triplo: com 3×, marcar difícil seria bom
+  // demais pra recusar, todo mundo marcaria, e o peso pararia de diferenciar.
+  it("difícil vale o dobro de fácil, moderada 1,5×", () => {
+    const [f, m, d] = DIFICULDADES;
+    expect(d.peso / f.peso).toBe(2);
+    expect(m.peso / f.peso).toBe(1.5);
+  });
+
+  // A frase é o mecanismo que faz a declaração sair honesta: ela descreve o mês da
+  // pessoa, não o prêmio.
+  it("toda opção tem a frase que ancora na vida de quem escolhe", () => {
+    for (const d of DIFICULDADES) expect(d.frase.length).toBeGreaterThan(10);
+  });
+
+  it("meta sem dificuldade cai no padrão, não em undefined", () => {
+    expect(dificuldadeDe({}).chave).toBe(DIFICULDADE_PADRAO);
+    expect(dificuldadeDe(null).chave).toBe(DIFICULDADE_PADRAO);
+    expect(dificuldadeDe({ dificuldade: "impossivel" }).chave).toBe(DIFICULDADE_PADRAO);
+  });
+});
+
+describe("marcos e pontos", () => {
+  // O 10 existe por causa da meta grande: em R$ 100.000, o 25% ainda é R$ 25.000.
+  it("os sete marcos, com o 1 sendo 'começou'", () => {
+    expect(MARCOS).toEqual([1, 10, 25, 50, 75, 90, 100]);
+  });
+
+  // A propriedade que define a conta: pontos são o INCREMENTO de cada marco, então a
+  // soma dos sete fecha exatamente 100 × peso — e não 351 × peso.
+  it("a soma de todos os marcos é 100 × peso", () => {
+    for (const d of DIFICULDADES) {
+      const total = MARCOS.reduce((s, m) => s + pontosDoMarco(m, d.chave), 0);
+      expect(total).toBe(100 * d.peso);
+    }
+  });
+
+  it("uma difícil concluída vale o dobro de uma fácil concluída", () => {
+    const soma = (dif) => MARCOS.reduce((s, m) => s + pontosDoMarco(m, dif), 0);
+    expect(soma("dificil")).toBe(400);
+    expect(soma("facil")).toBe(200);
+  });
+
+  // É o que faz o ranking não ser em reais: quem junta pouco numa difícil passa na
+  // frente de quem junta muito numa fácil.
+  it("meia meta difícil empata com uma fácil inteira", () => {
+    const ateMetade = [1, 10, 25, 50].reduce((s, m) => s + pontosDoMarco(m, "dificil"), 0);
+    const facilInteira = MARCOS.reduce((s, m) => s + pontosDoMarco(m, "facil"), 0);
+    expect(ateMetade).toBe(facilInteira);
+  });
+
+  // O marco 1 pergunta "entrou dinheiro?", não "chegou a 1%": R$ 10 numa meta de
+  // R$ 100.000 é 0,01% e ainda assim é o dia em que a pessoa começou.
+  it("o primeiro aporte conta mesmo sendo 0,01% da meta", () => {
+    expect(marcosAlcancados(0.0001, 10)).toEqual([1]);
+    expect(marcosAlcancados(0, 0)).toEqual([]);
+  });
+
+  it("progresso alcança todos os marcos abaixo dele", () => {
+    expect(marcosAlcancados(0.5, 500)).toEqual([1, 10, 25, 50]);
+    expect(marcosAlcancados(1, 1000)).toEqual([1, 10, 25, 50, 75, 90, 100]);
+    expect(marcosAlcancados(1.4, 1400)).toEqual([1, 10, 25, 50, 75, 90, 100]);
+  });
+});
+
+describe("mensagem do marco", () => {
+  it("todo marco tem título e frase", () => {
+    for (const m of MARCOS) {
+      const { titulo, frase } = mensagemDoMarco(m, meta);
+      // O piso é 3 porque os títulos mais curtos são "75%" e "90%" — cabe assim.
+      expect(titulo.length).toBeGreaterThanOrEqual(3);
+      expect(frase.length).toBeGreaterThan(10);
+    }
+  });
+
+  // A dificuldade é a única coisa que o app sabe sobre o esforço — é ela que faz a
+  // frase reconhecer o que a conquista custou.
+  it("a meta difícil recebe frase diferente da fácil", () => {
+    const facil = mensagemDoMarco(50, { ...meta, dificuldade: "facil" }).frase;
+    const dificil = mensagemDoMarco(50, { ...meta, dificuldade: "dificil" }).frase;
+    expect(dificil).not.toBe(facil);
+    expect(dificil).toContain("doer");
+  });
+
+  it("o 100 usa o nome da meta e não promete nada", () => {
+    expect(mensagemDoMarco(100, meta).titulo).toBe("Meta batida");
+    expect(mensagemDoMarco(100, meta).frase).toContain(meta.nome);
   });
 });
