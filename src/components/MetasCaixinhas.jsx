@@ -212,7 +212,7 @@ export default function MetasCaixinhas({
                     Agora as duas ações aparecem lado a lado, sempre, com o efeito no
                     saldo dito em português embaixo. Ninguém precisa deduzir o que o
                     estado não-marcado de uma caixa significa. */}
-                <EscolhaDupla
+                <Escolha
                   titulo="O que aconteceu"
                   valor={aporte.resgate}
                   // Trocar de guardar pra tirar reseta o efeito no saldo: "já estava
@@ -234,7 +234,7 @@ export default function MetasCaixinhas({
 
                     "Saiu da conta agora" segue sendo o padrão porque segue sendo a
                     verdade quase sempre. */}
-                <EscolhaDupla
+                <Escolha
                   titulo="Esse dinheiro se moveu agora?"
                   valor={aporte.abateSaldo}
                   onMudar={(v) => setAporte((a) => ({ ...a, abateSaldo: v, forma: v ? a.forma : "" }))}
@@ -245,22 +245,31 @@ export default function MetasCaixinhas({
                   }
                 />
 
-                {/* Crédito não está na lista de propósito: guardar dinheiro no crédito
+                {/* BOTÕES, E NÃO UM SELECT (19/09). O select tinha
+                    `<option value="">De onde saiu (opcional)</option>` como primeira
+                    linha — então, sem escolher nada, o campo exibia a PERGUNTA no
+                    lugar onde a pessoa lê a RESPOSTA. O Lucas: "ela não pode virar
+                    resposta, só pergunta". É o mesmo defeito do checkbox de ontem:
+                    informação morando num estado que ninguém lê como conteúdo.
+
+                    Agora a pergunta é título e as respostas são as três opções, igual
+                    às outras duas escolhas da tela. Nenhuma vem marcada — segue
+                    opcional, e clicar na marcada desmarca.
+
+                    Crédito não está na lista de propósito: guardar dinheiro no crédito
                     geraria fatura e dívida fingindo de poupança (ver lib/metas.js).
+
                     Só aparece quando o dinheiro se moveu agora — perguntar "de onde
                     saiu" sobre um dinheiro que já estava guardado não tem resposta. */}
                 {aporte.abateSaldo && (
-                  <select
-                    value={aporte.forma}
-                    onChange={(e) => setAporte((a) => ({ ...a, forma: e.target.value }))}
-                    aria-label={aporte.resgate ? "Pra onde voltou" : "De onde saiu"}
-                    style={{ ...inputBase, marginTop: "0.6rem", appearance: "none" }}
-                  >
-                    {/* O rótulo acompanha a ação: guardando, o dinheiro SAI de algum
-                        lugar; tirando, ele VOLTA pra algum lugar. */}
-                    <option value="">{aporte.resgate ? "Pra onde voltou (opcional)" : "De onde saiu (opcional)"}</option>
-                    {FORMAS_APORTE.map((f) => <option key={f} value={f}>{f}</option>)}
-                  </select>
+                  <Escolha
+                    // O rótulo acompanha a ação: guardando, o dinheiro SAI de algum
+                    // lugar; tirando, ele VOLTA pra algum lugar.
+                    titulo={aporte.resgate ? "Pra onde voltou (opcional)" : "De onde saiu (opcional)"}
+                    valor={aporte.forma}
+                    onMudar={(v) => setAporte((a) => ({ ...a, forma: a.forma === v ? "" : v }))}
+                    opcoes={FORMAS_APORTE.map((f) => ({ chave: f, label: f }))}
+                  />
                 )}
 
                 {/* A frase é o ponto inteiro da mudança: diz o que vai acontecer com o
@@ -379,19 +388,30 @@ export default function MetasCaixinhas({
 }
 
 /**
- * Duas opções lado a lado, sempre visíveis, com o título em cima.
+ * Opções lado a lado, sempre visíveis, com a pergunta como título em cima.
  *
- * É o padrão de escolha binária desta tela — e existe como componente porque são duas
- * perguntas seguidas ("o que aconteceu" e "o dinheiro se moveu agora"), e duas cópias
- * do mesmo bloco de estilo é como uma delas fica visualmente diferente da outra sem
- * ninguém perceber.
+ * É o padrão de escolha desta tela inteira, e existe como componente porque são três
+ * perguntas seguidas ("o que aconteceu", "o dinheiro se moveu agora" e "de onde
+ * saiu"): três cópias do mesmo bloco de estilo é como uma delas fica visualmente
+ * diferente das outras sem ninguém perceber.
+ *
+ * A REGRA QUE ELE CARREGA: pergunta é título, opção é resposta, e nunca o contrário.
+ * Já custou dois consertos em dois dias — o checkbox cujo estado não-marcado guardava
+ * metade da informação (18/09) e o select que exibia o próprio enunciado no lugar da
+ * resposta (19/09).
+ *
+ * `valor` fora de `opcoes` (inclusive "") é um estado legítimo: significa nenhuma
+ * marcada, que é como uma pergunta opcional deve começar.
  */
-function EscolhaDupla({ titulo, valor, onMudar, opcoes }) {
+function Escolha({ titulo, valor, onMudar, opcoes }) {
   return (
     <div style={{ marginTop: "0.7rem" }}>
       <p style={{ margin: "0 0 0.35rem", fontSize: "0.68rem", color: COR.fraco, textTransform: "uppercase", letterSpacing: "0.08em" }}>
         {titulo}
       </p>
+      {/* `alignItems: stretch` (padrão do flex) mantém os botões da mesma altura
+          quando um deles quebra em duas linhas no celular — "Saldo da conta" quebra
+          em telas estreitas e sem isso ele ficaria mais alto que os vizinhos. */}
       <div style={{ display: "flex", gap: "0.4rem" }}>
         {opcoes.map((op) => {
           const ativo = valor === op.chave;
@@ -403,7 +423,7 @@ function EscolhaDupla({ titulo, valor, onMudar, opcoes }) {
               aria-pressed={ativo}
               className="pdx-tap"
               style={{
-                flex: 1, padding: "0.5rem 0.4rem", borderRadius: "8px", cursor: "pointer",
+                flex: 1, minWidth: 0, padding: "0.5rem 0.35rem", borderRadius: "8px", cursor: "pointer",
                 fontSize: "0.76rem", fontWeight: 700, fontFamily: "inherit", lineHeight: 1.2,
                 border: `1px solid ${ativo ? COR.acento : COR.borda}`,
                 background: ativo ? COR.acento : "transparent",

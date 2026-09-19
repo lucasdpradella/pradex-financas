@@ -133,7 +133,24 @@ describe("montarLancamentoAporte", () => {
   it("Crédito não é forma de aporte", () => {
     expect(FORMAS_APORTE).not.toContain("Crédito");
     expect(montarLancamentoAporte({ ...base, forma: "Crédito" }).lancamento.forma_pagamento).toBeNull();
-    expect(montarLancamentoAporte({ ...base, forma: "PIX" }).lancamento.forma_pagamento).toBe("PIX");
+    expect(montarLancamentoAporte({ ...base, forma: "PIX/Débito" }).lancamento.forma_pagamento).toBe("PIX/Débito");
+  });
+
+  // "Saldo da conta" é o caso mais comum — mover dinheiro pra caixinha do próprio
+  // banco não é PIX nem débito, e antes de 19/09 quem fazia isso não achava a
+  // própria resposta na lista.
+  it("as três opções de origem são as que a tela mostra", () => {
+    expect(FORMAS_APORTE).toEqual(["Saldo da conta", "PIX/Débito", "Dinheiro"]);
+    for (const f of FORMAS_APORTE) {
+      expect(montarLancamentoAporte({ ...base, forma: f }).lancamento.forma_pagamento).toBe(f);
+    }
+  });
+
+  // Vale pra qualquer texto que não esteja na lista, inclusive o enunciado da própria
+  // pergunta — que era exatamente o que o select mandava quando ninguém escolhia nada.
+  it("texto fora da lista não vira forma de pagamento", () => {
+    expect(montarLancamentoAporte({ ...base, forma: "De onde saiu (opcional)" }).lancamento.forma_pagamento).toBeNull();
+    expect(montarLancamentoAporte({ ...base, forma: "" }).lancamento.forma_pagamento).toBeNull();
   });
 
   it("valor inválido vira erro, não lançamento", () => {
@@ -281,7 +298,7 @@ describe("aporte que não abate do saldo", () => {
 
   it("montarLancamentoAporte marca a coluna e dispensa a forma de pagamento", () => {
     const { lancamento } = montarLancamentoAporte({
-      meta, valor: 2000, data: "2026-09-18", userId: "u1", abateSaldo: false, forma: "PIX",
+      meta, valor: 2000, data: "2026-09-18", userId: "u1", abateSaldo: false, forma: "PIX/Débito",
     });
     expect(lancamento.abate_saldo).toBe(false);
     // Dizer "PIX" afirmaria um PIX de hoje que não aconteceu.

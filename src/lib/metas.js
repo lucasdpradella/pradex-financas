@@ -20,9 +20,19 @@
 // usuário renomeasse, o filtro por categoria de outros relatórios se perderia.
 export const CATEGORIA_META = "Metas";
 
-// Formas de pagamento aceitas num aporte. Crédito FICA DE FORA de propósito: guardar
-// dinheiro no crédito geraria fatura e dívida fingindo de poupança.
-export const FORMAS_APORTE = ["Débito", "PIX", "Dinheiro"];
+// De onde o dinheiro saiu pra entrar na caixinha. Crédito FICA DE FORA de propósito:
+// guardar dinheiro no crédito geraria fatura e dívida fingindo de poupança.
+//
+// "Saldo da conta" entrou em 19/09 e é o caso mais comum de todos — mover dinheiro
+// pra caixinha do próprio banco não é PIX nem débito, e quem fazia isso não achava a
+// própria resposta na lista. "PIX" e "Débito" viraram uma opção só porque a diferença
+// entre os dois não muda nada em lugar nenhum do app: os dois são dinheiro que saiu
+// da conta na hora. Menos opção, menos gente parada decidindo.
+//
+// São rótulos novos, não migração: aporte antigo gravado como "Débito" ou "PIX"
+// continua válido no banco e aparece como sempre apareceu — `forma_pagamento` é texto
+// livre e o resto do app só pergunta se é "Crédito".
+export const FORMAS_APORTE = ["Saldo da conta", "PIX/Débito", "Dinheiro"];
 
 // Quantas caixinhas cada plano guarda. Free tem uma — decisão do Lucas (16/09):
 // caixinha é a feature mais compartilhável do app, e travar tudo mata a aquisição.
