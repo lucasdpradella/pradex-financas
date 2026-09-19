@@ -175,3 +175,126 @@ export function guardouNoMes(lancamentosDoMes) {
     (l) => ehAporte(l) && abateSaldo(l) && l.tipo === "gasto" && num(l.valor) > 0,
   );
 }
+
+// ============================================================================
+// DIFICULDADE E MARCOS (2026-09-19)
+// ============================================================================
+// Brief: Chave Mestre, Projetos/PRADEX/briefs/2026-09-19_ranking-e-pontuacao-de-metas.md
+//
+// O problema que isto resolve, nas palavras do Lucas: "eu coloquei uma meta no meu
+// app, casamento, 100 mil. Até juntar 100 mil o cara nunca será recompensado por ter
+// chegado?" Até 19/09 existia UM evento de vitória — `concluida_em`. Numa meta grande
+// isso é um silêncio de dois anos.
+//
+// ⚠️ ESPELHO DO BANCO. Pesos, marcos e a conta de pontos existem iguais na trigger
+// `metas_marca_conclusao` (migration 2026-09-19). Quem manda é o banco: é ele que
+// grava `meta_marcos.pontos`, congelado no instante da conquista. O que está aqui
+// serve pra TELA prever e explicar — se divergirem, o número do placar é o do banco.
+
+/**
+ * As três dificuldades, declaradas por quem cria a meta.
+ *
+ * `frase` não é enfeite, é o mecanismo. Se as opções fossem só "fácil/moderada/
+ * difícil", todo mundo marcaria difícil — não por má-fé, por otimismo sobre o próprio
+ * esforço — e aí o multiplicador não diferenciaria nada. Cada frase descreve o MÊS da
+ * pessoa, não o prêmio: ela responde sobre a vida dela e a resposta sai honesta.
+ *
+ * `peso` é inteiro (2/3/4) pra os pontos fecharem sem arredondamento. A proporção é
+ * a de sempre: difícil vale o dobro de fácil, moderada vale 1,5×. E é 2× e não 3×
+ * porque com 3 marcar difícil seria bom demais pra recusar.
+ */
+export const DIFICULDADES = [
+  { chave: "facil",    label: "Fácil",    frase: "dá pra chegar sem mudar nada no meu mês", peso: 2 },
+  { chave: "moderada", label: "Moderada", frase: "vou ter que cortar alguma coisa",         peso: 3 },
+  { chave: "dificil",  label: "Difícil",  frase: "vai doer todo mês até eu chegar lá",      peso: 4 },
+];
+
+export const DIFICULDADE_PADRAO = "moderada";
+
+export const dificuldadeDe = (meta) =>
+  DIFICULDADES.find((d) => d.chave === meta?.dificuldade) ||
+  DIFICULDADES.find((d) => d.chave === DIFICULDADE_PADRAO);
+
+// 1 = "começou" (qualquer valor, independente de percentual). Os outros são o
+// percentual mesmo. O 10 existe por causa da meta grande: em R$ 100.000, o 25% ainda
+// é R$ 25.000 — longe demais pra ser o primeiro sinal de vida.
+export const MARCOS = [1, 10, 25, 50, 75, 90, 100];
+
+const MARCO_ANTERIOR = { 1: 0, 10: 1, 25: 10, 50: 25, 75: 50, 90: 75, 100: 90 };
+
+/**
+ * Pontos de um marco: o INCREMENTO que ele representa, vezes o peso.
+ *
+ * É o que faz a soma dos sete fechar exatamente 100 × peso — fácil 200, moderada 300,
+ * difícil 400 — em vez de 351 × peso, que seria somar os marcos crus.
+ */
+export function pontosDoMarco(marco, dificuldade) {
+  const peso = (DIFICULDADES.find((d) => d.chave === dificuldade) ||
+                DIFICULDADES.find((d) => d.chave === DIFICULDADE_PADRAO)).peso;
+  return (marco - (MARCO_ANTERIOR[marco] ?? 0)) * peso;
+}
+
+/**
+ * Marcos que um progresso já alcançou. `acumulado` entra separado do percentual
+ * porque o marco 1 pergunta "entrou dinheiro?", não "chegou a 1%".
+ */
+export function marcosAlcancados(progresso, acumulado) {
+  const pct = Number(progresso || 0) * 100;
+  return MARCOS.filter((m) => (m === 1 ? Number(acumulado || 0) > 0 : pct >= m));
+}
+
+/**
+ * O que a tela diz quando um marco cai. Duas partes: a conquista, e a frase que
+ * reconhece o que ela custou — esta última varia com a dificuldade DECLARADA, porque
+ * é a única coisa que o app sabe sobre o esforço.
+ *
+ * Tom: o Pradex fala como alguém que estava acompanhando, não como jogo com confete.
+ * Nada de "parabéns!!!" — quem guarda R$ 200 por mês há um ano não quer emoji, quer
+ * ser visto.
+ */
+export function mensagemDoMarco(marco, meta) {
+  const nome = meta?.nome || "sua meta";
+  const dif = dificuldadeDe(meta).chave;
+
+  const titulo = {
+    1: "Você começou",
+    10: "10% do caminho",
+    25: "Um quarto do caminho",
+    50: "Metade",
+    75: "75%",
+    90: "90%",
+    100: "Meta batida",
+  }[marco] || "Mais um passo";
+
+  // O 100 fala por si e não precisa de consolo nem de empurrão.
+  if (marco === 100) {
+    return {
+      titulo,
+      frase: dif === "dificil"
+        ? `${nome} era a difícil. Você chegou assim mesmo.`
+        : `${nome} é sua. Sem show — o show é não desfazer amanhã.`,
+    };
+  }
+
+  if (marco === 1) {
+    return {
+      titulo,
+      frase: dif === "dificil"
+        ? "O primeiro depósito da meta difícil. Esse é o que mais gente não faz."
+        : "Primeiro depósito registrado. É o passo que mais gente não dá.",
+    };
+  }
+
+  const frase = {
+    10: "Saiu do zero. Agora é repetir.",
+    25: "Um quarto. O começo já ficou pra trás.",
+    50: `Daqui pra frente falta menos do que já foi.`,
+    75: "Dá pra ver daqui.",
+    90: "É esse mês ou o que vem.",
+  }[marco];
+
+  return {
+    titulo,
+    frase: dif === "dificil" ? `${frase} E você disse que essa ia doer.` : frase,
+  };
+}

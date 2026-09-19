@@ -279,6 +279,10 @@ export default function PradexFinancas() {
   // (a bottom nav tem 5 lugares e não comporta um sexto). No desktop são telas irmãs
   // na sidebar e esta aba não é usada.
   const [metasAba, setMetasAba] = useState("caixinhas");
+  // Marco recém-conquistado, pra comemorar UMA vez, na hora. Vive aqui e não no
+  // componente porque quem descobre o marco novo é quem faz o aporte — comparando o
+  // `marco_max` de antes com o de depois do refetch.
+  const [celebracao, setCelebracao] = useState(null);
   const [premioResgatadoEm, setPremioResgatadoEm] = useState(null);
   // Linhas cruas da tabela `categorias` (id/nome/tipo/removida) — a tela desktop
   // precisa saber o que é custom, o que é default oculta e qual o id de cada uma.
@@ -833,8 +837,13 @@ export default function PradexFinancas() {
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/metas?arquivada=is.false&order=criada_em.asc`, { headers: api(token) });
       const data = await res.json();
-      setMetas(Array.isArray(data) ? data : []);
-    } catch (e) { console.error("[metas] erro ao carregar:", e); }
+      const lista = Array.isArray(data) ? data : [];
+      setMetas(lista);
+      // Devolve além de setar: quem acabou de registrar um aporte precisa comparar o
+      // `marco_max` de antes com o de agora pra saber se tem o que comemorar, e o
+      // estado do React não chegou ainda quando essa linha termina.
+      return lista;
+    } catch (e) { console.error("[metas] erro ao carregar:", e); return null; }
   };
 
   const criarMeta = async (dados) => {
@@ -879,6 +888,11 @@ export default function PradexFinancas() {
 
     setSalvandoMeta(true);
     setErroMeta("");
+    // O marco de ANTES, guardado antes do POST: é a única forma de saber se a trigger
+    // acabou de cravar um novo. Comparar com o estado depois do refetch é o que
+    // separa "chegou nos 50% agora" de "já estava nos 50% ontem" — sem isso, o app
+    // comemoraria o mesmo 50% a cada aporte.
+    const marcoAntes = Number(metas.find((m) => String(m.id) === String(meta?.id))?.marco_max || 0);
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
         method: "POST",
@@ -892,7 +906,15 @@ export default function PradexFinancas() {
         // Os dois: o lançamento entra no fluxo de caixa e a meta pode ter sido
         // concluída pela trigger — sem o refetch, o troféu só apareceria no próximo
         // carregamento.
-        await Promise.all([fetchLancamentos(), fetchMetas()]);
+        const [, listaNova] = await Promise.all([fetchLancamentos(), fetchMetas()]);
+
+        const metaNova = (listaNova || []).find((m) => String(m.id) === String(meta?.id));
+        const marcoDepois = Number(metaNova?.marco_max || 0);
+        // Só comemora quando SOBE. Resgate derruba o acumulado mas não o `marco_max`
+        // (ele só sobe no banco), então tirar dinheiro nunca dispara comemoração.
+        if (metaNova && marcoDepois > marcoAntes) {
+          setCelebracao({ meta: metaNova, marco: marcoDepois });
+        }
       }
     } catch (e) {
       setErroMeta("Falha de rede ao registrar. Tenta de novo.");
@@ -2307,6 +2329,8 @@ export default function PradexFinancas() {
               erroExterno={erroMeta}
               onCriar={criarMeta}
               onAportar={aportarNaMeta}
+              celebracao={celebracao}
+              onFecharCelebracao={() => setCelebracao(null)}
             />
           )}
 
