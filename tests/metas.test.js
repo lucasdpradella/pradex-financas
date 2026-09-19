@@ -328,15 +328,26 @@ describe("aporte que não abate do saldo", () => {
 describe("dificuldade declarada", () => {
   it("as três opções existem com peso crescente", () => {
     expect(DIFICULDADES.map((d) => d.chave)).toEqual(["facil", "moderada", "dificil"]);
-    expect(DIFICULDADES.map((d) => d.peso)).toEqual([2, 3, 4]);
+    expect(DIFICULDADES.map((d) => d.peso)).toEqual([4, 7, 10]);
   });
 
-  // Difícil vale o DOBRO de fácil, e não o triplo: com 3×, marcar difícil seria bom
-  // demais pra recusar, todo mundo marcaria, e o peso pararia de diferenciar.
-  it("difícil vale o dobro de fácil, moderada 1,5×", () => {
+  it("a razão é 1 : 1,75 : 2,5", () => {
     const [f, m, d] = DIFICULDADES;
-    expect(d.peso / f.peso).toBe(2);
-    expect(m.peso / f.peso).toBe(1.5);
+    expect(d.peso / f.peso).toBe(2.5);
+    expect(m.peso / f.peso).toBe(1.75);
+  });
+
+  // A ÂNCORA DO LUCAS (19/09), literal: "quem chega a 100% da fácil equivale a 40%
+  // da difícil". É ela que fixa a razão em 2,5 — a primeira versão usava 2, e com ela
+  // a fácil inteira valia 50% da difícil, generoso demais no julgamento dele.
+  //
+  // Este teste é a régua: mexeu em peso e ele quebrou, a régua mudou junto.
+  it("100% da fácil = 40% da difícil", () => {
+    const facilInteira = MARCOS.reduce((s, m) => s + pontosDoMarco(m, "facil"), 0);
+    const dificilInteira = MARCOS.reduce((s, m) => s + pontosDoMarco(m, "dificil"), 0);
+    expect(facilInteira).toBe(400);
+    expect(dificilInteira).toBe(1000);
+    expect(facilInteira / dificilInteira).toBe(0.4);
   });
 
   // A frase é o mecanismo que faz a declaração sair honesta: ela descreve o mês da
@@ -367,18 +378,14 @@ describe("marcos e pontos", () => {
     }
   });
 
-  it("uma difícil concluída vale o dobro de uma fácil concluída", () => {
-    const soma = (dif) => MARCOS.reduce((s, m) => s + pontosDoMarco(m, dif), 0);
-    expect(soma("dificil")).toBe(400);
-    expect(soma("facil")).toBe(200);
-  });
-
   // É o que faz o ranking não ser em reais: quem junta pouco numa difícil passa na
-  // frente de quem junta muito numa fácil.
-  it("meia meta difícil empata com uma fácil inteira", () => {
-    const ateMetade = [1, 10, 25, 50].reduce((s, m) => s + pontosDoMarco(m, "dificil"), 0);
+  // frente de quem junta muito numa fácil. Com a régua de 19/09, a difícil já passa
+  // a fácil inteira no marco dos 50% — antes só empatava lá.
+  it("uma difícil na metade já vale mais que uma fácil inteira", () => {
+    const dificilAteMetade = [1, 10, 25, 50].reduce((s, m) => s + pontosDoMarco(m, "dificil"), 0);
     const facilInteira = MARCOS.reduce((s, m) => s + pontosDoMarco(m, "facil"), 0);
-    expect(ateMetade).toBe(facilInteira);
+    expect(dificilAteMetade).toBe(500);
+    expect(dificilAteMetade).toBeGreaterThan(facilInteira);
   });
 
   // O marco 1 pergunta "entrou dinheiro?", não "chegou a 1%": R$ 10 numa meta de
