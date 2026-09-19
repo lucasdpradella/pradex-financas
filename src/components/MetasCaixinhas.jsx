@@ -19,7 +19,7 @@ import {
 } from "../lib/metas";
 import { CHECKOUT, PRECO, checkoutComEmail } from "../lib/plano";
 import { parseValor } from "./OrcamentoCategoria";
-import RankingMetas from "./RankingMetas";
+
 
 const formatBRL = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -65,8 +65,8 @@ export default function MetasCaixinhas({
   onAportar,
   onArquivar,
   onMudarDificuldade,
-  ranking = null,
-  onEntrarNoRanking,
+
+
   email,
   celebracao = null,
   onFecharCelebracao,
@@ -473,11 +473,10 @@ export default function MetasCaixinhas({
         <p style={{ margin: "0.7rem 0 0", fontSize: "0.78rem", color: "var(--danger, #E06C65)", lineHeight: 1.4 }}>{erroExterno || erro}</p>
       )}
 
-      {/* O ranking mora DENTRO da tela de Metas, embaixo das caixinhas, e não numa
-          aba própria: ele só faz sentido pra quem já tem meta, e uma aba vazia
-          esperando a primeira caixinha seria uma promessa que a pessoa não pediu.
-          De quebra, nasce nos dois canvas de uma vez, sem tocar em navegação. */}
-      <RankingMetas ranking={ranking} onEntrar={onEntrarNoRanking} salvando={salvando} />
+      {/* O ranking saiu daqui em 19/09 e virou aba própria no mobile (Lucas: "ranking
+          tem que ficar em metas no mobile"). Embaixo das caixinhas, ele só aparecia
+          pra quem rolava a lista inteira — e quem tem uma meta só nunca rola.
+          Quem o renderiza agora é o App, nos dois canvas. */}
 
       {paywall && <PaywallMetas email={email} onFechar={() => setPaywall(false)} />}
       {celebracao && <Celebracao {...celebracao} onFechar={onFecharCelebracao} />}

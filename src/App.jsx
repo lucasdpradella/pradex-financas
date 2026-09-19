@@ -27,6 +27,7 @@ import Landing from "./components/Landing";
 import PreviaBorrada from "./components/PreviaBorrada";
 import OrcamentoCategoria from "./components/OrcamentoCategoria";
 import MetasCaixinhas from "./components/MetasCaixinhas";
+import RankingMetas from "./components/RankingMetas";
 import { montarLancamentoAporte } from "./lib/metas";
 import CardAgente from "./components/CardAgente";
 import ConvitePlano from "./components/ConvitePlano";
@@ -2371,7 +2372,13 @@ export default function PradexFinancas() {
 
           {!isDesktop && (
             <div style={{ display: "flex", background: "var(--surface2, #0C0E14)", borderRadius: "10px", padding: "4px", marginBottom: "1.25rem", gap: "2px", border: "1px solid var(--border, #1E2330)" }}>
-              {[{ key: "caixinhas", label: "Caixinhas" }, { key: "tetos", label: "Tetos" }].map((aba) => (
+              {/* Três abas no mobile a partir de 19/09 (Lucas: "ranking tem que ficar
+                  em metas no mobile"). O ranking saiu de baixo das caixinhas e ganhou
+                  lugar próprio: embaixo, só aparecia pra quem rolava a lista inteira
+                  de caixinhas — e quem tem uma meta só nunca rolava.
+                  No desktop ele segue no fim da tela de Metas, porque lá não há
+                  abas: Metas e Orçamento já são telas irmãs na sidebar. */}
+              {[{ key: "caixinhas", label: "Caixinhas" }, { key: "tetos", label: "Tetos" }, { key: "ranking", label: "Ranking" }].map((aba) => (
                 <button
                   key={aba.key}
                   onClick={() => setMetasAba(aba.key)}
@@ -2401,8 +2408,6 @@ export default function PradexFinancas() {
               onCriar={criarMeta}
               onAportar={aportarNaMeta}
               onMudarDificuldade={mudarDificuldade}
-              ranking={ranking}
-              onEntrarNoRanking={salvarApelido}
               celebracao={celebracao}
               onFecharCelebracao={() => setCelebracao(null)}
             />
@@ -2427,6 +2432,18 @@ export default function PradexFinancas() {
               erroExterno={erroOrcamento}
               onSalvar={(linhas) => salvarOrcamentos(linhas, mesDashboard.ano, mesDashboard.mes)}
             />
+          )}
+
+          {/* RANKING — aba própria no mobile (Lucas, 19/09: "ranking tem que ficar em
+              metas no mobile"), e o fim da tela no desktop, onde não há abas: lá
+              Metas e Orçamento já são telas irmãs na sidebar.
+
+              Saiu de dentro do MetasCaixinhas: embaixo das caixinhas, só aparecia
+              pra quem rolava a lista inteira — e quem tem uma meta só nunca rola. */}
+          {(isDesktop || metasAba === "ranking") && (
+            <div style={{ marginTop: isDesktop ? "0.5rem" : 0 }}>
+              <RankingMetas ranking={ranking} onEntrar={salvarApelido} salvando={salvandoMeta} />
+            </div>
           )}
         </div>
       )}
