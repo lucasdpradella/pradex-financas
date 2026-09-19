@@ -34,6 +34,29 @@ const brl = (v?: number) =>
   Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 /**
+ * A janela [início, fim) do mês de `hoje`, em ISO. O fim é EXCLUSIVO.
+ *
+ * 🐛 EXISTE POR CAUSA DO PRIMEIRO BUG QUE A CUTUCADA CAUSOU EM PRODUÇÃO (19/09).
+ * O Lucas recebeu "Educação em 289% do teto" tendo gasto 72%. A query filtrava
+ * `data_lancamento >= 2026-09-01` e mais nada — o que não seleciona "este mês", e
+ * sim "deste mês em diante". As 9 parcelas futuras de um curso parcelado (R$ 6.501,
+ * de outubro em diante) entraram na conta de setembro (R$ 2.167).
+ *
+ * Virou função pura por um motivo só: assim dá pra TESTAR que o fim existe. O bug
+ * não foi uma conta errada, foi um limite ausente — e limite ausente é invisível
+ * numa revisão de código, porque não há nada escrito pra ler errado.
+ */
+export function janelaDoMes(hoje: Date = new Date()): { inicio: string; fim: string } {
+  const ano = hoje.getUTCFullYear();
+  const mes = hoje.getUTCMonth();
+  // Date.UTC normaliza a virada de ano sozinho: mês 12 vira janeiro do ano seguinte.
+  return {
+    inicio: new Date(Date.UTC(ano, mes, 1)).toISOString().slice(0, 10),
+    fim: new Date(Date.UTC(ano, mes + 1, 1)).toISOString().slice(0, 10),
+  };
+}
+
+/**
  * A frase. Recebe o alvo e o tom, devolve o texto pronto pro WhatsApp.
  *
  * A DIFICULDADE SÓ MUDA O TEXTO EM META, e muda porque foi o próprio cliente que a

@@ -13,7 +13,7 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { montarCutucada, comAvisoDeModoPesado, escolherAlvo, Alvo, Gatilho, Tom } from "./mensagens.ts";
+import { montarCutucada, comAvisoDeModoPesado, escolherAlvo, janelaDoMes, Alvo, Gatilho, Tom } from "./mensagens.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -74,8 +74,11 @@ async function enviar(telefone: string, mensagem: string): Promise<boolean> {
 
 /** Categorias estouradas ou perto disso, no mês corrente. */
 async function alvosDeTeto(supabase: SupabaseClient, userId: string): Promise<Alvo[]> {
-  const hoje = new Date();
-  const primeiroDia = `${hoje.getUTCFullYear()}-${String(hoje.getUTCMonth() + 1).padStart(2, "0")}-01`;
+  // 🐛 O FIM DA JANELA É OBRIGATÓRIO — ver `janelaDoMes` em mensagens.ts, que existe
+  // por causa do primeiro bug que esta função causou em produção (19/09): "Educação
+  // em 289% do teto" pra quem tinha gasto 72%, porque as parcelas futuras de um
+  // curso entraram na conta do mês.
+  const { inicio: primeiroDia, fim: primeiroDiaProximoMes } = janelaDoMes();
 
   const [orc, gastos] = await Promise.all([
     supabase.from("orcamentos").select("categoria, limite, mes")
@@ -83,7 +86,8 @@ async function alvosDeTeto(supabase: SupabaseClient, userId: string): Promise<Al
     // `meta_id is null`: aporte de meta não consome teto de categoria — mesma regra
     // do app desde 16/09.
     supabase.from("Lancamentos").select("valor, categoria")
-      .eq("user_id", userId).eq("tipo", "gasto").is("meta_id", null).gte("data_lancamento", primeiroDia),
+      .eq("user_id", userId).eq("tipo", "gasto").is("meta_id", null)
+      .gte("data_lancamento", primeiroDia).lt("data_lancamento", primeiroDiaProximoMes),
   ]);
   if (orc.error || !orc.data?.length) return [];
 
