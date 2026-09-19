@@ -199,14 +199,23 @@ export function guardouNoMes(lancamentosDoMes) {
  * esforço — e aí o multiplicador não diferenciaria nada. Cada frase descreve o MÊS da
  * pessoa, não o prêmio: ela responde sobre a vida dela e a resposta sai honesta.
  *
- * `peso` é inteiro (2/3/4) pra os pontos fecharem sem arredondamento. A proporção é
- * a de sempre: difícil vale o dobro de fácil, moderada vale 1,5×. E é 2× e não 3×
- * porque com 3 marcar difícil seria bom demais pra recusar.
+ * `peso` é inteiro (4/7/10) pra os pontos fecharem sem arredondamento nenhum. A
+ * proporção é 1 : 1,75 : 2,5 e vem de uma âncora que o Lucas deu pronta (19/09):
+ *
+ *   "quem chega a 100% da fácil equivale a 40% da difícil"
+ *
+ * Confere: meta fácil inteira = 100 × 4 = 400 pontos; 40% de uma difícil = 40 × 10 =
+ * 400. A âncora define a razão difícil/fácil em 2,5 — a primeira versão usava 2, e
+ * com ela a fácil inteira valia 50% da difícil, que ele achou generoso demais.
+ *
+ * O risco conhecido de subir a razão é todo mundo marcar "difícil". Ele fica aceito:
+ * a `frase` de cada opção é a defesa (a pessoa responde sobre o próprio mês, não
+ * sobre o prêmio), e o Lucas já decidiu em 19/09 não policiar declaração.
  */
 export const DIFICULDADES = [
-  { chave: "facil",    label: "Fácil",    frase: "dá pra chegar sem mudar nada no meu mês", peso: 2 },
-  { chave: "moderada", label: "Moderada", frase: "vou ter que cortar alguma coisa",         peso: 3 },
-  { chave: "dificil",  label: "Difícil",  frase: "vai doer todo mês até eu chegar lá",      peso: 4 },
+  { chave: "facil",    label: "Fácil",    frase: "dá pra chegar sem mudar nada no meu mês", peso: 4 },
+  { chave: "moderada", label: "Moderada", frase: "vou ter que cortar alguma coisa",         peso: 7 },
+  { chave: "dificil",  label: "Difícil",  frase: "vai doer todo mês até eu chegar lá",      peso: 10 },
 ];
 
 export const DIFICULDADE_PADRAO = "moderada";
