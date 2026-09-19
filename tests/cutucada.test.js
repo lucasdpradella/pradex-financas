@@ -5,7 +5,7 @@
 // resposta é um tropeço; a mesma frase chegando sozinha às 10h é invasão.
 import { describe, it, expect } from "vitest";
 import {
-  montarCutucada, escolherAlvo, PRIORIDADE,
+  montarCutucada, comAvisoDeModoPesado, escolherAlvo, PRIORIDADE,
 } from "../supabase/functions/agente-cutucada/mensagens.ts";
 
 const TONS = ["seco", "caos", "elogio"];
@@ -105,5 +105,48 @@ describe("escolherAlvo", () => {
 
   it("a prioridade cobre todos os gatilhos — nenhum fica órfão", () => {
     expect([...PRIORIDADE].sort()).toEqual([...GATILHOS].sort());
+  });
+});
+
+// ============================================================================
+// O aviso do modo pesado (Lucas, 19/09)
+// ============================================================================
+// "modo leve é claro kk — mas avisa que se continuarem sem disciplina o modo pesado
+// chegará em breve". Todo mundo começa no seco (o leve); o aviso transforma isso
+// numa promessa em vez de uma configuração escondida.
+describe("aviso do modo pesado", () => {
+  const cobranca = alvo({ gatilho: "teto_estourado" });
+
+  it("aparece nas duas primeiras cutucadas do modo leve", () => {
+    for (const n of [0, 1]) {
+      expect(comAvisoDeModoPesado("base", cobranca, "seco", n)).toContain("modo pesado");
+    }
+  });
+
+  // Repetido em toda mensagem vira assinatura de rodapé — ninguém lê rodapé, e a
+  // ameaça perde a graça por ser constante.
+  it("some a partir da terceira", () => {
+    for (const n of [2, 3, 10]) {
+      expect(comAvisoDeModoPesado("base", cobranca, "seco", n)).toBe("base");
+    }
+  });
+
+  // Celebração com ameaça anexada não é celebração — é elogio com cobrança no fim,
+  // que é o que faz alguém parar de contar as próprias vitórias.
+  it("NUNCA acompanha meta cumprida", () => {
+    const vitoria = alvo({ gatilho: "meta_concluida" });
+    expect(comAvisoDeModoPesado("base", vitoria, "seco", 0)).toBe("base");
+  });
+
+  it("não aparece no caos nem no elogio", () => {
+    // No caos ele JÁ é o modo pesado; prometer o que já está acontecendo é bobagem.
+    expect(comAvisoDeModoPesado("base", cobranca, "caos", 0)).toBe("base");
+    expect(comAvisoDeModoPesado("base", cobranca, "elogio", 0)).toBe("base");
+  });
+
+  it("o aviso diz que hoje é leve e que o pesado vem", () => {
+    const m = comAvisoDeModoPesado("base", cobranca, "seco", 0).toLowerCase();
+    expect(m).toContain("modo leve");
+    expect(m).toContain("em breve");
   });
 });

@@ -13,7 +13,7 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { montarCutucada, escolherAlvo, Alvo, Gatilho, Tom } from "./mensagens.ts";
+import { montarCutucada, comAvisoDeModoPesado, escolherAlvo, Alvo, Gatilho, Tom } from "./mensagens.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -222,7 +222,15 @@ Deno.serve(async (req: Request) => {
     // Elogio vigente ganha do tom base, igual ao agente reativo.
     const emElogio = p.agente_elogio_ate && new Date(p.agente_elogio_ate).getTime() > Date.now();
     const tom: Tom = emElogio ? "elogio" : (p.agente_tom === "caos" ? "caos" : "seco");
-    const mensagem = montarCutucada(alvo, tom);
+
+    // Quantas cutucadas esta pessoa já recebeu NA VIDA — não na janela de 14 dias
+    // que `recentes` cobre. O aviso do modo pesado só vale nas duas primeiras, e
+    // contar só as recentes o faria reaparecer sozinho depois de duas semanas
+    // quietas, como se fosse novidade de novo.
+    const { count: jaCutucado } = await supabase
+      .from("agente_cutucadas").select("id", { count: "exact", head: true }).eq("user_id", p.user_id);
+
+    const mensagem = comAvisoDeModoPesado(montarCutucada(alvo, tom), alvo, tom, jaCutucado ?? 0);
 
     relatorio.push({ user: p.user_id, gatilho: alvo.gatilho, referencia: alvo.referencia, tom, mensagem });
     if (dry) continue;

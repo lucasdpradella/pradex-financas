@@ -94,6 +94,36 @@ export function montarCutucada(alvo: Alvo, tom: Tom): string {
   }
 }
 
+/**
+ * O aviso de que o modo pesado existe.
+ *
+ * Pedido do Lucas (19/09): "modo leve é claro kk — mas avisa que se continuarem sem
+ * disciplina o modo pesado chegará em breve".
+ *
+ * Todo mundo começa no seco, que é o modo leve. O aviso transforma isso numa
+ * PROMESSA em vez de uma configuração escondida: a pessoa descobre que o Pradex tem
+ * outra marcha, e que quem decide se ela engata é o comportamento dela.
+ *
+ * DUAS REGRAS, e as duas importam:
+ *
+ * 1. Só nas duas primeiras cutucadas. Repetido em toda mensagem, vira assinatura de
+ *    rodapé — ninguém lê rodapé, e a ameaça perde a graça exatamente por ser
+ *    constante. Duas vezes avisa; a terceira seria encheção.
+ *
+ * 2. NUNCA junto de meta cumprida. Celebração com ameaça anexada não é celebração;
+ *    é elogio com cobrança no fim, que é a coisa que faz alguém parar de contar as
+ *    próprias vitórias.
+ */
+const AVISO_MODO_PESADO =
+  "\n\n_Por enquanto eu tô no modo leve. Se a indisciplina continuar, o modo pesado chega em breve — e ele não é tão educado assim._";
+
+export function comAvisoDeModoPesado(mensagem: string, alvo: Alvo, tom: Tom, jaCutucado: number): string {
+  if (tom !== "seco") return mensagem;                    // no caos ele JÁ é o modo pesado
+  if (alvo.gatilho === "meta_concluida") return mensagem; // ver regra 2
+  if (jaCutucado >= 2) return mensagem;                   // ver regra 1
+  return mensagem + AVISO_MODO_PESADO;
+}
+
 function fmtPrazo(prazo?: string | null): string {
   if (!prazo) return "em breve";
   const [a, m, d] = String(prazo).split("-");
