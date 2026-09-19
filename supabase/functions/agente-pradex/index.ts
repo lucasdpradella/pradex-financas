@@ -10,6 +10,12 @@
 // Observabilidade: correlation_id=messageId, latency, tokens, model.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+// MODO CAOS (19/09): tom, comandos e limites. Fica em arquivo próprio pra ser
+// testável no Vitest (tests/tom.test.js) — a detecção de "cala a boca" é a lógica
+// mais fácil de quebrar sem ninguém perceber.
+import {
+  detectarComando, aplicarComando, tomVigente, estaEmSilencio, instrucaoDeTom, LIMITES,
+} from "./tom.ts";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // ===== CONFIG =====
@@ -169,6 +175,42 @@ DADOS NÃO CLAROS:
 
 Sempre chame a tool 'registrar_acoes'. mensagem_resposta é o que o cliente lê no WhatsApp.`;
 
+// ===== MODO CAOS =====
+//
+// O prompt deixa de ser constante (19/09): o mesmo agente fala em três vozes, e a
+// voz é escolha do cliente, guardada em fp_perfil.
+//
+// OS GATILHOS SÃO UMA LISTA FECHADA de propósito. Sem eles o modelo comenta tudo —
+// e um agente que opina em cada lançamento vira ruído em uma semana, que é como
+// alguém desinstala um app que funciona. "Fora dos gatilhos, calado" é a regra que
+// faz o comentário valer alguma coisa quando ele vem.
+const GATILHOS = `QUANDO COMENTAR (só nestes casos; fora deles, registre e cale):
+1. Categoria passou de 90% do teto do mês.
+2. Categoria estourou o teto.
+3. Mudança brusca de padrão contra os últimos lançamentos.
+4. Meta cumprida — é a ÚNICA hora de celebrar de verdade.
+5. Meta em risco: no ritmo atual não chega no prazo.
+6. Meta parada há 30 dias ou mais.
+
+A DIFICULDADE DA META MUDA O QUE VOCÊ DIZ. Ela foi declarada pelo próprio cliente,
+então é justo cobrar em cima dela:
+- meta FÁCIL parada: "aquela meta que você mesmo disse que era fácil tá parada há um mês. Fácil pra quem?"
+- meta DIFÍCIL parada: "você marcou difícil e depois sentou. Difícil era o plano, não a desculpa."
+- meta FÁCIL cumprida: reconheça sem exagero — era o combinado.
+- meta DIFÍCIL cumprida: essa doeu. Diga isso.
+
+Uma observação por mensagem, no máximo. Nunca duas.`;
+
+function montarSystemPrompt(tom: "seco" | "caos" | "elogio"): string {
+  return `${SYSTEM_PROMPT}
+
+${instrucaoDeTom(tom)}
+
+${GATILHOS}
+
+${LIMITES}`;
+}
+
 const TOOL_REGISTRAR_ACOES = {
   name: "registrar_acoes",
   description: "Registra ações no app Pradex (criar/editar/deletar) e define a mensagem ao cliente.",
@@ -220,6 +262,16 @@ ${contexto.ultimosLancamentos.length === 0 ? "  (nenhum)" : contexto.ultimosLanc
 ${contexto.categorias.map((c: any) => `  - "${c.nome}" (${c.tipo})`).join("\n")}
 - Tetos do mês (só mencione se for relevante pro que a pessoa acabou de lançar):
 ${!contexto.tetos?.length ? "  (nenhum teto definido)" : contexto.tetos.map((t: any) => `  - "${t.categoria}": R$${t.gasto.toFixed(2)} de R$${t.limite.toFixed(2)} (${t.percentual}%)${t.percentual >= 100 ? " — ESTOUROU" : t.percentual >= 90 ? " — passou de 90%" : ""}`).join("\n")}
+- Metas (caixinhas) do cliente:
+${!contexto.metas?.length ? "  (nenhuma meta criada)" : contexto.metas.map((m: any) => {
+  const partes = [`${m.percentual}%`, `dificuldade ${m.dificuldade} (declarada por ele)`];
+  if (m.concluida) partes.push("CUMPRIDA");
+  else if (m.falta > 0) partes.push(`faltam R$${Number(m.falta).toFixed(2)}`);
+  if (m.prazo) partes.push(`prazo ${m.prazo}`);
+  if (m.dias_parada === null) partes.push("nunca recebeu aporte");
+  else if (m.dias_parada >= 30) partes.push(`PARADA há ${m.dias_parada} dias`);
+  return `  - "${m.nome}": ${partes.join(" · ")}`;
+}).join("\n")}
 - Cartões cadastrados:
 ${contexto.cartoes.length === 0 ? "  (nenhum)" : contexto.cartoes.map((c: any) => `  - ID ${c.id}: "${c.nome}"`).join("\n")}
 
@@ -233,7 +285,7 @@ Responda chamando a tool 'registrar_acoes'.`;
       body: JSON.stringify({
         model: CLAUDE_MODEL,
         max_tokens: 2048,
-        system: SYSTEM_PROMPT,
+        system: montarSystemPrompt(contexto.tom ?? "seco"),
         tools: [TOOL_REGISTRAR_ACOES],
         tool_choice: { type: "tool", name: "registrar_acoes" },
         messages: [{ role: "user", content: userContextual }],
@@ -257,7 +309,8 @@ Responda chamando a tool 'registrar_acoes'.`;
 // ===== LOOKUP =====
 async function lookupUserByPhone(supabase: SupabaseClient, phone: string) {
   const { data } = await supabase.from("fp_perfil")
-    .select("user_id, nome, plano, trial_inicio, trial_ate").eq("telefone", phone).limit(1).maybeSingle();
+    .select("user_id, nome, plano, trial_inicio, trial_ate, agente_tom, agente_silencio_ate, agente_elogio_ate")
+    .eq("telefone", phone).limit(1).maybeSingle();
   return data;
 }
 
@@ -360,12 +413,59 @@ async function getTetosDoMes(supabase: SupabaseClient, userId: string) {
   } catch { return []; }
 }
 
+// Metas ativas com progresso, dificuldade e há quanto tempo pararam.
+//
+// É a peça que faltava pros três gatilhos de meta do modo caos (cumprida, em risco,
+// parada). Os textos existem desde 12/09 e nunca puderam disparar: sem isto, o
+// agente não sabe que existe meta, quanto dela já foi feito, nem o que o cliente
+// declarou sobre a dificuldade dela.
+//
+// `dias_parada` é o dado que o modelo não teria como inferir dos últimos 5
+// lançamentos — e é justamente o do gatilho mais afiado ("você marcou difícil e
+// depois sentou").
+async function getMetasDoUsuario(supabase: SupabaseClient, userId: string) {
+  try {
+    const { data: metas, error } = await supabase
+      .from("metas")
+      .select("id, nome, valor_alvo, dificuldade, prazo, concluida_em")
+      .eq("user_id", userId).eq("arquivada", false);
+    if (error || !metas?.length) return [];
+
+    const ids = metas.map((m: any) => m.id);
+    const { data: aportes } = await supabase
+      .from("Lancamentos")
+      .select("meta_id, valor, tipo, data_lancamento")
+      .eq("user_id", userId).in("meta_id", ids);
+
+    const hoje = Date.now();
+    return metas.map((m: any) => {
+      const meus = (aportes ?? []).filter((a: any) => String(a.meta_id) === String(m.id));
+      const acumulado = meus.reduce((s: number, a: any) =>
+        s + (a.tipo === "gasto" ? Number(a.valor) : -Number(a.valor)), 0);
+      const alvo = Number(m.valor_alvo) || 0;
+      const ultima = meus.map((a: any) => a.data_lancamento).sort().pop();
+      return {
+        nome: m.nome,
+        dificuldade: m.dificuldade ?? "moderada",
+        percentual: alvo > 0 ? Math.round((acumulado / alvo) * 100) : 0,
+        falta: Math.max(0, alvo - acumulado),
+        prazo: m.prazo ?? null,
+        concluida: Boolean(m.concluida_em),
+        // null = nunca recebeu aporte. É diferente de "parada há muito tempo": meta
+        // recém-criada não merece cobrança.
+        dias_parada: ultima ? Math.floor((hoje - new Date(`${ultima}T12:00:00`).getTime()) / 86400000) : null,
+      };
+    });
+  } catch { return []; }
+}
+
 async function getContextoUsuario(supabase: SupabaseClient, userId: string) {
-  const [lancRes, catRes, cartRes, tetos] = await Promise.all([
+  const [lancRes, catRes, cartRes, tetos, metas] = await Promise.all([
     supabase.from("Lancamentos").select("id, valor, categoria, descricao, data_lancamento, tipo").eq("user_id", userId).order("created_at", { ascending: false }).limit(5),
     supabase.from("categorias").select("nome, tipo, removida").eq("user_id", userId),
     supabase.from("cartoes").select("id, nome").eq("user_id", userId).order("nome"),
     getTetosDoMes(supabase, userId),
+    getMetasDoUsuario(supabase, userId),
   ]);
 
   const userCats = (catRes.data ?? []) as Array<{ nome: string; tipo: string; removida: boolean }>;
@@ -394,6 +494,7 @@ async function getContextoUsuario(supabase: SupabaseClient, userId: string) {
     categorias,
     cartoes: (cartRes.data ?? []).map((c: any) => ({ id: c.id, nome: c.nome ?? "" })),
     tetos,
+    metas,
   };
 }
 
@@ -566,10 +667,10 @@ function validarCategorias(acoes: any[], categorias: Array<{ nome: string; tipo:
 }
 
 // ===== PROCESSAR LANÇAMENTO =====
-async function processarLancamento(supabase: SupabaseClient, userId: string, nomeCliente: string, telefone: string, texto: string, cid: string) {
+async function processarLancamento(supabase: SupabaseClient, userId: string, nomeCliente: string, telefone: string, texto: string, cid: string, tom: "seco" | "caos" | "elogio" = "seco") {
   const dataHoje = new Date().toISOString().split("T")[0];
   const ctx = await getContextoUsuario(supabase, userId);
-  const resp = await callAnthropic(texto, { nomeCliente, telefone, dataHoje, ...ctx }, cid);
+  const resp = await callAnthropic(texto, { nomeCliente, telefone, dataHoje, tom, ...ctx }, cid);
   if (!resp) return { mensagem: "Tive um problema do meu lado processando sua mensagem. Tenta de novo em alguns segundos 🙏", acoesAplicadas: null };
   if (resp.precisa_confirmar || !resp.acoes || resp.acoes.length === 0) return { mensagem: resp.mensagem_resposta, acoesAplicadas: null };
   const acoesValidadas = validarCategorias(resp.acoes, ctx.categorias, cid);
@@ -681,9 +782,46 @@ Deno.serve(async (req: Request) => {
       logInfo(cid, "bloqueado_sem_plano", { user_id: usuario.user_id, plano: usuario.plano ?? null, trial_ate: usuario.trial_ate ?? null });
     } else {
       userIdFinal = usuario.user_id;
-      const r = await processarLancamento(supabase, usuario.user_id, usuario.nome, telefone, textoMsg, cid);
-      mensagemResp = r.mensagem;
-      acoesApl = r.acoesAplicadas;
+
+      // ===== MODO CAOS: comando de tom =====
+      //
+      // ANTES do modelo, e de propósito. "Cala a boca" é a mensagem de quem já está
+      // irritado com o agente; mandar essa frase pro Claude decidir significa que,
+      // no dia em que ele interpretar diferente, o produto responde com piada pra
+      // quem acabou de pedir silêncio — e essa pessoa cancela. Determinístico,
+      // instantâneo e de graça.
+      const cmd = detectarComando(textoMsg);
+      if (cmd) {
+        const { patch, resposta } = aplicarComando(cmd);
+        await supabase.from("fp_perfil").update(patch).eq("user_id", usuario.user_id);
+        logInfo(cid, "tom_alterado", { comando: cmd });
+        mensagemResp = resposta;
+        statusFinal = "comando_tom";
+      } else if (estaEmSilencio(usuario)) {
+        // Silêncio é sobre BARULHO, não sobre serviço — "assinatura segue", diz a
+        // própria resposta do comando. Então o lançamento é registrado normalmente
+        // e a confirmação sai; o que some é o comentário. Engolir a confirmação
+        // faria a pessoa não saber se o gasto entrou no app, e isso é função, não
+        // sarcasmo.
+        const r = await processarLancamento(supabase, usuario.user_id, usuario.nome, telefone, textoMsg, cid, "seco");
+        mensagemResp = r.mensagem;
+        acoesApl = r.acoesAplicadas;
+        statusFinal = "silenciado_24h";
+        logInfo(cid, "em_silencio", { ate: usuario.agente_silencio_ate });
+      } else {
+        const r = await processarLancamento(supabase, usuario.user_id, usuario.nome, telefone, textoMsg, cid, tomVigente(usuario));
+        mensagemResp = r.mensagem;
+        acoesApl = r.acoesAplicadas;
+
+        // "Voltei", do brief — sem recap do que ela perdeu. Sai na primeira mensagem
+        // depois que o silêncio venceu, e não por cron: um disparo proativo exigiria
+        // scheduler só pra dizer olá. Limpar a coluna é o que impede o prefixo de
+        // aparecer pra sempre daí em diante.
+        if (usuario.agente_silencio_ate) {
+          mensagemResp = `Voltei.\n\n${mensagemResp}`;
+          await supabase.from("fp_perfil").update({ agente_silencio_ate: null }).eq("user_id", usuario.user_id);
+        }
+      }
     }
 
     await markMessageDone(supabase, messageId, userIdFinal);
