@@ -19,6 +19,7 @@ import {
 } from "../lib/metas";
 import { CHECKOUT, PRECO, checkoutComEmail } from "../lib/plano";
 import { parseValor } from "./OrcamentoCategoria";
+import RankingMetas from "./RankingMetas";
 
 const formatBRL = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -63,10 +64,18 @@ export default function MetasCaixinhas({
   onCriar,
   onAportar,
   onArquivar,
+  onMudarDificuldade,
+  ranking = null,
+  onEntrarNoRanking,
   email,
   celebracao = null,
   onFecharCelebracao,
 }) {
+  // Qual meta está com o seletor de dificuldade aberto. Fica escondido atrás de um
+  // toque no rótulo porque trocar a dificuldade é raro — ocupar espaço fixo no card
+  // por uma ação que acontece uma vez na vida da meta empurraria pra baixo o que
+  // importa, que é a barra.
+  const [editandoDif, setEditandoDif] = useState(null);
   const [abrindoForm, setAbrindoForm] = useState(false);
   const [nova, setNova] = useState({ nome: "", valor_alvo: "", aplicado_em: "", prazo: "", dificuldade: DIFICULDADE_PADRAO });
   const [aporteDe, setAporteDe] = useState(null);   // meta.id
@@ -188,9 +197,41 @@ export default function MetasCaixinhas({
                 depois ("você marcou difícil e sentou"). Escondida, viraria um
                 número secreto que só o ranking usa. */}
             <p style={{ margin: "0.45rem 0 0", fontSize: "0.7rem", color: COR.fraco }}>
-              {dificuldadeDe(m).label.toLowerCase()}
+              <button
+                type="button"
+                onClick={() => setEditandoDif(editandoDif === m.id ? null : m.id)}
+                aria-label={`Mudar dificuldade de ${m.nome}`}
+                style={{ background: "transparent", border: "none", padding: 0, margin: 0, font: "inherit", color: COR.medio, cursor: "pointer", textDecoration: "underline dotted", textUnderlineOffset: "3px" }}
+              >
+                {dificuldadeDe(m).label.toLowerCase()}
+              </button>
               {m.aplicado_em ? ` · onde está: ${m.aplicado_em}` : ""}
             </p>
+
+            {/* TROCAR A DIFICULDADE DEPOIS (decisão do Lucas, 19/09): "a pessoa pode
+                mudar de ideia ou entender melhor com o tempo, sem crise — nesse caso
+                sim vai diminuir ou aumentar os pontos".
+
+                Ele está certo contra a trava que eu tinha proposto: a dificuldade é
+                declarada no dia em que a meta nasce, que é justamente o dia em que a
+                pessoa menos sabe como vai ser. Descobrir no terceiro mês que
+                "moderada" era otimismo é aprendizado, não trapaça.
+
+                O aviso embaixo existe porque o efeito não é óbvio: mexer aqui mexe em
+                pontos que já foram conquistados. Quem recalcula é a trigger no banco. */}
+            {editandoDif === m.id && (
+              <div style={{ marginTop: "0.5rem", paddingTop: "0.5rem", borderTop: `1px solid ${COR.borda}` }}>
+                <Escolha
+                  titulo="Quão difícil está sendo"
+                  valor={dificuldadeDe(m).chave}
+                  onMudar={(v) => { if (v !== dificuldadeDe(m).chave) onMudarDificuldade?.(m, v); setEditandoDif(null); }}
+                  opcoes={DIFICULDADES.map((d) => ({ chave: d.chave, label: d.label }))}
+                />
+                <p style={{ margin: "0.4rem 0 0", fontSize: "0.7rem", color: COR.fraco, lineHeight: 1.45 }}>
+                  “{dificuldadeDe(m).frase}” · mudar isso recalcula os pontos que essa meta já te deu.
+                </p>
+              </div>
+            )}
 
             {aporteDe === m.id && (
               <div style={{ marginTop: "0.7rem", paddingTop: "0.7rem", borderTop: `1px solid ${COR.borda}` }}>
@@ -431,6 +472,12 @@ export default function MetasCaixinhas({
       {(erroExterno || erro) && (
         <p style={{ margin: "0.7rem 0 0", fontSize: "0.78rem", color: "var(--danger, #E06C65)", lineHeight: 1.4 }}>{erroExterno || erro}</p>
       )}
+
+      {/* O ranking mora DENTRO da tela de Metas, embaixo das caixinhas, e não numa
+          aba própria: ele só faz sentido pra quem já tem meta, e uma aba vazia
+          esperando a primeira caixinha seria uma promessa que a pessoa não pediu.
+          De quebra, nasce nos dois canvas de uma vez, sem tocar em navegação. */}
+      <RankingMetas ranking={ranking} onEntrar={onEntrarNoRanking} salvando={salvando} />
 
       {paywall && <PaywallMetas email={email} onFechar={() => setPaywall(false)} />}
       {celebracao && <Celebracao {...celebracao} onFechar={onFecharCelebracao} />}

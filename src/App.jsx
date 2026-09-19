@@ -283,6 +283,10 @@ export default function PradexFinancas() {
   // componente porque quem descobre o marco novo é quem faz o aporte — comparando o
   // `marco_max` de antes com o de depois do refetch.
   const [celebracao, setCelebracao] = useState(null);
+  // Ranking de metas. Vem inteiro de uma RPC (`ranking_metas`) e não de um select:
+  // as policies de metas/meta_marcos são fechadas no próprio usuário, e é a RPC
+  // `security definer` que devolve o mínimo — apelido, pontos e contagem.
+  const [ranking, setRanking] = useState(null);
   const [premioResgatadoEm, setPremioResgatadoEm] = useState(null);
   // Linhas cruas da tabela `categorias` (id/nome/tipo/removida) — a tela desktop
   // precisa saber o que é custom, o que é default oculta e qual o id de cada uma.
@@ -592,6 +596,7 @@ export default function PradexFinancas() {
       // Metas não são por mês (a caixinha atravessa meses), então ficam fora do
       // efeito que reage à troca de mês do dashboard.
       fetchMetas();
+      fetchRanking();
       fetchTaxaFocus().then(t => setTaxaFocus(t));
       verificarTelefonePerfil();
     }
@@ -881,6 +886,69 @@ export default function PradexFinancas() {
   // Quem marca a meta como concluída é a trigger no banco, não esta função: o aporte
   // pode nascer de três lugares (aqui, a tela de Lançar e o WhatsApp) e a regra de
   // conclusão replicada em três clientes vira três regras diferentes no primeiro bug.
+  const fetchRanking = async (token = session?.token) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/ranking_metas`, {
+        method: "POST",
+        headers: api(token),
+        body: JSON.stringify({ p_limite: 20 }),
+      });
+      if (res.ok) setRanking(await res.json());
+    } catch (e) { console.error("[ranking] erro:", e); }
+  };
+
+  // Entrar no ranking é escolher um apelido — e é o único jeito de entrar.
+  // `apelido = null` é o estado de todo mundo, então ninguém aparece sem ter pedido.
+  // Nunca reusa `fp_perfil.nome`: aquele é o nome real, do Planejamento Financeiro.
+  const salvarApelido = async (apelido) => {
+    if (!session?.token) return { erro: "Sessão expirada." };
+    const limpo = String(apelido || "").trim().slice(0, 24);
+    if (!limpo) return { erro: "Escolha um apelido." };
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/fp_perfil?user_id=eq.${session.user.id}`, {
+        method: "PATCH",
+        headers: { ...api(session.token), Prefer: "return=minimal" },
+        body: JSON.stringify({ apelido: limpo }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        // 23505 = a unique de apelido. Dois "Lucas" no placar viram confusão.
+        return { erro: err?.code === "23505" ? "Esse apelido já está em uso. Tenta outro." : "Não consegui salvar o apelido." };
+      }
+      await fetchRanking();
+      return {};
+    } catch (e) { return { erro: "Falha de rede. Tenta de novo." }; }
+  };
+
+  // Trocar a dificuldade de uma meta que já existe (decisão do Lucas, 19/09: "a
+  // pessoa pode mudar de ideia ou entender melhor com o tempo, sem crise — nesse caso
+  // sim vai diminuir ou aumentar os pontos").
+  //
+  // Quem recalcula os pontos dos marcos já conquistados é a trigger `trg_metas_repesa`
+  // no banco, e não esta função: os pontos precisam bater com o que o ranking soma, e
+  // o ranking lê do banco.
+  const mudarDificuldade = async (meta, dificuldade) => {
+    if (!session?.token || !meta?.id) return;
+    setSalvandoMeta(true);
+    setErroMeta("");
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/metas?id=eq.${meta.id}`, {
+        method: "PATCH",
+        headers: { ...api(session.token), Prefer: "return=minimal" },
+        body: JSON.stringify({ dificuldade }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setErroMeta(`Não consegui mudar a dificuldade. ${String(err?.message || "").slice(0, 120)}`);
+      } else {
+        await fetchMetas();
+      }
+    } catch (e) {
+      setErroMeta("Falha de rede. Tenta de novo.");
+    } finally { setSalvandoMeta(false); }
+  };
+
   const aportarNaMeta = async ({ meta, valor, data, forma, resgate, abateSaldo = true }) => {
     if (!session?.token) return;
     const { lancamento, erro } = montarLancamentoAporte({ meta, valor, data, forma, resgate, abateSaldo, userId: session.user.id });
@@ -914,6 +982,9 @@ export default function PradexFinancas() {
         // (ele só sobe no banco), então tirar dinheiro nunca dispara comemoração.
         if (metaNova && marcoDepois > marcoAntes) {
           setCelebracao({ meta: metaNova, marco: marcoDepois });
+          // Marco novo = pontos novos. Sem isto, o placar só mudaria no próximo
+          // carregamento do app, e a pessoa acabou de ver "+N pontos" na tela.
+          fetchRanking();
         }
       }
     } catch (e) {
@@ -2329,6 +2400,9 @@ export default function PradexFinancas() {
               erroExterno={erroMeta}
               onCriar={criarMeta}
               onAportar={aportarNaMeta}
+              onMudarDificuldade={mudarDificuldade}
+              ranking={ranking}
+              onEntrarNoRanking={salvarApelido}
               celebracao={celebracao}
               onFecharCelebracao={() => setCelebracao(null)}
             />
