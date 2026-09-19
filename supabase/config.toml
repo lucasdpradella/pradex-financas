@@ -6,3 +6,6 @@ verify_jwt = false
 
 [functions.trial-lembretes]
 verify_jwt = false
+
+[functions.agente-cutucada]
+verify_jwt = false
