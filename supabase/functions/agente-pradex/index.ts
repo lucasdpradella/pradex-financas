@@ -17,6 +17,7 @@ import {
   detectarComando, aplicarComando, tomVigente, estaEmSilencio, instrucaoDeTom, LIMITES,
 } from "./tom.ts";
 import { prepararAcoes } from "./forma.ts";
+import { normalizePhone } from "./phone.ts";
 import {
   blocoMoedaIdioma, formatarValorAgente, frase, normalizarIdioma, normalizarMoeda,
   type IdiomaLivro, type MoedaLivro,
@@ -47,12 +48,6 @@ function constantTimeEquals(a: string, b: string): boolean {
   let result = 0;
   for (let i = 0; i < a.length; i++) result |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return result === 0;
-}
-
-function normalizePhone(phone: unknown): string {
-  let digits = String(phone ?? "").replace(/\D/g, "");
-  if (digits.length === 11) digits = "55" + digits;
-  return digits;
 }
 
 async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
@@ -382,10 +377,7 @@ function podeUsarAgente(perfil: { plano?: unknown; trial_inicio?: unknown; trial
 const SILENCIADOS: Set<string> = new Set(
   (Deno.env.get("AGENTE_SILENCIADOS") ?? "")
     .split(",")
-    .map((s) => {
-      const d = s.replace(/\D/g, "");
-      return d.length === 11 ? "55" + d : d;
-    })
+    .map((s) => normalizePhone(s))
     .filter(Boolean),
 );
 
