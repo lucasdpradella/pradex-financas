@@ -65,6 +65,8 @@ export function agruparPorParcelaGrupo(lancamentos) {
       forma_pagamento: primeira.forma_pagamento || "Crédito",
       cartao_id: primeira.cartao_id,
       data_lancamento: primeira.data_lancamento,
+      criado_por: primeira.criado_por || primeira.user_id,
+      user_id: primeira.user_id,
       total_parcelas: nParcelas,
       parcela_atual: 1,
       poderia_ter_evitado: false,

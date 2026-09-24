@@ -1,5 +1,6 @@
 import { desktopTheme as t, SIDEBAR_WIDTH } from "./theme";
 import { temAcesso, planoNecessario } from "../../lib/plano";
+import { t as tr } from "../../lib/i18n";
 
 // Ícones outline (estilo Tabler/Lucide) inline — sem dependência nova.
 const Icon = ({ name }) => {
@@ -18,6 +19,7 @@ const Icon = ({ name }) => {
     // Painel do dono: barras subindo com uma seta. Diferente do icone de Relatorios
     // (folha de papel), que e relatorio do usuario sobre a propria vida.
     metricas: <><line x1="4" y1="20" x2="4" y2="14" /><line x1="10" y1="20" x2="10" y2="9" /><line x1="16" y1="20" x2="16" y2="12" /><polyline points="14 4 20 4 20 10" /><line x1="20" y1="4" x2="13" y2="11" /></>,
+    livro: <><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></>,
   };
   return (
     <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -28,23 +30,24 @@ const Icon = ({ name }) => {
 
 // Mapeia cada item da sidebar pro estado `tela` do App (fonte da verdade única).
 const ITEMS = [
-  { key: "dashboard", label: "Dashboard", icon: "dashboard", tela: "dashboard", activeFor: ["dashboard"] },
-  { key: "lancamentos", label: "Lançamentos", icon: "lancamentos", tela: "historico", activeFor: ["historico", "lancamentos"] },
-  { key: "cartoes", label: "Cartões", icon: "cartoes", tela: "cartoes", activeFor: ["cartoes"] },
-  { key: "categorias", label: "Categorias", icon: "categorias", tela: "categorias", activeFor: ["categorias"] },
-  { key: "bancos", label: "Bancos", icon: "bancos", tela: "bancos", activeFor: ["bancos"] },
+  { key: "dashboard", labelKey: "sb_dashboard", icon: "dashboard", tela: "dashboard", activeFor: ["dashboard"] },
+  { key: "lancamentos", labelKey: "sb_lancamentos", icon: "lancamentos", tela: "historico", activeFor: ["historico", "lancamentos"] },
+  { key: "cartoes", labelKey: "sb_cartoes", icon: "cartoes", tela: "cartoes", activeFor: ["cartoes"] },
+  { key: "categorias", labelKey: "sb_categorias", icon: "categorias", tela: "categorias", activeFor: ["categorias"] },
+  { key: "bancos", labelKey: "sb_bancos", icon: "bancos", tela: "bancos", activeFor: ["bancos"] },
   // Sem `recurso` DE PROPOSITO: o orcamento nao leva cadeado. A tela abre pra todo
   // mundo e o paywall so aparece no save (ver lib/plano.js, paywallNoSave).
-  { key: "orcamento", label: "Orçamento", icon: "orcamento", tela: "orcamento", activeFor: ["orcamento"] },
+  { key: "orcamento", labelKey: "sb_orcamento", icon: "orcamento", tela: "orcamento", activeFor: ["orcamento"] },
   // Metas nasceu em 16/09. Sem `recurso` pelo mesmo motivo do Orçamento: a tela abre
   // pra todo mundo e o paywall só aparece ao criar a SEGUNDA caixinha.
-  { key: "metas", label: "Metas", icon: "metas", tela: "metas", activeFor: ["metas"] },
-  { key: "fp", label: "Planejamento", icon: "fp", tela: "fp", activeFor: ["fp"], recurso: "fp" },
-  { key: "relatorios", label: "Relatórios", icon: "relatorios", tela: "relatorios", activeFor: ["relatorios"], recurso: "relatorios" },
+  { key: "metas", labelKey: "sb_metas", icon: "metas", tela: "metas", activeFor: ["metas"] },
+  { key: "fp", labelKey: "sb_fp", icon: "fp", tela: "fp", activeFor: ["fp"], recurso: "fp" },
+  { key: "relatorios", labelKey: "sb_relatorios", icon: "relatorios", tela: "relatorios", activeFor: ["relatorios"], recurso: "relatorios" },
+  { key: "livro", labelKey: "sb_livro", icon: "livro", tela: "livro", activeFor: ["livro"] },
   // Painel do dono. `soAdmin` e não `recurso`: não é plano, é papel — e diferente do
   // cadeado, este item SOME pra quem não é super_admin. Cadeado existe pra vender o
   // que a pessoa poderia ter; ninguém vai comprar o painel interno da empresa.
-  { key: "metricas", label: "Métricas", icon: "metricas", tela: "metricas", activeFor: ["metricas"], soAdmin: true },
+  { key: "metricas", labelKey: "sb_metricas", icon: "metricas", tela: "metricas", activeFor: ["metricas"], soAdmin: true },
 ];
 
 const CSS = `
@@ -81,7 +84,7 @@ function iniciais(email) {
   return ((partes[0]?.[0] || "") + (partes[1]?.[0] || "")).toUpperCase() || "P";
 }
 
-export default function SidebarDesktop({ tela, setTela, userEmail, userRole, onLogout, onTrocarSenha, plano = "none" }) {
+export default function SidebarDesktop({ tela, setTela, userEmail, userRole, onLogout, onTrocarSenha, plano = "none", idioma = "pt-BR" }) {
   const roleLabel = userRole === "super_admin" ? "Admin" : userRole === "assessor" ? "Assessor" : "Usuário";
   // Item pago continua na lista sem o plano — vai com cadeado e leva pro CTA. Sumir
   // sem contexto era exatamente o que o paywall veio corrigir.
@@ -104,7 +107,7 @@ export default function SidebarDesktop({ tela, setTela, userEmail, userRole, onL
               aria-current={active ? "page" : undefined}
             >
               <Icon name={item.icon} />
-              {item.label}
+              {tr(idioma, item.labelKey)}
               {desabilitado && <span className="pdx-sb__soon">em breve</span>}
               {trancado && <span className="pdx-sb__soon" aria-label={`Requer plano ${planoNecessario(item.recurso) === "essencial" ? "Essencial" : "Assistente"}`}>🔒</span>}
             </button>

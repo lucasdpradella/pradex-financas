@@ -45,17 +45,21 @@ const DIC: Record<Exclude<Comando, null>, string[]> = {
     "me deixa", "me deixa em paz", "para", "para de falar", "para de me zoar",
     "para com isso", "quieto", "chega", "chega disso", "some", "sh", "xiu",
     "nao quero saber", "para de me encher", "chega de sarcasmo", "modo silencio",
+    "shut up", "be quiet", "stop talking",
   ],
   caos: [
     "caos", "modo caos", "volta o caos", "volta o sarcasmo", "volta a zoar", "me zoa",
     "me provoca", "quero o sarro", "sarro", "chega de elogio", "para de me elogiar",
     "para de bajular", "volta a ser chato", "me xinga",
+    "chaos", "chaos mode", "be sarcastic",
   ],
   seco: [
     "seco", "modo seco", "fica serio", "sem graca", "sem sarcasmo", "normal", "profissional",
+    "serious", "serious mode", "be serious", "just the facts",
   ],
   elogio: [
     "me elogia", "modo elogio", "bajula", "so elogio", "sem critica", "fica legal", "fica bonzinho",
+    "be nice", "praise me",
   ],
 };
 
@@ -116,27 +120,36 @@ const daquiA24h = () => new Date(Date.now() + HORAS_24).toISOString();
  * pessoa está no silêncio e pede caos, ela quer barulho agora — manter o silêncio
  * seria obedecer o pedido de ontem em vez do de hoje.
  */
-export function aplicarComando(cmd: Exclude<Comando, null>): { patch: Record<string, unknown>; resposta: string } {
+export function aplicarComando(cmd: Exclude<Comando, null>, idioma: "pt-BR" | "en" = "pt-BR"): { patch: Record<string, unknown>; resposta: string } {
+  const en = idioma === "en";
   switch (cmd) {
     case "silencio":
       return {
         patch: { agente_silencio_ate: daquiA24h(), agente_elogio_ate: null },
-        resposta: "Beleza. Eu calo por 24h. Assinatura segue. Quando quiser barulho de novo, é só falar.",
+        resposta: en
+          ? "Okay. I'll be quiet for 24h. Your subscription stays. When you want noise again, just say so."
+          : "Beleza. Eu calo por 24h. Assinatura segue. Quando quiser barulho de novo, é só falar.",
       };
     case "caos":
       return {
         patch: { agente_tom: "caos", agente_elogio_ate: null, agente_silencio_ate: null },
-        resposta: "Voltei a ser eu. Prepara o bolso e o ego 👊",
+        resposta: en
+          ? "I'm back. Watch your wallet and your ego 👊"
+          : "Voltei a ser eu. Prepara o bolso e o ego 👊",
       };
     case "seco":
       return {
         patch: { agente_tom: "seco", agente_elogio_ate: null, agente_silencio_ate: null },
-        resposta: "Fechado. Só o registro, sem comentário.",
+        resposta: en
+          ? "Done. Just the record, no commentary."
+          : "Fechado. Só o registro, sem comentário.",
       };
     case "elogio":
       return {
         patch: { agente_elogio_ate: daquiA24h(), agente_silencio_ate: null },
-        resposta: "Por 24h eu só falo bem de você. Merecido, aliás.",
+        resposta: en
+          ? "For 24h I'll only say nice things about you. You earned it."
+          : "Por 24h eu só falo bem de você. Merecido, aliás.",
       };
   }
 }

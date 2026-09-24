@@ -18,10 +18,10 @@ import {
   DIFICULDADES, DIFICULDADE_PADRAO, dificuldadeDe, mensagemDoMarco, pontosDoMarco,
 } from "../lib/metas";
 import { CHECKOUT, PRECO, checkoutComEmail } from "../lib/plano";
+import { useFormatMoney } from "../lib/moeda";
 import { parseValor } from "./OrcamentoCategoria";
 
 
-const formatBRL = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 const COR = {
   bg: "var(--surface, #151821)",
@@ -71,6 +71,7 @@ export default function MetasCaixinhas({
   celebracao = null,
   onFecharCelebracao,
 }) {
+  const formatBRL = useFormatMoney();
   // Qual meta está com o seletor de dificuldade aberto. Fica escondido atrás de um
   // toque no rótulo porque trocar a dificuldade é raro — ocupar espaço fixo no card
   // por uma ação que acontece uma vez na vida da meta empurraria pra baixo o que

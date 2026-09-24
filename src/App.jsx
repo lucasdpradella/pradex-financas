@@ -33,6 +33,9 @@ import { calcularFechamento } from "./lib/fechamento";
 import { listarFaturas, rotuloMes } from "./lib/faturas";
 import { completarLancamento, ehCredito, ehPagamentoFatura } from "./lib/formaPagamento";
 import HomeResumo from "./components/HomeResumo";
+import LivroSettings from "./components/LivroSettings";
+import { formatMoney, simboloMoeda, iniciaisDe, LivroContext, normalizarMoeda, normalizarIdioma } from "./lib/moeda";
+import { t } from "./lib/i18n";
 import CardAgente from "./components/CardAgente";
 import ConvitePlano from "./components/ConvitePlano";
 import { normalizePlano, temAcesso, mostraCadeado, podeUsarWhatsapp, trialAtivo, diasRestantesTrial, planoDaUrl, CHECKOUT } from "./lib/plano";
@@ -98,8 +101,8 @@ const montarCategories = (rows) => {
 };
 
 const COLORS = ["#6366F1","#2FBF8A","#E8943A","#E06C65","#6366F1","#EC4899","#14B8A6","#F97316"];
-const formatBRL = (value) => Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const monthNames = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+const monthNamesEn = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const today = new Date().toISOString().split("T")[0];
 const formasPagamento = ["Débito", "Crédito", "Dinheiro", "PIX", "Outros"];
 const badgeBaseStyle = {
@@ -169,7 +172,7 @@ async function criarRecorrentesAteDezembro(lancamento, dataInicio, token, grupoI
 // Lançamentos sem parcela_grupo_id ficam em `avulsos`.
 
 
-function GraficoSimulador({ labels, dadosComAporte, dadosSemAporte, meta }) {
+function GraficoSimulador({ labels, dadosComAporte, dadosSemAporte, meta, simbolo = "R$" }) {
   const canvasRef = useRef(null);
   const instanceRef = useRef(null);
   useEffect(() => {
@@ -182,7 +185,7 @@ function GraficoSimulador({ labels, dadosComAporte, dadosSemAporte, meta }) {
     if (meta > 0) datasets.push({ label: "Meta", data: Array(labels.length).fill(meta), borderColor: "#E8943A", backgroundColor: "transparent", fill: false, pointRadius: 0, borderWidth: 1.5, borderDash: [6, 4] });
     instanceRef.current = new window.Chart(canvasRef.current, {
       type: "line", data: { labels, datasets },
-      options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: "#5C6570", font: { size: 10 } }, grid: { color: "#151821" } }, y: { ticks: { color: "#5C6570", font: { size: 10 }, callback: v => v >= 1000000 ? "R$" + (v/1000000).toFixed(1) + "M" : v >= 1000 ? "R$" + (v/1000).toFixed(0) + "k" : "R$" + v }, grid: { color: "#151821" } } } },
+      options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: "#5C6570", font: { size: 10 } }, grid: { color: "#151821" } }, y: { ticks: { color: "#5C6570", font: { size: 10 }, callback: v => v >= 1000000 ? simbolo + (v/1000000).toFixed(1) + "M" : v >= 1000 ? simbolo + (v/1000).toFixed(0) + "k" : simbolo + v }, grid: { color: "#151821" } } } },
     });
     return () => { if (instanceRef.current) instanceRef.current.destroy(); };
   }, [JSON.stringify(dadosComAporte), JSON.stringify(dadosSemAporte), meta]);
@@ -228,6 +231,19 @@ export default function PradexFinancas() {
   // (Essencial) e FP/Relatórios (Assistente). Quem não tem enxerga o CTA do plano
   // certo no lugar do recurso, não um buraco.
   const [plano, setPlano] = useState("none");
+  const [livro, setLivro] = useState(null);
+  const [membrosLivro, setMembrosLivro] = useState([]);
+  const [salvandoLivro, setSalvandoLivro] = useState(false);
+  const moedaLivro = normalizarMoeda(livro?.moeda);
+  const idiomaLivro = normalizarIdioma(livro?.idioma);
+  const formatBRL = (value) => formatMoney(value, moedaLivro);
+  const tx = (key) => t(idiomaLivro, key);
+  const mesesCurtos = idiomaLivro === "en" ? monthNamesEn : monthNames;
+  const autorDe = (userId) => {
+    if (!userId || membrosLivro.length < 2) return "";
+    const membro = membrosLivro.find((m) => m.user_id === userId);
+    return iniciaisDe(membro?.nome);
+  };
   // Trial do Zap: { trial_inicio, trial_ate } de fp_perfil. null = ainda não sei
   // (perfil não carregado), que NÃO é o mesmo que "nunca testou" — ver plano.js.
   const [trial, setTrial] = useState(null);
@@ -588,10 +604,51 @@ export default function PradexFinancas() {
     setLancamentos([]); setCartoes([]); setBancos([]); setDividas([]);
     setPrecisaCadastrarTelefone(false); setBannerTelefoneFechado(false);
     setPlano("none"); setTrial(null); setPremioResgatadoEm(null); setOrcamentos([]); setMetas([]);
+    setLivro(null); setMembrosLivro([]);
     setTelaRecuperar(false); setRecuperarEnviado(false); setDefinindoSenha(false);
     setNovaSenha(""); setNovaSenhaRepetida(""); setSenhaTrocadaOk(false);
     setModalSenha(false); setSenhaModalOk(false); setSenhaModalErro("");
     setSenhaModalNova(""); setSenhaModalRepetida("");
+  };
+
+  const fetchLivro = async (token = session?.token) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/garantir_meu_livro`, {
+        method: "POST", headers: api(token), body: "{}",
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data?.id) setLivro(data);
+      const mem = await fetch(`${SUPABASE_URL}/rest/v1/rpc/membros_do_meu_livro`, {
+        method: "POST", headers: api(token), body: "{}",
+      });
+      if (mem.ok) {
+        const rows = await mem.json();
+        setMembrosLivro(Array.isArray(rows) ? rows : []);
+      }
+    } catch (e) {}
+  };
+
+  const salvarLivro = async (patch) => {
+    if (!livro?.id || !session?.token) return { ok: false, erro: tx("livro_erro") };
+    setSalvandoLivro(true);
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/livros?id=eq.${livro.id}`, {
+        method: "PATCH",
+        headers: { ...api(session.token), Prefer: "return=representation" },
+        body: JSON.stringify({ moeda: patch.moeda, idioma: patch.idioma }),
+      });
+      if (!res.ok) return { ok: false, erro: tx("livro_erro") };
+      const rows = await res.json();
+      const next = Array.isArray(rows) ? rows[0] : null;
+      setLivro((prev) => ({ ...(prev || {}), ...(next || patch), papel: prev?.papel }));
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, erro: tx("livro_erro") };
+    } finally {
+      setSalvandoLivro(false);
+    }
   };
 
   useEffect(() => {
@@ -602,6 +659,7 @@ export default function PradexFinancas() {
       // efeito que reage à troca de mês do dashboard.
       fetchMetas();
       fetchRanking();
+      fetchLivro();
       fetchTaxaFocus().then(t => setTaxaFocus(t));
       verificarTelefonePerfil();
     }
@@ -864,7 +922,7 @@ export default function PradexFinancas() {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/metas`, {
         method: "POST",
         headers: { ...api(session.token), Prefer: "return=minimal" },
-        body: JSON.stringify({ ...dados, user_id: session.user.id }),
+        body: JSON.stringify({ ...dados, user_id: session.user.id, ...(livro?.id ? { livro_id: livro.id } : {}) }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -1164,7 +1222,7 @@ export default function PradexFinancas() {
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/bancos`, {
         method: "POST", headers: { ...api(session?.token), "Prefer": "return=representation" },
-        body: JSON.stringify({ nome: limpo, codigo_compe: codigoCompe || null, user_id: session.user.id, removido: false }),
+        body: JSON.stringify({ nome: limpo, codigo_compe: codigoCompe || null, user_id: session.user.id, removido: false, ...(livro?.id ? { livro_id: livro.id } : {}) }),
       });
       if (!res.ok) return { ok: false, erro: "Não foi possível cadastrar o banco." };
       const data = await res.json();
@@ -1252,7 +1310,7 @@ export default function PradexFinancas() {
       await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
         method: "POST",
         headers: { ...api(session?.token), "Prefer": "return=representation" },
-        body: JSON.stringify(completarLancamento({ descricao: r.descricao, valor: r.valor, tipo: r.tipo, categoria: r.categoria, forma_pagamento: r.forma_pagamento, data_lancamento: r.data_lancamento || today, user_id: session.user.id, poderia_ter_evitado: false, recorrente: false })),
+        body: JSON.stringify(completarLancamento({ descricao: r.descricao, valor: r.valor, tipo: r.tipo, categoria: r.categoria, forma_pagamento: r.forma_pagamento, data_lancamento: r.data_lancamento || today, user_id: session.user.id, criado_por: session.user.id, ...(livro?.id ? { livro_id: livro.id } : {}), poderia_ter_evitado: false, recorrente: false })),
       });
       await fetch(`${SUPABASE_URL}/rest/v1/lancamentos_rascunho?id=eq.${r.id}`, { method: "PATCH", headers: api(session?.token), body: JSON.stringify({ status: "confirmado" }) });
       setRascunhos(prev => prev.filter(x => x.id !== r.id));
@@ -1287,7 +1345,7 @@ export default function PradexFinancas() {
           await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
             method: "POST",
             headers: { ...api(session?.token), "Prefer": "return=representation" },
-            body: JSON.stringify({ descricao: montarDescricaoParcela(form.descricao, i, nParcelas), valor: Math.round(valorParcela*100)/100, tipo, categoria: form.categoria, data_lancamento: dataParcela.toISOString().split("T")[0], user_id: session.user.id, forma_pagamento: "Crédito", cartao_id: form.cartao_id ? parseInt(form.cartao_id) : null, parcela_atual: i, total_parcelas: nParcelas, parcela_grupo_id: grupoId, poderia_ter_evitado: false }),
+            body: JSON.stringify({ descricao: montarDescricaoParcela(form.descricao, i, nParcelas), valor: Math.round(valorParcela*100)/100, tipo, categoria: form.categoria, data_lancamento: dataParcela.toISOString().split("T")[0], user_id: session.user.id, criado_por: session.user.id, ...(livro?.id ? { livro_id: livro.id } : {}), forma_pagamento: "Crédito", cartao_id: form.cartao_id ? parseInt(form.cartao_id) : null, parcela_atual: i, total_parcelas: nParcelas, parcela_grupo_id: grupoId, poderia_ter_evitado: false }),
           });
         }
         await fetchLancamentos();
@@ -1297,7 +1355,7 @@ export default function PradexFinancas() {
       } else {
         const grupoId = form.recorrente ? generateUUID() : null;
         const pagamento = ehPagamentoFatura({ ...form, tipo });
-        const bodyBase = completarLancamento({ descricao: form.descricao, valor, tipo, categoria: form.categoria, data_lancamento: form.data_lancamento, user_id: session.user.id, forma_pagamento: form.forma_pagamento || null, cartao_id: (form.forma_pagamento === "Crédito" || pagamento) && form.cartao_id ? parseInt(form.cartao_id) : null, poderia_ter_evitado: false, recorrente: form.recorrente || false, recorrente_grupo_id: grupoId, parcela_atual: null, total_parcelas: null, parcela_grupo_id: null });
+        const bodyBase = completarLancamento({ descricao: form.descricao, valor, tipo, categoria: form.categoria, data_lancamento: form.data_lancamento, user_id: session.user.id, criado_por: session.user.id, ...(livro?.id ? { livro_id: livro.id } : {}), forma_pagamento: form.forma_pagamento || null, cartao_id: (form.forma_pagamento === "Crédito" || pagamento) && form.cartao_id ? parseInt(form.cartao_id) : null, poderia_ter_evitado: false, recorrente: form.recorrente || false, recorrente_grupo_id: grupoId, parcela_atual: null, total_parcelas: null, parcela_grupo_id: null });
         const res = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
           method: "POST", headers: { ...api(session?.token), "Prefer": "return=representation" },
           body: JSON.stringify(bodyBase),
@@ -1525,7 +1583,7 @@ export default function PradexFinancas() {
             dataParcela.setMonth(dataParcela.getMonth() + (i - parcelaAtual));
             await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
               method: "POST", headers: { ...api(session?.token), "Prefer": "return=representation" },
-              body: JSON.stringify({ descricao: montarDescricaoParcela(descricaoBase, i, totalParcelas), valor: valorParcela, tipo: editando.tipo, categoria: editando.categoria, data_lancamento: dataParcela.toISOString().split("T")[0], user_id: session.user.id, forma_pagamento: "Crédito", cartao_id: editando.cartao_id ? parseInt(editando.cartao_id) : null, poderia_ter_evitado: editando.poderia_ter_evitado, recorrente: false, recorrente_grupo_id: null, parcela_atual: i, total_parcelas: totalParcelas, parcela_grupo_id: grupoParcelaId }),
+              body: JSON.stringify({ descricao: montarDescricaoParcela(descricaoBase, i, totalParcelas), valor: valorParcela, tipo: editando.tipo, categoria: editando.categoria, data_lancamento: dataParcela.toISOString().split("T")[0], user_id: session.user.id, criado_por: session.user.id, ...(livro?.id ? { livro_id: livro.id } : {}), forma_pagamento: "Crédito", cartao_id: editando.cartao_id ? parseInt(editando.cartao_id) : null, poderia_ter_evitado: editando.poderia_ter_evitado, recorrente: false, recorrente_grupo_id: null, parcela_atual: i, total_parcelas: totalParcelas, parcela_grupo_id: grupoParcelaId }),
             });
           }
           await fetchLancamentos();
@@ -1549,7 +1607,7 @@ export default function PradexFinancas() {
         setLancamentos(prev => prev.map(l => l.id === editando.id ? data[0] : l));
         await fetchBancos();
         if (editando.recorrente && !editando._recorrenteOriginal) {
-          const baseBody = { ...body, user_id: session.user.id };
+          const baseBody = { ...body, user_id: session.user.id, criado_por: session.user.id, ...(livro?.id ? { livro_id: livro.id } : {}) };
           await criarRecorrentesAteDezembro(baseBody, editando.data_lancamento, session.token, grupoId);
           await fetchLancamentos();
         }
@@ -1582,7 +1640,7 @@ export default function PradexFinancas() {
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/cartoes`, {
         method: "POST", headers: { ...api(session?.token), "Prefer": "return=representation" },
-        body: JSON.stringify({ ...payloadCartao(dados), user_id: session.user.id }),
+        body: JSON.stringify({ ...payloadCartao(dados), user_id: session.user.id, ...(livro?.id ? { livro_id: livro.id } : {}) }),
       });
       if (!res.ok) return { ok: false, erro: "Não foi possível salvar o cartão." };
       const data = await res.json();
@@ -1655,7 +1713,7 @@ export default function PradexFinancas() {
   const gastosDebito = gastos.filter(l => !ehCredito(l.forma_pagamento)).reduce((s, l) => s + Number(l.valor), 0);
   const gastosCredito = gastos.filter(l => ehCredito(l.forma_pagamento)).reduce((s, l) => s + Number(l.valor), 0);
   const fluxoHome = calcularFechamento(lancamentos, mesDashboard.ano, mesDashboard.mes, { normalizar: normalizeText });
-  const faturasHome = listarFaturas(lancamentos, cartoes, mesDashboard.ano, mesDashboard.mes, { normalizar: normalizeText });
+  const faturasHome = listarFaturas(lancamentos, cartoes, mesDashboard.ano, mesDashboard.mes, { normalizar: normalizeText, idioma: idiomaLivro });
   // Compromissos ja assumidos pros proximos 3 meses.
   //
   // ANTES so contava parcela de CREDITO (forma_pagamento === "Credito" && total_parcelas).
@@ -1675,9 +1733,9 @@ export default function PradexFinancas() {
       .sort((a, b) => Number(b.valor) - Number(a.valor));
     const total = parcelasMes.reduce((s, l) => s + Number(l.valor), 0);
     const comprasAtivas = new Set(parcelasMes.map(l => l.parcela_grupo_id || `${limparDescricaoParcela(l.descricao)}-${l.cartao_id || "sem-cartao"}`)).size;
-    return { key: monthKey, label: getMonthLabel(monthKey), total, comprasAtivas, parcelas: parcelasMes.slice(0, 3) };
+    return { key: monthKey, label: `${mesesCurtos[parseInt(monthKey.split("-")[1], 10) - 1]} ${monthKey.split("-")[0]}`, total, comprasAtivas, parcelas: parcelasMes.slice(0, 3) };
   });
-  const formatData = (d) => { if (!d) return ""; const [y, m, day] = d.split("-"); return `${day} ${monthNames[parseInt(m)-1]}`; };
+  const formatData = (d) => { if (!d) return ""; const [y, m, day] = d.split("-"); return `${day} ${mesesCurtos[parseInt(m)-1]}`; };
 
   const lancamentosAgrupados = agruparLancamentos(lancamentos);
   const opcoesFiltroLancamentos = [
@@ -1705,18 +1763,18 @@ export default function PradexFinancas() {
     ? lancamentosAgrupados.filter(lancamento => lancamento.tipo === "gasto" && !ehPagamentoFatura(lancamento) && ehCredito(lancamento.forma_pagamento) && Number(lancamento.cartao_id) === Number(cartaoSelecionado.id)).reduce((s, lancamento) => s + Number(lancamento.valor || 0), 0)
     : 0;
   const menuItems = [
-    { key: "dashboard", label: "Dashboard" },
-    { key: "lancamentos", label: "Lançar" },
-    { key: "historico", label: "Histórico" },
+    { key: "dashboard", label: tx("nav_home") },
+    { key: "lancamentos", label: tx("nav_add") },
+    { key: "historico", label: tx("nav_history") },
     // Sem cadeado: a tela do teto abre pra todo mundo e o paywall e no save.
     // Faltava aqui — no mobile, quem JA tinha acesso nao tinha caminho nenhum pra
     // chegar na tela, porque a chamada do score so aparece pra quem NAO tem.
     // "Teto" virou "Metas" em 16/09: no celular a bottom nav tem 5 lugares e não
     // comporta um sexto, então caixinhas e tetos dividem o mesmo item, em abas. No
     // desktop são duas telas irmãs na sidebar e o Orçamento fica onde sempre esteve.
-    { key: "metas", label: "Metas" },
+    { key: "metas", label: tx("nav_goals") },
     // FP fica sempre no menu: sem Assistente, abre o CTA de upgrade em vez de sumir.
-    { key: "fp", label: mostraCadeado(plano, "fp") ? "Plan. 🔒" : "Plan." },
+    { key: "fp", label: mostraCadeado(plano, "fp") ? tx("nav_plan_lock") : tx("nav_plan") },
   ];
 
   if (loadingAuth) return <div style={{ minHeight: "100vh", background: "#0C0E14", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "#5C6570", fontFamily: "'DM Sans', sans-serif" }}>Carregando...</p></div>;
@@ -1887,7 +1945,14 @@ export default function PradexFinancas() {
     </Landing>
   );
 
+  const chipLivro = (
+    <button type="button" onClick={() => setTela("livro")} className="pdx-tap" style={{ background: "none", border: "1px solid #1E2330", borderRadius: "999px", color: "#8B93A1", cursor: "pointer", padding: "0.35rem 0.7rem", fontSize: "0.72rem", fontWeight: 700, fontFamily: "inherit", letterSpacing: "0.04em" }}>
+      {moedaLivro} · {idiomaLivro === "en" ? "EN" : "PT"}
+    </button>
+  );
+
   return (
+    <LivroContext.Provider value={{ moeda: moedaLivro, idioma: idiomaLivro }}>
     <div className="pradex-shell" style={isDesktop
       ? { background: desktopTheme.mainBg, color: desktopTheme.textPrimary, fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", margin: 0, maxWidth: "none", boxSizing: "border-box", paddingLeft: `${SIDEBAR_WIDTH}px` }
       : { background: "#0C0E14", color: "#F1F2F4", fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", maxWidth: "480px", margin: "0 auto", boxSizing: "border-box", paddingTop: "max(2rem, env(safe-area-inset-top, 0px))", paddingRight: "max(1.5rem, env(safe-area-inset-right, 0px))", paddingLeft: "max(1.5rem, env(safe-area-inset-left, 0px))", paddingBottom: "calc(56px + 1.5rem + 16px + env(safe-area-inset-bottom, 0px))" }}>
@@ -1948,18 +2013,20 @@ export default function PradexFinancas() {
 }`}</style>
 
       {isDesktop && (
-        <SidebarDesktop tela={tela} setTela={setTela} userEmail={session?.user?.email} userRole={userRole} onLogout={handleLogout} onTrocarSenha={() => setModalSenha(true)} plano={plano} />
+        <SidebarDesktop tela={tela} setTela={setTela} userEmail={session?.user?.email} userRole={userRole} onLogout={handleLogout} onTrocarSenha={() => setModalSenha(true)} plano={plano} idioma={idiomaLivro} />
       )}
       {isDesktop && (
         <TopBar
-          title={({ dashboard: "Dashboard", historico: "Lançamentos", lancamentos: "Lançamentos", cartoes: "Cartões", categorias: "Categorias", bancos: "Bancos", orcamento: "Orçamento", metas: "Metas", metricas: "Métricas", fp: "Planejamento Financeiro", relatorios: "Relatórios" })[tela] || "Pradex"}
+          title={({ dashboard: tx("sb_dashboard"), historico: tx("sb_lancamentos"), lancamentos: tx("sb_lancamentos"), cartoes: tx("sb_cartoes"), categorias: tx("sb_categorias"), bancos: tx("sb_bancos"), orcamento: tx("sb_orcamento"), metas: tx("sb_metas"), metricas: tx("sb_metricas"), fp: tx("sb_fp"), relatorios: tx("sb_relatorios"), livro: tx("sb_livro") })[tela] || "Pradex"}
           periodoLabel={tela === "dashboard"
-            ? `${monthNames[mesDashboard.mes]} ${mesDashboard.ano}`
+            ? `${mesesCurtos[mesDashboard.mes]} ${mesDashboard.ano}`
             : tela === "relatorios" && podeFp
-            ? `${monthNames[mesRelatorios.mes]} ${mesRelatorios.ano}`
-            : `${monthNames[new Date().getMonth()]} ${new Date().getFullYear()}`}
+            ? `${mesesCurtos[mesRelatorios.mes]} ${mesRelatorios.ano}`
+            : `${mesesCurtos[new Date().getMonth()]} ${new Date().getFullYear()}`}
           onPeriodoStep={tela === "dashboard" ? navegarMesDashboard : tela === "relatorios" && podeFp ? navegarMesRelatorios : undefined}
           onNovoLancamento={() => setTela("lancamentos")}
+          novoLabel={tx("novo_lancamento")}
+          chip={chipLivro}
         />
       )}
 
@@ -1976,7 +2043,7 @@ export default function PradexFinancas() {
               ))}
             </div>
             <input type="text" placeholder="Descrição" value={editando.descricao} onChange={e => setEditando(ed => ({ ...ed, descricao: e.target.value }))} style={inputStyle} />
-            <input type="text" placeholder={editando.parcelado ? "Valor da parcela (R$)" : "Valor (R$)"} value={editando.valor} onChange={e => setEditando(ed => ({ ...ed, valor: e.target.value }))} style={inputStyle} />
+            <input type="text" placeholder={editando.parcelado ? (idiomaLivro === "en" ? `Installment (${simboloMoeda(moedaLivro)})` : `Valor da parcela (${simboloMoeda(moedaLivro)})`) : (idiomaLivro === "en" ? `Amount (${simboloMoeda(moedaLivro)})` : `Valor (${simboloMoeda(moedaLivro)})`)} value={editando.valor} onChange={e => setEditando(ed => ({ ...ed, valor: e.target.value }))} style={inputStyle} />
             <select value={editando.categoria} onChange={e => setEditando(ed => ({ ...ed, categoria: e.target.value }))} style={{ ...inputStyle, color: editando.categoria ? "#F1F2F4" : "#5C6570", appearance: "none" }}>
               <option value="">Categoria</option>
               {categories[editando.tipo].map(c => <option key={c} value={c}>{normalizeText(c)}</option>)}
@@ -2102,15 +2169,16 @@ export default function PradexFinancas() {
             {tela === "dashboard" && (
               <button type="button" onClick={() => navegarMesDashboard(-1)} aria-label="Mês anterior" style={{ background: "none", border: "none", color: "#8B93A1", fontSize: "1.3rem", cursor: "pointer", padding: "0 0.15rem", fontFamily: "inherit" }}>‹</button>
             )}
-            {tela === "dashboard" ? `${rotuloMes(mesDashboard.mes)} ${mesDashboard.ano}` : `${monthNames[new Date().getMonth()]} ${new Date().getFullYear()}`}
+            {tela === "dashboard" ? `${rotuloMes(mesDashboard.mes, idiomaLivro)} ${mesDashboard.ano}` : `${mesesCurtos[new Date().getMonth()]} ${new Date().getFullYear()}`}
             {tela === "dashboard" && (
               <button type="button" onClick={() => navegarMesDashboard(1)} aria-label="Próximo mês" style={{ background: "none", border: "none", color: "#8B93A1", fontSize: "1.3rem", cursor: "pointer", padding: "0 0.15rem", fontFamily: "inherit" }}>›</button>
             )}
           </h1>
         </div>
         <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
-          <button onClick={() => setModalSenha(true)} className="pdx-tap" style={{ background: "none", border: "1px solid #1E2330", borderRadius: "8px", color: "#8B93A1", cursor: "pointer", padding: "0.4rem 0.9rem", fontSize: "0.75rem", fontFamily: "inherit" }}>Senha</button>
-          <button onClick={handleLogout} className="pdx-tap" style={{ background: "none", border: "1px solid #1E2330", borderRadius: "8px", color: "#8B93A1", cursor: "pointer", padding: "0.4rem 0.9rem", fontSize: "0.75rem", fontFamily: "inherit" }}>Sair</button>
+          {chipLivro}
+          <button onClick={() => setModalSenha(true)} className="pdx-tap" style={{ background: "none", border: "1px solid #1E2330", borderRadius: "8px", color: "#8B93A1", cursor: "pointer", padding: "0.4rem 0.9rem", fontSize: "0.75rem", fontFamily: "inherit" }}>{tx("senha")}</button>
+          <button onClick={handleLogout} className="pdx-tap" style={{ background: "none", border: "1px solid #1E2330", borderRadius: "8px", color: "#8B93A1", cursor: "pointer", padding: "0.4rem 0.9rem", fontSize: "0.75rem", fontFamily: "inherit" }}>{tx("sair")}</button>
         </div>
       </div>
 
@@ -2274,6 +2342,7 @@ export default function PradexFinancas() {
           ano={mesDashboard.ano}
           mes={mesDashboard.mes}
           formatBRL={formatBRL}
+          idioma={idiomaLivro}
           normalizeText={normalizeText}
           rascunhos={rascunhos}
           onConfirmarRascunho={confirmarRascunho}
@@ -2484,6 +2553,17 @@ export default function PradexFinancas() {
       )}
 
       {/* DASHBOARD — mobile */}
+      {tela === "livro" && (
+        <LivroSettings
+          livro={livro}
+          idioma={idiomaLivro}
+          isDesktop={isDesktop}
+          onSalvar={salvarLivro}
+          salvando={salvandoLivro}
+          membros={membrosLivro}
+        />
+      )}
+
       {tela === "dashboard" && !isDesktop && (
         <div>
           {/* Score de disciplina no topo, pra TODOS os planos (decisão 12/09). A nota
@@ -2534,6 +2614,7 @@ export default function PradexFinancas() {
             faturas={faturasHome}
             bancos={bancos}
             formatBRL={formatBRL}
+            idioma={idiomaLivro}
             onSalvarSaldo={salvarSaldoBanco}
             onCriarConta={criarBanco}
           />
@@ -2624,7 +2705,7 @@ export default function PradexFinancas() {
                 </div>
               </div>
               <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", border: "1px solid #1E2330", marginTop: "1rem" }}>
-                <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Últimos lançamentos</p>
+                <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>{tx("ultimos")}</p>
                 {lancamentos.slice(0, 5).map(l => (
                   <div key={l.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.6rem 0", borderBottom: "1px solid #1E2330", cursor: "pointer" }} onClick={() => handleEdit(l)}>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -2637,7 +2718,7 @@ export default function PradexFinancas() {
                         {normalizeText(l.descricao)}
                         {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.7rem", color: "#5C6570", background: "#1E2330", padding: "1px 6px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
                       </p>
-                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#5C6570", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}</p>
+                      <p style={{ margin: 0, fontSize: "0.7rem", color: "#5C6570", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}{autorDe(l.criado_por || l.user_id) ? ` · ${autorDe(l.criado_por || l.user_id)}` : ""}</p>
                     </div>
                     <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: l.tipo === "receita" ? "#2FBF8A" : "#E06C65" }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
                   </div>
@@ -2659,7 +2740,7 @@ export default function PradexFinancas() {
               ))}
             </div>
             <input type="text" placeholder="Descrição" value={form.descricao} onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))} style={inputStyle} />
-            <input type="text" placeholder={form.parcelado ? "Valor da parcela (R$)" : "Valor total (R$)"} value={form.valor} onChange={e => setForm(f => ({ ...f, valor: e.target.value }))} style={inputStyle} />
+            <input type="text" placeholder={form.parcelado ? (idiomaLivro === "en" ? `Installment (${simboloMoeda(moedaLivro)})` : `Valor da parcela (${simboloMoeda(moedaLivro)})`) : (idiomaLivro === "en" ? `Total (${simboloMoeda(moedaLivro)})` : `Valor total (${simboloMoeda(moedaLivro)})`)} value={form.valor} onChange={e => setForm(f => ({ ...f, valor: e.target.value }))} style={inputStyle} />
             <select value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))} style={{ ...inputStyle, color: form.categoria ? "#F1F2F4" : "#5C6570", appearance: "none" }}>
               <option value="">Categoria</option>
               {categories[tipo].map(c => <option key={c} value={c}>{normalizeText(c)}</option>)}
@@ -2776,11 +2857,11 @@ export default function PradexFinancas() {
               </select>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "0.6rem", marginTop: "0.75rem" }}>
                 <div style={{ background: "#151821", borderRadius: "10px", border: "1px solid #1E2330", padding: "0.8rem 0.9rem" }}>
-                  <p style={{ margin: "0 0 0.25rem", fontSize: "0.66rem", color: "#5C6570", textTransform: "uppercase", letterSpacing: "0.08em" }}>Total filtrado</p>
+                  <p style={{ margin: "0 0 0.25rem", fontSize: "0.66rem", color: "#5C6570", textTransform: "uppercase", letterSpacing: "0.08em" }}>{tx("total_filtrado")}</p>
                   <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 700, color: "#F1F2F4" }}>{formatBRL(totalFiltradoLancamentos)}</p>
                 </div>
                 <div style={{ background: "#151821", borderRadius: "10px", border: "1px solid #1E2330", padding: "0.8rem 0.9rem" }}>
-                  <p style={{ margin: "0 0 0.25rem", fontSize: "0.66rem", color: "#5C6570", textTransform: "uppercase", letterSpacing: "0.08em" }}>Lançamentos</p>
+                  <p style={{ margin: "0 0 0.25rem", fontSize: "0.66rem", color: "#5C6570", textTransform: "uppercase", letterSpacing: "0.08em" }}>{tx("lancamentos")}</p>
                   <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 700, color: "#F1F2F4" }}>{quantidadeFiltradaLancamentos}</p>
                 </div>
                 {cartaoSelecionado && (
@@ -2798,8 +2879,8 @@ export default function PradexFinancas() {
             </div>
             {!loading && lancamentosFiltrados.length === 0 && (
               <div style={{ textAlign: "center", padding: "2.2rem 1rem", color: "#5C6570", background: "#151821", borderRadius: "14px", border: "1px solid #1E2330" }}>
-                <p style={{ margin: "0 0 0.35rem", fontSize: "0.92rem", color: "#8B93A1" }}>Nenhum lançamento encontrado nesse filtro.</p>
-                <p style={{ margin: 0, fontSize: "0.78rem", color: "#8B93A1" }}>Tente trocar o filtro ou adicionar um novo lançamento.</p>
+                <p style={{ margin: "0 0 0.35rem", fontSize: "0.92rem", color: "#8B93A1" }}>{tx("historico_vazio")}</p>
+                <p style={{ margin: 0, fontSize: "0.78rem", color: "#8B93A1" }}>{tx("historico_vazio_hint")}</p>
               </div>
             )}
             {lancamentosFiltrados.map(l => {
@@ -2830,7 +2911,7 @@ export default function PradexFinancas() {
                       {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#6366F1", background: "#6366F115", padding: "1px 5px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
                       {l._totalMeses && l._totalMeses > 1 && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#2FBF8A", background: "#2FBF8A15", padding: "1px 6px", borderRadius: "999px" }}>{l._totalMeses} meses</span>}
                     </p>
-                    <p style={{ margin: 0, fontSize: "0.72rem", color: "#5C6570", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}</p>
+                    <p style={{ margin: 0, fontSize: "0.72rem", color: "#5C6570", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}{autorDe(l.criado_por || l.user_id) ? ` · ${autorDe(l.criado_por || l.user_id)}` : ""}</p>
                   </div>
                   {l.tipo === "gasto" && !l._totalMeses && (
                     <div style={{ width: "76px", display: "flex", justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
@@ -2884,6 +2965,7 @@ export default function PradexFinancas() {
             formatBRL={formatBRL}
             normalizeText={normalizeText}
             limparDescricaoParcela={limparDescricaoParcela}
+            autorDe={autorDe}
           />
         );
         return (
@@ -2891,8 +2973,8 @@ export default function PradexFinancas() {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem" }}>
               <button onClick={() => navegarMes(-1)} style={{ background: "#151821", border: "1px solid #1E2330", borderRadius: "8px", color: "#8B93A1", cursor: "pointer", padding: "0.4rem 0.8rem", fontSize: "1rem", fontFamily: "inherit" }}>‹</button>
               <div style={{ textAlign: "center" }}>
-                <p style={{ margin: 0, fontSize: "1.1rem", fontWeight: 600, color: "#F1F2F4" }}>{monthNames[mes]} {ano}</p>
-                {ehMesAtual && <p style={{ margin: 0, fontSize: "0.7rem", color: "#6366F1" }}>mês atual</p>}
+                <p style={{ margin: 0, fontSize: "1.1rem", fontWeight: 600, color: "#F1F2F4" }}>{mesesCurtos[mes]} {ano}</p>
+                {ehMesAtual && <p style={{ margin: 0, fontSize: "0.7rem", color: "#6366F1" }}>{tx("mes_atual")}</p>}
               </div>
               <button onClick={() => navegarMes(1)} style={{ background: "#151821", border: "1px solid #1E2330", borderRadius: "8px", color: "#8B93A1", cursor: "pointer", padding: "0.4rem 0.8rem", fontSize: "1rem", fontFamily: "inherit" }}>›</button>
             </div>
@@ -2908,7 +2990,7 @@ export default function PradexFinancas() {
             {lancMes.length === 0 ? (
               <div style={{ textAlign: "center", padding: "3rem 0", color: "#5C6570" }}>
                 <p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>•</p>
-                <p style={{ fontSize: "0.9rem" }}>Nenhum lançamento em {monthNames[mes]} {ano}.</p>
+                <p style={{ fontSize: "0.9rem" }}>{tx("nenhum_no_mes")} {mesesCurtos[mes]} {ano}.</p>
               </div>
             ) : (
               <>
@@ -2939,7 +3021,7 @@ export default function PradexFinancas() {
                           {normalizeText(l.descricao)}
                           {l.total_parcelas && <span style={{ marginLeft: "5px", fontSize: "0.65rem", color: "#6366F1", background: "#6366F115", padding: "1px 4px", borderRadius: "3px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
                         </p>
-                        <p style={{ margin: 0, fontSize: "0.7rem", color: "#5C6570", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}</p>
+                        <p style={{ margin: 0, fontSize: "0.7rem", color: "#5C6570", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento)} · {formatData(l.data_lancamento)}{autorDe(l.criado_por || l.user_id) ? ` · ${autorDe(l.criado_por || l.user_id)}` : ""}</p>
                       </div>
                       <p style={{ margin: 0, fontSize: "0.88rem", fontWeight: 700, color: l.tipo === "receita" ? "#2FBF8A" : "#E06C65", flexShrink: 0 }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
                     </div>
@@ -3009,7 +3091,7 @@ export default function PradexFinancas() {
                     <span style={{ fontSize: "0.7rem", color: "#5C6570" }}>Só rendimento</span>
                     {meta > 0 && <span style={{ fontSize: "0.7rem", color: "#E8943A" }}>- - Meta</span>}
                   </div>
-                  <GraficoSimulador labels={labels} dadosComAporte={dadosComAporte} dadosSemAporte={dadosSemAporte} meta={meta} />
+                  <GraficoSimulador labels={labels} dadosComAporte={dadosComAporte} dadosSemAporte={dadosSemAporte} meta={meta} simbolo={simboloMoeda(moedaLivro)} />
                 </div>
               </>
             )}
@@ -3132,5 +3214,6 @@ export default function PradexFinancas() {
           existindo pra todo mundo no card do dashboard — o que sai é só o flutuante. */}
       {podeZap && !temAcesso(plano, "whatsapp") && <FabWhatsapp />}
     </div>
+    </LivroContext.Provider>
   );
 }

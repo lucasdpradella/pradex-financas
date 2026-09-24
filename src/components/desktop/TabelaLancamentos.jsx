@@ -63,7 +63,7 @@ const mesCorrente = () => {
 export default function TabelaLancamentos({
   lancamentos, cartoes, categories,
   onEdit, onInlineSave, onBulkDelete, onBulkRecategorize,
-  formatBRL, normalizeText, limparDescricaoParcela,
+  formatBRL, normalizeText, limparDescricaoParcela, autorDe,
 }) {
   const [busca, setBusca] = useState("");
   const [fCategoria, setFCategoria] = useState("");
@@ -259,7 +259,7 @@ export default function TabelaLancamentos({
                     <tr key={l.id} className={sel.has(l.id) ? "is-selected" : undefined}>
                       <td><input type="checkbox" checked={sel.has(l.id)} onChange={() => toggleSel(l.id)} aria-label="Selecionar linha" /></td>
                       <td>{renderCelula(l, "data_lancamento", fmtData(l.data_lancamento))}</td>
-                      <td style={{ maxWidth: 320 }}>{renderCelula(l, "descricao", <>{normalizeText(desc) || "—"}{l.recorrente && <small style={{ color: t.textSecondary }}> · recorrente</small>}</>)}</td>
+                      <td style={{ maxWidth: 320 }}>{renderCelula(l, "descricao", <>{normalizeText(desc) || "—"}{l.recorrente && <small style={{ color: t.textSecondary }}> · recorrente</small>}{autorDe?.(l.criado_por || l.user_id) ? <small style={{ color: t.textSecondary }}> · {autorDe(l.criado_por || l.user_id)}</small> : null}</>)}</td>
                       <td>{renderCelula(l, "categoria", <span className="pdx-chip">{normalizeText(l.categoria) || "—"}</span>)}</td>
                       <td style={{ color: t.textSecondary }}>{cartaoNome(l.cartao_id) ? normalizeText(cartaoNome(l.cartao_id)) : (l.forma_pagamento || "—")}</td>
                       <td style={{ textAlign: "right" }}>

@@ -12,10 +12,10 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { paywallNoSave, checkoutComEmail } from "../lib/plano";
+import { useFormatMoney, useSimboloMoeda } from "../lib/moeda";
 
 // `toFixed(2).replace(".", ",")` nao poe separador de milhar: "R$ 2421,00" ao lado de
 // "R$ 33.782,00" nos cards do topo, na mesma tela. Acima de mil, a vista tropeca.
-const formatBRL = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 // ⚠️ COR AQUI SO POR TOKEN — esta tela renderiza nos DOIS canvas do app.
 //
@@ -72,6 +72,8 @@ export function parseValor(bruto) {
 }
 
 export default function OrcamentoCategoria({ categorias = [], tetos = [], plano, trial = null, gastosPorCategoria = {}, onSalvar, salvando = false, erroExterno = "", email }) {
+  const formatBRL = useFormatMoney();
+  const simbolo = useSimboloMoeda();
   const doGasto = useMemo(
     () => categorias.filter((c) => (c.tipo ?? "gasto") === "gasto").map((c) => c.nome).filter(Boolean),
     [categorias],
@@ -148,7 +150,7 @@ export default function OrcamentoCategoria({ categorias = [], tetos = [], plano,
                 )}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                <span style={{ fontSize: "0.75rem", color: COR.fraco }}>R$</span>
+                <span style={{ fontSize: "0.75rem", color: COR.fraco }}>{simbolo}</span>
                 <input
                   inputMode="decimal"
                   placeholder="—"

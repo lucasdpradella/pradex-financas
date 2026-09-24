@@ -15,8 +15,14 @@ export const MESES_FATURA = [
   "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
 ];
 
-export const rotuloMes = (mesIndex) => {
-  const n = MESES_FATURA[mesIndex] || "";
+const MESES_FATURA_EN = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+export const rotuloMes = (mesIndex, idioma = "pt-BR") => {
+  const lista = idioma === "en" ? MESES_FATURA_EN : MESES_FATURA;
+  const n = lista[mesIndex] || "";
   return n ? n.charAt(0).toUpperCase() + n.slice(1) : "";
 };
 
@@ -101,11 +107,15 @@ export function dataReferenciaDoMes(ano, mes, hoje = new Date()) {
   return iso(ano, mes, Math.min(dia, ultimoDia(ano, mes)));
 }
 
-export function rotuloFatura(mesVencimento, nomeCartao) {
-  const nome = String(nomeCartao || "").trim() || "cartão";
-  const jaTem = /^cart[aã]o\b/i.test(nome);
-  const mes = MESES_FATURA[mesVencimento] || "";
-  return `Fatura ${mes} · ${jaTem ? nome : `Cartão ${nome}`}`;
+export function rotuloFatura(mesVencimento, nomeCartao, idioma = "pt-BR") {
+  const en = idioma === "en";
+  const nome = String(nomeCartao || "").trim() || (en ? "card" : "cartão");
+  const jaTem = en ? /^(card|cart[aã]o)\b/i.test(nome) : /^cart[aã]o\b/i.test(nome);
+  const mes = (en ? MESES_FATURA_EN : MESES_FATURA)[mesVencimento] || "";
+  const mesLabel = en ? mes : mes;
+  const prefixo = en ? "Card" : "Cartão";
+  const titulo = en ? "Statement" : "Fatura";
+  return `${titulo} ${mesLabel} · ${jaTem ? nome : `${prefixo} ${nome}`}`;
 }
 
 const dentro = (data, inicio, fim) => Boolean(data) && data >= inicio && data <= fim;
@@ -121,7 +131,7 @@ function compraDoCartao(l, cartaoId) {
  * Uma linha por cartão com movimento no ciclo que a home está olhando.
  * `valor` já desconta pagamento de fatura daquele cartão.
  */
-export function listarFaturas(lancamentos, cartoes, ano, mes, { hoje = new Date(), normalizar = (x) => x } = {}) {
+export function listarFaturas(lancamentos, cartoes, ano, mes, { hoje = new Date(), normalizar = (x) => x, idioma = "pt-BR" } = {}) {
   const ref = dataReferenciaDoMes(ano, mes, hoje);
   const linhas = [];
 
@@ -146,12 +156,12 @@ export function listarFaturas(lancamentos, cartoes, ano, mes, { hoje = new Date(
     linhas.push({
       cartaoId: cartao.id,
       nome,
-      label: rotuloFatura(ciclo.mesVenc, nome),
+      label: rotuloFatura(ciclo.mesVenc, nome, idioma),
       valor: Math.max(0, Math.round((bruto - pago) * 100) / 100),
       bruto,
       pago,
       diaVencimento: ciclo.diaVencimento,
-      vencimento: ciclo.diaVencimento ? `vence dia ${ciclo.diaVencimento}` : null,
+      vencimento: ciclo.diaVencimento ? (idioma === "en" ? `due day ${ciclo.diaVencimento}` : `vence dia ${ciclo.diaVencimento}`) : null,
       inicio: ciclo.inicio,
       fim: ciclo.fim,
     });
