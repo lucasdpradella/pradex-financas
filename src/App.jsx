@@ -50,7 +50,7 @@ import CartoesDesktop from "./components/desktop/CartoesDesktop";
 import CategoriasDesktop from "./components/desktop/CategoriasDesktop";
 import BancosDesktop from "./components/desktop/BancosDesktop";
 import PainelMetricas from "./components/desktop/PainelMetricas";
-import { normalizeTelefone, isValidTelefoneBr, formatTelefoneInput } from "./utils/phone";
+import { normalizeTelefone, isValidTelefone, formatTelefoneInput } from "./utils/phone";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdnVocXFzamJvbmN3cGJvY2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTM1NzEsImV4cCI6MjA5MTI2OTU3MX0.qpOXjpyJ29Hr9kvee3uxNS1LmJNUEZqDtMCCEpaHjsE";
@@ -472,8 +472,8 @@ export default function PradexFinancas() {
         setAuthErro("Data de nascimento inválida."); setAuthLoading(false); return;
       }
       const telefoneNorm = normalizeTelefone(cadastroTelefone);
-      if (!isValidTelefoneBr(telefoneNorm)) {
-        setAuthErro("Telefone inválido. Use um celular brasileiro com DDD."); setAuthLoading(false); return;
+      if (!isValidTelefone(telefoneNorm)) {
+        setAuthErro("Telefone inválido. Use um celular brasileiro com DDD ou um número dos EUA com +1."); setAuthLoading(false); return;
       }
       try {
         const dupRes = await fetch(
@@ -1920,7 +1920,7 @@ export default function PradexFinancas() {
               <input
                 type="tel"
                 inputMode="numeric"
-                placeholder="WhatsApp: (11) 99999-9999"
+                placeholder="WhatsApp: (11) 99999-9999 ou +1 202 555 0147"
                 value={formatTelefoneInput(cadastroTelefone)}
                 onChange={e => setCadastroTelefone(e.target.value)}
                 style={{ ...inputStyle, marginBottom: "0.4rem" }}

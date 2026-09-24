@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { normalizeTelefone, isValidTelefoneBr, formatTelefoneInput } from "../../utils/phone";
+import { normalizeTelefone, isValidTelefone, formatTelefoneInput } from "../../utils/phone";
 import { PAINEL, CARTAO_INTERNO, LINHA, LINHA_ESQUERDA } from "./molduras";
 
 const SUPABASE_URL = "https://sjvuhqqsjboncwpboclv.supabase.co";
@@ -178,8 +178,8 @@ export default function PerfilFP({ session, onPerfilSaved }) {
     let telefoneNorm = null;
     if (perfil.telefone && String(perfil.telefone).trim()) {
       telefoneNorm = normalizeTelefone(perfil.telefone);
-      if (!isValidTelefoneBr(telefoneNorm)) {
-        setErroPerfil("Telefone inválido. Use um celular brasileiro com DDD.");
+      if (!isValidTelefone(telefoneNorm)) {
+        setErroPerfil("Telefone inválido. Use um celular brasileiro com DDD ou um número dos EUA com +1.");
         setSavingPerfil(false);
         return;
       }
@@ -429,7 +429,7 @@ export default function PerfilFP({ session, onPerfilSaved }) {
         <input
           type="tel"
           inputMode="numeric"
-          placeholder="(11) 99999-9999"
+          placeholder="(11) 99999-9999 ou +1 202 555 0147"
           value={formatTelefoneInput(perfil.telefone)}
           onChange={(e) => setPerfil((prev) => ({ ...prev, telefone: e.target.value }))}
           style={inputStyle}
