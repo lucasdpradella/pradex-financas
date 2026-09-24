@@ -37,10 +37,15 @@ export function normalizarFormaPagamento(value) {
   const bruto = String(value).trim();
   if (!bruto) return null;
   const n = semAcento(bruto);
-  if (n === "credito" || n === "cartao" || n === "cartao de credito" || n === "credito parcelado" || n.startsWith("credito ")) {
+  if (n === "debito" || n === "debito em conta" || n === "cartao de debito" || n.startsWith("cartao de debito")) {
+    return "Débito";
+  }
+  if (
+    n === "credito" || n === "cartao" || n === "cartao de credito" || n === "credito parcelado" ||
+    n.startsWith("credito ") || n.startsWith("cartao ")
+  ) {
     return "Crédito";
   }
-  if (n === "debito" || n === "debito em conta" || n === "cartao de debito") return "Débito";
   if (n === "pix") return "PIX";
   if (n === "pix/debito" || n === "pix / debito") return "PIX/Débito";
   if (n === "saldo da conta") return "Saldo da conta";

@@ -9,6 +9,8 @@ describe("forma de pagamento", () => {
     expect(normalizarFormaPagamento("crédito")).toBe("Crédito");
     expect(normalizarFormaPagamento("CREDITO")).toBe("Crédito");
     expect(normalizarFormaPagamento("cartão")).toBe("Crédito");
+    expect(normalizarFormaPagamento("cartão XP")).toBe("Crédito");
+    expect(normalizarFormaPagamento("cartão de débito")).toBe("Débito");
     expect(normalizarFormaPagamento("débito")).toBe("Débito");
     expect(normalizarFormaPagamento("pix")).toBe("PIX");
     expect(normalizarFormaPagamento("PIX/Débito")).toBe("PIX/Débito");

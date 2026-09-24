@@ -1,7 +1,9 @@
 // Normalização do que o modelo devolve antes do RPC.
 // Espelha src/lib/formaPagamento.js — o fechamento e o agente precisam concordar,
 // e a edge function não importa o bundle do app. O SQL (`normalizar_forma_pagamento`)
-// é a terceira rede, pra insert que escapar daqui.
+// é a terceira rede, pra insert que escapar daqui: ele só canônica a string já
+// gravada em forma_pagamento. A mensagem do WhatsApp não chega no RPC, então
+// "no crédito" com forma omitida ou chutada como Débito se resolve aqui.
 
 export const CATEGORIA_PAGAMENTO_FATURA = "Pagamento fatura";
 
@@ -19,11 +21,14 @@ export function normalizarFormaPagamento(value: unknown): string | null {
   const bruto = String(value).trim();
   if (!bruto) return null;
   const n = semAcento(bruto);
+  // "cartão de débito" tem que vencer "cartão …", senão o nome do cartão vira crédito.
+  if (n === "debito" || n === "debito em conta" || n === "cartao de debito" || n.startsWith("cartao de debito")) {
+    return "Débito";
+  }
   if (
     n === "credito" || n === "cartao" || n === "cartao de credito" ||
-    n === "credito parcelado" || n.startsWith("credito ")
+    n === "credito parcelado" || n.startsWith("credito ") || n.startsWith("cartao ")
   ) return "Crédito";
-  if (n === "debito" || n === "debito em conta" || n === "cartao de debito") return "Débito";
   if (n === "pix") return "PIX";
   if (n === "pix/debito" || n === "pix / debito") return "PIX/Débito";
   if (n === "saldo da conta") return "Saldo da conta";
@@ -38,18 +43,73 @@ export function textoEhPagamentoFatura(texto: unknown): boolean {
   return RE_PAGAMENTO.test(semAcento(texto));
 }
 
+function escaparRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function termoPresente(texto: string, termo: string): boolean {
+  if (termo.length < 2) return false;
+  return new RegExp(`(?:^|[^a-z0-9])${escaparRegex(termo)}(?:[^a-z0-9]|$)`).test(texto);
+}
+
+// A fala não usa o nome cadastrado. "AXP" e "cartão XP" são o cartão cujo nome é XP.
+const APELIDOS_XP = ["cartao xp", "axp", "xp"];
+
+function cartaoEhXp(nome: string): boolean {
+  return nome === "xp" || nome.endsWith(" xp") || nome.startsWith("xp ");
+}
+
+function termosDoCartao(nome: unknown): string[] {
+  const n = semAcento(nome);
+  const termos = new Set<string>();
+  if (n.length >= 2) termos.add(n);
+  if (cartaoEhXp(n)) for (const t of APELIDOS_XP) termos.add(t);
+  return [...termos].sort((a, b) => b.length - a.length);
+}
+
 export function acharCartaoNoTexto(
   texto: unknown,
   cartoes: Array<{ id: number; nome?: string }>,
 ): { id: number; nome?: string } | null {
   const n = semAcento(texto);
   if (!n) return null;
-  const hits = (cartoes || []).filter((c) => {
-    const nome = semAcento(c?.nome);
-    return nome.length >= 2 && n.includes(nome);
+  const hits = (cartoes || []).flatMap((c) => {
+    const termo = termosDoCartao(c?.nome).find((t) => termoPresente(n, t));
+    return termo ? [{ cartao: c, termo }] : [];
   });
-  hits.sort((a, b) => semAcento(b.nome).length - semAcento(a.nome).length);
-  return hits[0] || null;
+  hits.sort((a, b) => b.termo.length - a.termo.length);
+  return hits[0]?.cartao || null;
+}
+
+/** "AXP" / "XP" na fala, mas nenhum cartão cadastrado responde por isso. */
+function citaCartaoSemDono(texto: string, cartoes: Array<{ id: number; nome?: string }>): boolean {
+  const n = semAcento(texto);
+  const temApelido = termoPresente(n, "axp") || termoPresente(n, "xp") || termoPresente(n, "cartao xp");
+  return temApelido && !acharCartaoNoTexto(texto, cartoes);
+}
+
+// "crédito" / "cartão de crédito" na fala. "cartão de débito" não entra.
+const RE_CREDITO_NA_FALA = /\bcreditos?\b|\bcartao de credito\b/;
+const RE_DEBITO_NA_FALA = /\bdebito\b/;
+const RE_PIX_NA_FALA = /\bpix\b/;
+const RE_DINHEIRO_NA_FALA = /\bdinheiro\b|\bespecie\b/;
+
+/**
+ * O que o cliente disse que foi a forma — não o que o modelo chutou.
+ * Crédito ganha se a fala citar crédito e também débito/PIX.
+ */
+export function formaDitaPeloTexto(texto: unknown): "Crédito" | "Débito" | "PIX" | "Dinheiro" | null {
+  const n = semAcento(texto);
+  if (!n) return null;
+  if (RE_CREDITO_NA_FALA.test(n)) return "Crédito";
+  const debito = RE_DEBITO_NA_FALA.test(n);
+  const pix = RE_PIX_NA_FALA.test(n);
+  const dinheiro = RE_DINHEIRO_NA_FALA.test(n);
+  const marcas = [debito, pix, dinheiro].filter(Boolean).length;
+  if (marcas !== 1) return null;
+  if (debito) return "Débito";
+  if (pix) return "PIX";
+  return "Dinheiro";
 }
 
 /**
@@ -83,6 +143,26 @@ export function prepararAcao(
     if (next.cartao_id == null) {
       const hit = acharCartaoNoTexto(contexto, cartoes);
       if (hit) next.cartao_id = hit.id;
+    }
+  } else if (next.tipo !== "receita" && next.meta_id == null) {
+    // Compra. Descrição + fala (a fala inteira só com uma ação, pra não cruzar
+    // dois lançamentos). "crédito AXP" mora na descrição quando o modelo não
+    // preenche cartao_id.
+    const corpusCartao = acoesNaMensagem === 1
+      ? `${next.descricao || ""} ${textoUsuario || ""}`
+      : `${next.descricao || ""}`;
+    const mencionado = acharCartaoNoTexto(corpusCartao, cartoes);
+    const dita = formaDitaPeloTexto(contexto);
+    if (dita) next.forma_pagamento = dita;
+    else if (mencionado) next.forma_pagamento = "Crédito";
+
+    if (next.forma_pagamento === "Crédito" && next.cartao_id == null) {
+      if (mencionado) next.cartao_id = mencionado.id;
+      else if ((cartoes?.length === 1) && !citaCartaoSemDono(corpusCartao, cartoes)) {
+        next.cartao_id = cartoes[0].id;
+      }
+    } else if (next.cartao_id == null && mencionado) {
+      next.cartao_id = mencionado.id;
     }
   }
 
