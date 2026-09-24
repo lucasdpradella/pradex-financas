@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { desktopTheme as t } from "./theme";
+import { t as tr } from "../../lib/i18n";
 
 // Tabela poderosa de lançamentos (Fase 1, desktop-only). Recebe dados + callbacks
 // do App.jsx (que centraliza o acesso ao banco). Regras:
@@ -64,7 +65,12 @@ export default function TabelaLancamentos({
   lancamentos, cartoes, categories,
   onEdit, onInlineSave, onBulkDelete, onBulkRecategorize,
   formatBRL, normalizeText, limparDescricaoParcela, autorDe,
+  idioma = "pt-BR",
 }) {
+  const s = (key) => tr(idioma, key);
+  const mesesCurtos = idioma === "en"
+    ? ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    : ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
   const [busca, setBusca] = useState("");
   const [fCategoria, setFCategoria] = useState("");
   const [fCartao, setFCartao] = useState("");
@@ -151,7 +157,7 @@ export default function TabelaLancamentos({
     const ok = await onInlineSave(l.id, patch);
     setBusy(false);
     setEdit(null);
-    if (!ok) setErro("Não consegui salvar a edição. Tenta de novo.");
+    if (!ok) setErro(s("erro_inline"));
   };
 
   const confirmarBulk = async () => {
@@ -161,7 +167,7 @@ export default function TabelaLancamentos({
       : await onBulkRecategorize(rowsSelecionadas, recatCat);
     setBusy(false);
     if (res?.ok) { setSel(new Set()); setBulk(null); setRecatCat(""); }
-    else setErro(bulk === "excluir" ? "Erro ao excluir. Nada foi apagado do que falhou." : "Erro ao recategorizar.");
+    else setErro(bulk === "excluir" ? s("erro_excluir") : s("erro_recat"));
   };
 
   // Função (não componente) que retorna JSX: evita remontar o <input> a cada
@@ -207,46 +213,46 @@ export default function TabelaLancamentos({
         <div className="pdx-tbl-tools">
           <div className="pdx-tbl-search">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke={t.textSecondary} strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
-            <input placeholder="Buscar descrição ou categoria…" value={busca} onChange={(e) => setBusca(e.target.value)} />
+            <input placeholder={s("busca")} value={busca} onChange={(e) => setBusca(e.target.value)} />
           </div>
           <select className="pdx-tbl-select" value={fMes} onChange={(e) => setFMes(e.target.value)}>
-            <option value="">Todos os meses</option>
-            {meses.map((m) => { const [a, mm] = m.split("-"); return <option key={m} value={m}>{["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][Number(mm) - 1]}/{a}</option>; })}
+            <option value="">{s("todos_meses")}</option>
+            {meses.map((m) => { const [a, mm] = m.split("-"); return <option key={m} value={m}>{mesesCurtos[Number(mm) - 1]}/{a}</option>; })}
           </select>
           <select className="pdx-tbl-select" value={fCategoria} onChange={(e) => setFCategoria(e.target.value)}>
-            <option value="">Todas as categorias</option>
+            <option value="">{s("todas_categorias")}</option>
             {todasCategorias.map((c) => <option key={c} value={c}>{normalizeText(c)}</option>)}
           </select>
           <select className="pdx-tbl-select" value={fCartao} onChange={(e) => setFCartao(e.target.value)}>
-            <option value="">Todos os cartões</option>
+            <option value="">{s("todos_cartoes")}</option>
             {cartoes.map((c) => <option key={c.id} value={String(c.id)}>{normalizeText(c.nome)}</option>)}
           </select>
         </div>
 
         {sel.size > 0 && (
           <div className="pdx-bulkbar">
-            <b>{sel.size}</b> selecionado{sel.size > 1 ? "s" : ""}
-            <button className="pdx-btn" onClick={() => { setRecatCat(todasCategorias[0] || ""); setBulk("recategorizar"); }}>Recategorizar</button>
-            <button className="pdx-btn pdx-btn--danger" onClick={() => setBulk("excluir")}>Excluir</button>
-            <button className="pdx-btn" onClick={() => setSel(new Set())} style={{ marginLeft: "auto" }}>Limpar seleção</button>
+            <b>{sel.size}</b> {sel.size > 1 ? s("selecionados") : s("selecionado")}
+            <button className="pdx-btn" onClick={() => { setRecatCat(todasCategorias[0] || ""); setBulk("recategorizar"); }}>{s("recategorizar")}</button>
+            <button className="pdx-btn pdx-btn--danger" onClick={() => setBulk("excluir")}>{s("excluir")}</button>
+            <button className="pdx-btn" onClick={() => setSel(new Set())} style={{ marginLeft: "auto" }}>{s("limpar_selecao")}</button>
           </div>
         )}
 
         {erro && <div style={{ padding: "0.6rem 1rem", background: "#FEF2F2", color: t.gasto, fontSize: "0.83rem" }}>{erro}</div>}
 
         {linhas.length === 0 ? (
-          <div className="pdx-tbl-empty">Nenhum lançamento com esses filtros.</div>
+          <div className="pdx-tbl-empty">{s("nenhum_filtro")}</div>
         ) : (
           <div style={{ maxHeight: "62vh", overflow: "auto" }}>
             <table className="pdx-tbl">
               <thead>
                 <tr>
-                  <th style={{ width: 36 }}><input type="checkbox" checked={todosVisiveisMarcados} onChange={toggleTodos} aria-label="Selecionar todos" /></th>
-                  <th className="sortable" onClick={() => toggleSort("data_lancamento")}>Data{ordCampo === "data_lancamento" ? SETA(ordDir) : ""}</th>
-                  <th className="sortable" onClick={() => toggleSort("descricao")}>Descrição{ordCampo === "descricao" ? SETA(ordDir) : ""}</th>
-                  <th className="sortable" onClick={() => toggleSort("categoria")}>Categoria{ordCampo === "categoria" ? SETA(ordDir) : ""}</th>
-                  <th>Cartão</th>
-                  <th className="sortable" style={{ textAlign: "right" }} onClick={() => toggleSort("valor")}>Valor{ordCampo === "valor" ? SETA(ordDir) : ""}</th>
+                  <th style={{ width: 36 }}><input type="checkbox" checked={todosVisiveisMarcados} onChange={toggleTodos} aria-label={s("aria_todos")} /></th>
+                  <th className="sortable" onClick={() => toggleSort("data_lancamento")}>{s("col_data")}{ordCampo === "data_lancamento" ? SETA(ordDir) : ""}</th>
+                  <th className="sortable" onClick={() => toggleSort("descricao")}>{s("col_descricao")}{ordCampo === "descricao" ? SETA(ordDir) : ""}</th>
+                  <th className="sortable" onClick={() => toggleSort("categoria")}>{s("col_categoria")}{ordCampo === "categoria" ? SETA(ordDir) : ""}</th>
+                  <th>{s("col_cartao")}</th>
+                  <th className="sortable" style={{ textAlign: "right" }} onClick={() => toggleSort("valor")}>{s("col_valor")}{ordCampo === "valor" ? SETA(ordDir) : ""}</th>
                   <th style={{ width: 40 }}></th>
                 </tr>
               </thead>
@@ -257,9 +263,9 @@ export default function TabelaLancamentos({
                   const desc = limparDescricaoParcela(l.descricao || "");
                   return (
                     <tr key={l.id} className={sel.has(l.id) ? "is-selected" : undefined}>
-                      <td><input type="checkbox" checked={sel.has(l.id)} onChange={() => toggleSel(l.id)} aria-label="Selecionar linha" /></td>
+                      <td><input type="checkbox" checked={sel.has(l.id)} onChange={() => toggleSel(l.id)} aria-label={s("aria_linha")} /></td>
                       <td>{renderCelula(l, "data_lancamento", fmtData(l.data_lancamento))}</td>
-                      <td style={{ maxWidth: 320 }}>{renderCelula(l, "descricao", <>{normalizeText(desc) || "—"}{l.recorrente && <small style={{ color: t.textSecondary }}> · recorrente</small>}{autorDe?.(l.criado_por || l.user_id) ? <small style={{ color: t.textSecondary }}> · {autorDe(l.criado_por || l.user_id)}</small> : null}</>)}</td>
+                      <td style={{ maxWidth: 320 }}>{renderCelula(l, "descricao", <>{normalizeText(desc) || "—"}{l.recorrente && <small style={{ color: t.textSecondary }}> · {s("recorrente_inline")}</small>}{autorDe?.(l.criado_por || l.user_id) ? <small style={{ color: t.textSecondary }}> · {autorDe(l.criado_por || l.user_id)}</small> : null}</>)}</td>
                       <td>{renderCelula(l, "categoria", <span className="pdx-chip">{normalizeText(l.categoria) || "—"}</span>)}</td>
                       <td style={{ color: t.textSecondary }}>{cartaoNome(l.cartao_id) ? normalizeText(cartaoNome(l.cartao_id)) : (l.forma_pagamento || "—")}</td>
                       <td style={{ textAlign: "right" }}>
@@ -271,7 +277,7 @@ export default function TabelaLancamentos({
                         ))}
                       </td>
                       <td>
-                        <button className="pdx-iconbtn" title="Editar (modal)" onClick={() => onEdit(l)}>
+                        <button className="pdx-iconbtn" title={s("editar")} onClick={() => onEdit(l)}>
                           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                         </button>
                       </td>
@@ -282,7 +288,7 @@ export default function TabelaLancamentos({
             </table>
           </div>
         )}
-        <div className="pdx-tbl-foot">{linhas.length} lançamento{linhas.length !== 1 ? "s" : ""}{lancamentos.length !== linhas.length ? ` (de ${lancamentos.length})` : ""}</div>
+        <div className="pdx-tbl-foot">{linhas.length} {linhas.length !== 1 ? s("lancamentos_n") : s("lancamento_um")}{lancamentos.length !== linhas.length ? ` (${s("de")} ${lancamentos.length})` : ""}</div>
       </div>
 
       {bulk && (
@@ -290,22 +296,22 @@ export default function TabelaLancamentos({
           <div className="pdx-modal" onClick={(e) => e.stopPropagation()}>
             {bulk === "excluir" ? (
               <>
-                <h3>Excluir {sel.size} lançamento{sel.size > 1 ? "s" : ""}?</h3>
-                <p>Esta ação não pode ser desfeita. Parceladas selecionadas apagam a compra inteira (todas as parcelas do grupo).</p>
+                <h3>{s("excluir")} {sel.size} {sel.size > 1 ? s("lancamentos_n") : s("lancamento_um")}?</h3>
+                <p>{s("excluir_aviso")}</p>
               </>
             ) : (
               <>
-                <h3>Recategorizar {sel.size} lançamento{sel.size > 1 ? "s" : ""}</h3>
-                <p>A nova categoria será aplicada a todos os selecionados (parceladas: todas as parcelas do grupo).</p>
+                <h3>{s("recategorizar")} {sel.size} {sel.size > 1 ? s("lancamentos_n") : s("lancamento_um")}</h3>
+                <p>{s("recat_aviso")}</p>
                 <select className="pdx-tbl-select" style={{ width: "100%" }} value={recatCat} onChange={(e) => setRecatCat(e.target.value)}>
                   {todasCategorias.map((c) => <option key={c} value={c}>{normalizeText(c)}</option>)}
                 </select>
               </>
             )}
             <div className="pdx-modal-actions">
-              <button className="pdx-btn" disabled={busy} onClick={() => setBulk(null)}>Cancelar</button>
+              <button className="pdx-btn" disabled={busy} onClick={() => setBulk(null)}>{s("cancelar")}</button>
               <button className={`pdx-btn ${bulk === "excluir" ? "pdx-btn--danger" : "pdx-btn--primary"}`} disabled={busy || (bulk === "recategorizar" && !recatCat)} onClick={confirmarBulk}>
-                {busy ? "Processando…" : bulk === "excluir" ? "Excluir" : "Recategorizar"}
+                {busy ? s("processando") : bulk === "excluir" ? s("excluir") : s("recategorizar")}
               </button>
             </div>
           </div>

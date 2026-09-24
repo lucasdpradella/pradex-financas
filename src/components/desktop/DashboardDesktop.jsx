@@ -146,8 +146,8 @@ export default function DashboardDesktop({
                 {r.tipo === "receita" ? "+" : "−"}{formatBRL(r.valor)}
               </span>
               <div className="pdx-rasc__acoes">
-                <button className="pdx-btn2" onClick={() => onRejeitarRascunho?.(r.id)}>Rejeitar</button>
-                <button className="pdx-btn2 pdx-btn2--ok" onClick={() => onConfirmarRascunho?.(r)}>Confirmar</button>
+                <button className="pdx-btn2" onClick={() => onRejeitarRascunho?.(r.id)}>{s("rejeitar")}</button>
+                <button className="pdx-btn2 pdx-btn2--ok" onClick={() => onConfirmarRascunho?.(r)}>{s("confirmar")}</button>
               </div>
             </div>
           ))}
@@ -216,7 +216,7 @@ export default function DashboardDesktop({
                   <span className="pdx-cat__val">
                     {formatBRL(item.total)}
                     {limite > 0
-                      ? <span style={{ color: corBarra }}>{" / "}{formatBRL(limite)} · {Math.round(pctTeto)}% usado</span>
+                      ? <span style={{ color: corBarra }}>{" / "}{formatBRL(limite)} · {Math.round(pctTeto)}% {s("pct_usado")}</span>
                       : <span>{dados.gastoTotal > 0 ? `${((item.total / dados.gastoTotal) * 100).toFixed(0)}%` : "—"}</span>}
                   </span>
                 </div>
@@ -233,11 +233,11 @@ export default function DashboardDesktop({
           <div className="pdx-panel__head">
             <p className="pdx-panel__title">{s("tendencia")}</p>
             <div className="pdx-legend">
-              <span><i style={{ background: t.receita }} />Receita</span>
-              <span><i style={{ background: t.gasto }} />Gasto</span>
+              <span><i style={{ background: t.receita }} />{s("receita_legenda")}</span>
+              <span><i style={{ background: t.gasto }} />{s("gasto_legenda")}</span>
             </div>
           </div>
-          <svg className="pdx-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Receita e gasto por mês nos últimos 6 meses">
+          <svg className="pdx-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={s("chart_aria")}>
             <line x1="0" y1={BASE} x2={W} y2={BASE} stroke={t.surfaceBorder} strokeWidth="1" />
             {dados.tendencia.map((m, i) => {
               const centro = i * PASSO + PASSO / 2;
@@ -247,10 +247,10 @@ export default function DashboardDesktop({
               return (
                 <g key={m.key}>
                   <rect x={centro - LARG - 2} y={BASE - hR} width={LARG} height={hR} rx="3" fill={t.receita}>
-                    <title>{`${m.label}/${m.ano} · receita ${formatBRL(m.receita)}`}</title>
+                    <title>{`${m.label}/${m.ano} · ${s("receita_legenda")} ${formatBRL(m.receita)}`}</title>
                   </rect>
                   <rect x={centro + 2} y={BASE - hG} width={LARG} height={hG} rx="3" fill={t.gasto}>
-                    <title>{`${m.label}/${m.ano} · gasto ${formatBRL(m.gasto)}`}</title>
+                    <title>{`${m.label}/${m.ano} · ${s("gasto_legenda")} ${formatBRL(m.gasto)}`}</title>
                   </rect>
                   <text x={centro} y={BASE + 22} textAnchor="middle" fontWeight={atual ? 700 : 500} fill={atual ? t.textPrimary : t.textSecondary}>
                     {m.label}

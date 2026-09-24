@@ -48,6 +48,9 @@ describe("i18n da home", () => {
     expect(html).toContain("$40.00");
     expect(t("en", "livro_titulo")).toBe("Book");
     expect(t("pt-BR", "fluxo")).toBe("Fluxo do mês");
+    expect(t("en", "gasto_categoria")).toBe("Spending by category");
+    expect(t("en", "col_valor")).toBe("Amount");
+    expect(t("pt-BR", "badge_evitavel")).toBe("Evitável");
   });
 });
 

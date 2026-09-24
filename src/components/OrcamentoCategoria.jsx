@@ -50,7 +50,7 @@ const COR = {
 export function parseValor(bruto) {
   const s = String(bruto ?? "").trim();
   if (!s) return null;
-  const limpo = s.replace(/[R$\s]/gi, "");
+  const limpo = s.replace(/kr/gi, "").replace(/[R$\s]/gi, "");
   // "R$" sozinho vira string vazia aqui. Sem esta guarda, Number("") devolve 0 — e um
   // teto de R$ 0 passaria pelo check de "> 0" como se fosse escolha do usuário.
   if (!limpo) return NaN;

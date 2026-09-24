@@ -17,6 +17,8 @@ describe("parseValor", () => {
 
   it("ignora R$ e espaços", () => {
     expect(parseValor("R$ 1.200,50")).toBe(1200.5);
+    expect(parseValor("$40.00")).toBe(40);
+    expect(parseValor("kr 40,00")).toBe(40);
     expect(parseValor(" 600 ")).toBe(600);
   });
 
