@@ -15,12 +15,13 @@ const CSS = `
 // Top-bar do shell desktop: título da seção + seletor de período + "Novo lançamento".
 // O período vira navegável (‹ mês ›) quando a seção passa onPeriodoStep — hoje só o
 // Dashboard (Fase 2). Sem o callback, segue como o indicador estático da Fase 0.
-export default function TopBar({ title, periodoLabel, onNovoLancamento, onPeriodoStep }) {
+export default function TopBar({ title, periodoLabel, onNovoLancamento, onPeriodoStep, novoLabel = "Novo lançamento", chip = null }) {
   return (
     <header className="pdx-top">
       <style>{CSS}</style>
       <h1 className="pdx-top__title">{title}</h1>
       <div className="pdx-top__spacer" />
+      {chip}
       <span className="pdx-top__period">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
@@ -37,7 +38,7 @@ export default function TopBar({ title, periodoLabel, onNovoLancamento, onPeriod
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
         </svg>
-        Novo lançamento
+        {novoLabel}
       </button>
     </header>
   );

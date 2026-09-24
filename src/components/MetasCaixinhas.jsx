@@ -18,10 +18,10 @@ import {
   DIFICULDADES, DIFICULDADE_PADRAO, dificuldadeDe, mensagemDoMarco, pontosDoMarco,
 } from "../lib/metas";
 import { CHECKOUT, PRECO, checkoutComEmail } from "../lib/plano";
+import { useFormatMoney, useSimboloMoeda } from "../lib/moeda";
 import { parseValor } from "./OrcamentoCategoria";
 
 
-const formatBRL = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 const COR = {
   bg: "var(--surface, #151821)",
@@ -71,6 +71,8 @@ export default function MetasCaixinhas({
   celebracao = null,
   onFecharCelebracao,
 }) {
+  const formatBRL = useFormatMoney();
+  const simbolo = useSimboloMoeda();
   // Qual meta está com o seletor de dificuldade aberto. Fica escondido atrás de um
   // toque no rótulo porque trocar a dificuldade é raro — ocupar espaço fixo no card
   // por uma ação que acontece uma vez na vida da meta empurraria pra baixo o que
@@ -238,7 +240,7 @@ export default function MetasCaixinhas({
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                   <input
                     inputMode="decimal"
-                    placeholder="Quanto? R$"
+                    placeholder={`Quanto? ${simbolo}`}
                     value={aporte.valor}
                     onChange={(e) => setAporte((a) => ({ ...a, valor: e.target.value }))}
                     aria-label="Valor guardado"
@@ -373,7 +375,7 @@ export default function MetasCaixinhas({
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginTop: "0.5rem" }}>
             <input
               inputMode="decimal"
-              placeholder="Quanto juntar? R$"
+              placeholder={`Quanto juntar? ${simbolo}`}
               value={nova.valor_alvo}
               onChange={(e) => setNova((n) => ({ ...n, valor_alvo: e.target.value }))}
               aria-label="Valor alvo"

@@ -17,6 +17,10 @@ import {
   detectarComando, aplicarComando, tomVigente, estaEmSilencio, instrucaoDeTom, LIMITES,
 } from "./tom.ts";
 import { prepararAcoes } from "./forma.ts";
+import {
+  blocoMoedaIdioma, formatarValorAgente, frase, normalizarIdioma, normalizarMoeda,
+  type IdiomaLivro, type MoedaLivro,
+} from "./livro.ts";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // ===== CONFIG =====
@@ -152,11 +156,11 @@ const SYSTEM_PROMPT = `Você é o assistente IA do Pradex Finanças. Atende clie
 
 REGRAS DURAS:
 1. Tom profissional descontraído. Direto, claro, com 👊 ocasional. Sem lowercase exagerado.
-2. SEMPRE em português brasileiro.
+2. Idioma e moeda vêm do bloco final do prompt (o livro). Não converta valores.
 3. SEMPRE chame a tool 'registrar_acoes' (mesmo se não houver ação, use 'acoes: []').
 4. NUNCA invente lançamentos. Só registre o que o cliente disse explicitamente.
 5. Edição/Deleção SÓ com lancamento_id explícito dos últimos 5 lançamentos do contexto. Ambiguidade → 'precisa_confirmar=true'.
-6. Após cada ação, confirme: "✅ Lancei R$X,XX em [Categoria] 👊" ou similar.
+6. Após cada ação, confirme o valor na moeda do livro, no formato do bloco final.
 7. Categorias: use SEMPRE uma da lista do cliente. Se nenhuma encaixar, use a mais próxima e avise: "_categorizei em [X], se for outra ajuste no app_"
 8. Múltiplos gastos numa msg: lance todos, confirme num bloco só.
 9. Receitas: "recebi 5000" → tipo='receita', categoria da lista.
@@ -203,14 +207,16 @@ então é justo cobrar em cima dela:
 
 Uma observação por mensagem, no máximo. Nunca duas.`;
 
-function montarSystemPrompt(tom: "seco" | "caos" | "elogio"): string {
+function montarSystemPrompt(tom: "seco" | "caos" | "elogio", moeda: MoedaLivro = "BRL", idioma: IdiomaLivro = "pt-BR"): string {
   return `${SYSTEM_PROMPT}
 
 ${instrucaoDeTom(tom)}
 
 ${GATILHOS}
 
-${LIMITES}`;
+${LIMITES}
+
+${blocoMoedaIdioma(moeda, idioma)}`;
 }
 
 const TOOL_REGISTRAR_ACOES = {
@@ -260,16 +266,16 @@ ${userMessage}
 CONTEXTO:
 - Data de hoje: ${contexto.dataHoje}
 - Últimos 5 lançamentos (mais recente primeiro):
-${contexto.ultimosLancamentos.length === 0 ? "  (nenhum)" : contexto.ultimosLancamentos.map((l: any) => `  - ID ${l.id}: ${l.tipo} R$${Number(l.valor).toFixed(2)} | ${l.categoria} | ${l.descricao} | ${l.data}`).join("\n")}
+${contexto.ultimosLancamentos.length === 0 ? "  (nenhum)" : contexto.ultimosLancamentos.map((l: any) => `  - ID ${l.id}: ${l.tipo} ${formatarValorAgente(l.valor, contexto.moeda ?? "BRL")} | ${l.categoria} | ${l.descricao} | ${l.data}`).join("\n")}
 - Categorias disponíveis (use SEMPRE uma desta lista):
 ${contexto.categorias.map((c: any) => `  - "${c.nome}" (${c.tipo})`).join("\n")}
 - Tetos do mês (só mencione se for relevante pro que a pessoa acabou de lançar):
-${!contexto.tetos?.length ? "  (nenhum teto definido)" : contexto.tetos.map((t: any) => `  - "${t.categoria}": R$${t.gasto.toFixed(2)} de R$${t.limite.toFixed(2)} (${t.percentual}%)${t.percentual >= 100 ? " — ESTOUROU" : t.percentual >= 90 ? " — passou de 90%" : ""}`).join("\n")}
+${!contexto.tetos?.length ? "  (nenhum teto definido)" : contexto.tetos.map((t: any) => `  - "${t.categoria}": ${formatarValorAgente(t.gasto, contexto.moeda ?? "BRL")} de ${formatarValorAgente(t.limite, contexto.moeda ?? "BRL")} (${t.percentual}%)${t.percentual >= 100 ? " — ESTOUROU" : t.percentual >= 90 ? " — passou de 90%" : ""}`).join("\n")}
 - Metas (caixinhas) do cliente:
 ${!contexto.metas?.length ? "  (nenhuma meta criada)" : contexto.metas.map((m: any) => {
   const partes = [`${m.percentual}%`, `dificuldade ${m.dificuldade} (declarada por ele)`];
   if (m.concluida) partes.push("CUMPRIDA");
-  else if (m.falta > 0) partes.push(`faltam R$${Number(m.falta).toFixed(2)}`);
+  else if (m.falta > 0) partes.push(`faltam ${formatarValorAgente(m.falta, contexto.moeda ?? "BRL")}`);
   if (m.prazo) partes.push(`prazo ${m.prazo}`);
   if (m.dias_parada === null) partes.push("nunca recebeu aporte");
   else if (m.dias_parada >= 30) partes.push(`PARADA há ${m.dias_parada} dias`);
@@ -288,7 +294,7 @@ Responda chamando a tool 'registrar_acoes'.`;
       body: JSON.stringify({
         model: CLAUDE_MODEL,
         max_tokens: 2048,
-        system: montarSystemPrompt(contexto.tom ?? "seco"),
+        system: montarSystemPrompt(contexto.tom ?? "seco", contexto.moeda ?? "BRL", contexto.idioma ?? "pt-BR"),
         tools: [TOOL_REGISTRAR_ACOES],
         tool_choice: { type: "tool", name: "registrar_acoes" },
         messages: [{ role: "user", content: userContextual }],
@@ -315,6 +321,38 @@ async function lookupUserByPhone(supabase: SupabaseClient, phone: string) {
     .select("user_id, nome, plano, trial_inicio, trial_ate, agente_tom, agente_silencio_ate, agente_elogio_ate")
     .eq("telefone", phone).limit(1).maybeSingle();
   return data;
+}
+
+type LivroAgente = { id: string | null; moeda: MoedaLivro; idioma: IdiomaLivro };
+
+// Telefone → user → livro ativo. Sem livro (conta nova ou migration ainda não
+// aplicada), cria BRL + pt-BR. Se a tabela ainda não existe, segue sem livro e
+// as queries caem no user_id — o solo de hoje não quebra no meio do deploy.
+async function resolverLivro(supabase: SupabaseClient, userId: string): Promise<LivroAgente> {
+  const padrao: LivroAgente = { id: null, moeda: "BRL", idioma: "pt-BR" };
+  try {
+    const { data, error } = await supabase
+      .from("livro_membros")
+      .select("livro_id, livros(moeda, idioma)")
+      .eq("user_id", userId)
+      .eq("ativo", true)
+      .limit(1)
+      .maybeSingle();
+    if (error) return padrao;
+    if (data?.livro_id) {
+      const meta = (data as any).livros ?? {};
+      return {
+        id: String(data.livro_id),
+        moeda: normalizarMoeda(meta.moeda),
+        idioma: normalizarIdioma(meta.idioma),
+      };
+    }
+    const { data: criado, error: erroCriar } = await supabase.rpc("garantir_livro", { p_user_id: userId });
+    if (erroCriar || !criado) return padrao;
+    return { id: String(criado), moeda: "BRL", idioma: "pt-BR" };
+  } catch {
+    return padrao;
+  }
 }
 
 // O agente é o produto do plano Essencial. Espelha src/lib/plano.js: planos são
@@ -372,7 +410,7 @@ const DEFAULT_CATEGORIAS: Record<string, string[]> = {
 // Uma query de tetos + uma de gastos do mês. Se a tabela `orcamentos` ainda não
 // existir no banco (migration não aplicada), o erro é engolido e o agente segue
 // funcionando exatamente como antes — teto é enriquecimento, não requisito.
-async function getTetosDoMes(supabase: SupabaseClient, userId: string) {
+async function getTetosDoMes(supabase: SupabaseClient, userId: string, livroId: string | null = null) {
   try {
     const hoje = new Date();
     const primeiroDia = `${hoje.getUTCFullYear()}-${String(hoje.getUTCMonth() + 1).padStart(2, "0")}-01`;
@@ -393,7 +431,10 @@ async function getTetosDoMes(supabase: SupabaseClient, userId: string) {
       // mudado (mesma regra do app). Filtrar por mes exato faria o agente nao ver o
       // teto de quem cadastrou mes passado — e ai tela e agente discordariam.
       supabase.from("orcamentos").select("categoria, limite, mes").eq("user_id", userId).lte("mes", primeiroDia).order("mes", { ascending: false }),
-      supabase.from("Lancamentos").select("valor, categoria").eq("user_id", userId).eq("tipo", "gasto")
+      (livroId
+        ? supabase.from("Lancamentos").select("valor, categoria").eq("livro_id", livroId)
+        : supabase.from("Lancamentos").select("valor, categoria").eq("user_id", userId))
+        .eq("tipo", "gasto")
         .gte("data_lancamento", primeiroDia).lt("data_lancamento", primeiroDiaProximoMes),
     ]);
     if (orcRes.error || !orcRes.data?.length) return [];
@@ -438,19 +479,20 @@ async function getTetosDoMes(supabase: SupabaseClient, userId: string) {
 // `dias_parada` é o dado que o modelo não teria como inferir dos últimos 5
 // lançamentos — e é justamente o do gatilho mais afiado ("você marcou difícil e
 // depois sentou").
-async function getMetasDoUsuario(supabase: SupabaseClient, userId: string) {
+async function getMetasDoUsuario(supabase: SupabaseClient, userId: string, livroId: string | null = null) {
   try {
-    const { data: metas, error } = await supabase
+    const metasQuery = supabase
       .from("metas")
       .select("id, nome, valor_alvo, dificuldade, prazo, concluida_em")
-      .eq("user_id", userId).eq("arquivada", false);
+      .eq("arquivada", false);
+    const { data: metas, error } = await (livroId ? metasQuery.eq("livro_id", livroId) : metasQuery.eq("user_id", userId));
     if (error || !metas?.length) return [];
 
     const ids = metas.map((m: any) => m.id);
-    const { data: aportes } = await supabase
-      .from("Lancamentos")
-      .select("meta_id, valor, tipo, data_lancamento")
-      .eq("user_id", userId).in("meta_id", ids);
+    const aportesQuery = livroId
+      ? supabase.from("Lancamentos").select("meta_id, valor, tipo, data_lancamento").eq("livro_id", livroId).in("meta_id", ids)
+      : supabase.from("Lancamentos").select("meta_id, valor, tipo, data_lancamento").eq("user_id", userId).in("meta_id", ids);
+    const { data: aportes } = await aportesQuery;
 
     const hoje = Date.now();
     return metas.map((m: any) => {
@@ -474,13 +516,15 @@ async function getMetasDoUsuario(supabase: SupabaseClient, userId: string) {
   } catch { return []; }
 }
 
-async function getContextoUsuario(supabase: SupabaseClient, userId: string) {
+async function getContextoUsuario(supabase: SupabaseClient, userId: string, livroId: string | null = null) {
+  const lancamentos = supabase.from("Lancamentos").select("id, valor, categoria, descricao, data_lancamento, tipo, criado_por").order("created_at", { ascending: false }).limit(5);
+  const cartoes = supabase.from("cartoes").select("id, nome").order("nome");
   const [lancRes, catRes, cartRes, tetos, metas] = await Promise.all([
-    supabase.from("Lancamentos").select("id, valor, categoria, descricao, data_lancamento, tipo").eq("user_id", userId).order("created_at", { ascending: false }).limit(5),
+    livroId ? lancamentos.eq("livro_id", livroId) : lancamentos.eq("user_id", userId),
     supabase.from("categorias").select("nome, tipo, removida").eq("user_id", userId),
-    supabase.from("cartoes").select("id, nome").eq("user_id", userId).order("nome"),
-    getTetosDoMes(supabase, userId),
-    getMetasDoUsuario(supabase, userId),
+    livroId ? cartoes.eq("livro_id", livroId) : cartoes.eq("user_id", userId),
+    getTetosDoMes(supabase, userId, livroId),
+    getMetasDoUsuario(supabase, userId, livroId),
   ]);
 
   const userCats = (catRes.data ?? []) as Array<{ nome: string; tipo: string; removida: boolean }>;
@@ -687,15 +731,15 @@ function validarCategorias(acoes: any[], categorias: Array<{ nome: string; tipo:
 }
 
 // ===== PROCESSAR LANÇAMENTO =====
-async function processarLancamento(supabase: SupabaseClient, userId: string, nomeCliente: string, telefone: string, texto: string, cid: string, tom: "seco" | "caos" | "elogio" = "seco") {
+async function processarLancamento(supabase: SupabaseClient, userId: string, nomeCliente: string, telefone: string, texto: string, cid: string, tom: "seco" | "caos" | "elogio" = "seco", livro: LivroAgente = { id: null, moeda: "BRL", idioma: "pt-BR" }) {
   const dataHoje = new Date().toISOString().split("T")[0];
-  const ctx = await getContextoUsuario(supabase, userId);
-  const resp = await callAnthropic(texto, { nomeCliente, telefone, dataHoje, tom, ...ctx }, cid);
-  if (!resp) return { mensagem: "Tive um problema do meu lado processando sua mensagem. Tenta de novo em alguns segundos 🙏", acoesAplicadas: null };
+  const ctx = await getContextoUsuario(supabase, userId, livro.id);
+  const resp = await callAnthropic(texto, { nomeCliente, telefone, dataHoje, tom, moeda: livro.moeda, idioma: livro.idioma, ...ctx }, cid);
+  if (!resp) return { mensagem: frase(livro.idioma, "Tive um problema do meu lado processando sua mensagem. Tenta de novo em alguns segundos 🙏", "I hit a problem on my side processing your message. Try again in a few seconds 🙏"), acoesAplicadas: null };
   if (resp.precisa_confirmar || !resp.acoes || resp.acoes.length === 0) return { mensagem: resp.mensagem_resposta, acoesAplicadas: null };
   const acoesValidadas = prepararAcoes(validarCategorias(resp.acoes, ctx.categorias, cid), texto, ctx.cartoes);
   const { data: ids, error } = await supabase.rpc("agente_aplicar_acoes", { p_user_id: userId, p_acoes: acoesValidadas });
-  if (error) { logErro(cid, "rpc_aplicar_acoes_failed", error); return { mensagem: "Entendi mas tive problema gravando os lançamentos. Tenta de novo, e se persistir, lança pelo app 🙏", acoesAplicadas: null }; }
+  if (error) { logErro(cid, "rpc_aplicar_acoes_failed", error); return { mensagem: frase(livro.idioma, "Entendi mas tive problema gravando os lançamentos. Tenta de novo, e se persistir, lança pelo app 🙏", "I understood, but I couldn't save the entries. Try again, or add them in the app 🙏"), acoesAplicadas: null }; }
   return { mensagem: resp.mensagem_resposta, acoesAplicadas: ids ?? [] };
 }
 
@@ -787,6 +831,7 @@ Deno.serve(async (req: Request) => {
 
     const usuario = await lookupUserByPhone(supabase, telefone);
     let mensagemResp: string, acoesApl: any = null, userIdFinal: string | null = null, statusFinal = "sucesso";
+    const livro = usuario ? await resolverLivro(supabase, usuario.user_id) : null;
 
     if (!usuario) {
       const onb = await processarOnboarding(supabase, telefone, textoMsg, cid);
@@ -797,7 +842,11 @@ Deno.serve(async (req: Request) => {
       // Conta existe mas o plano não cobre o agente: responde com o CTA e NÃO processa
       // o lançamento. Segue pelo mesmo caminho de envio/log dos outros casos.
       userIdFinal = usuario.user_id;
-      mensagemResp = MSG_SEM_PLANO;
+      mensagemResp = frase(
+        livro?.idioma ?? "pt-BR",
+        MSG_SEM_PLANO,
+        `Hi! Logging expenses here is part of the Pradex *Essencial* plan.\n\nThe app still works — you can record everything there.\n\nTo unlock the WhatsApp agent: ${CHECKOUT_ESSENCIAL}`,
+      );
       statusFinal = "sem_plano";
       logInfo(cid, "bloqueado_sem_plano", { user_id: usuario.user_id, plano: usuario.plano ?? null, trial_ate: usuario.trial_ate ?? null });
     } else {
@@ -812,9 +861,9 @@ Deno.serve(async (req: Request) => {
       // instantâneo e de graça.
       const cmd = detectarComando(textoMsg);
       if (cmd) {
-        const { patch, resposta } = aplicarComando(cmd);
+        const { patch, resposta } = aplicarComando(cmd, livro?.idioma ?? "pt-BR");
         await supabase.from("fp_perfil").update(patch).eq("user_id", usuario.user_id);
-        logInfo(cid, "tom_alterado", { comando: cmd });
+        logInfo(cid, "tom_alterado", { comando: cmd, livro_id: livro?.id ?? null });
         mensagemResp = resposta;
         statusFinal = "comando_tom";
       } else if (estaEmSilencio(usuario)) {
@@ -823,13 +872,13 @@ Deno.serve(async (req: Request) => {
         // e a confirmação sai; o que some é o comentário. Engolir a confirmação
         // faria a pessoa não saber se o gasto entrou no app, e isso é função, não
         // sarcasmo.
-        const r = await processarLancamento(supabase, usuario.user_id, usuario.nome, telefone, textoMsg, cid, "seco");
+        const r = await processarLancamento(supabase, usuario.user_id, usuario.nome, telefone, textoMsg, cid, "seco", livro ?? undefined);
         mensagemResp = r.mensagem;
         acoesApl = r.acoesAplicadas;
         statusFinal = "silenciado_24h";
-        logInfo(cid, "em_silencio", { ate: usuario.agente_silencio_ate });
+        logInfo(cid, "em_silencio", { ate: usuario.agente_silencio_ate, livro_id: livro?.id ?? null });
       } else {
-        const r = await processarLancamento(supabase, usuario.user_id, usuario.nome, telefone, textoMsg, cid, tomVigente(usuario));
+        const r = await processarLancamento(supabase, usuario.user_id, usuario.nome, telefone, textoMsg, cid, tomVigente(usuario), livro ?? undefined);
         mensagemResp = r.mensagem;
         acoesApl = r.acoesAplicadas;
 
@@ -838,7 +887,7 @@ Deno.serve(async (req: Request) => {
         // scheduler só pra dizer olá. Limpar a coluna é o que impede o prefixo de
         // aparecer pra sempre daí em diante.
         if (usuario.agente_silencio_ate) {
-          mensagemResp = `Voltei.\n\n${mensagemResp}`;
+          mensagemResp = `${frase(livro?.idioma ?? "pt-BR", "Voltei.", "I'm back.")}\n\n${mensagemResp}`;
           await supabase.from("fp_perfil").update({ agente_silencio_ate: null }).eq("user_id", usuario.user_id);
         }
       }

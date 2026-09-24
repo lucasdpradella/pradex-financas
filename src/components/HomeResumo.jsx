@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { parseValorConta } from "../lib/formaPagamento";
+import { t } from "../lib/i18n";
 
 // As três camadas da home: Fluxo do mês, Nas contas agora, Faturas.
 // O mesmo componente serve o mobile (escuro) e o desktop (claro). A conta é do
@@ -59,9 +60,11 @@ export default function HomeResumo({
   faturas = [],
   bancos = [],
   formatBRL,
+  idioma = "pt-BR",
   onSalvarSaldo,
   onCriarConta,
 }) {
+  const s = (key) => t(idioma, key);
   const c = TEMA[variant] || TEMA.mobile;
   const cancelarEdicao = useRef(false);
   const [editandoId, setEditandoId] = useState(null);
@@ -83,25 +86,25 @@ export default function HomeResumo({
 
   const salvar = async (banco) => {
     const valor = parseValorConta(rascunho);
-    if (valor == null) { setErro("Informe o saldo. Ex.: 2.180 ou 2180,50."); return; }
+    if (valor == null) { setErro(s("erro_saldo")); return; }
     setOcupado(true); setErro("");
     const res = await onSalvarSaldo?.(banco, valor);
     setOcupado(false);
-    if (res && res.ok === false) { setErro(res.erro || "Não foi possível salvar o saldo."); return; }
+    if (res && res.ok === false) { setErro(res.erro || s("erro_salvar_saldo")); return; }
     setEditandoId(null);
   };
 
   const criar = async () => {
     const nome = nomeNova.trim();
-    if (!nome) { setErro("Informe o nome da conta."); return; }
+    if (!nome) { setErro(s("erro_nome_conta")); return; }
     const saldo = saldoNova.trim() ? parseValorConta(saldoNova) : null;
-    if (saldoNova.trim() && saldo == null) { setErro("Saldo inválido."); return; }
+    if (saldoNova.trim() && saldo == null) { setErro(s("erro_saldo_invalido")); return; }
     setOcupado(true); setErro("");
     const res = await onCriarConta?.(nome);
-    if (!res?.ok) { setOcupado(false); setErro(res?.erro || "Não foi possível criar a conta."); return; }
+    if (!res?.ok) { setOcupado(false); setErro(res?.erro || s("erro_criar_conta")); return; }
     if (saldo != null && res.banco) {
       const saldoRes = await onSalvarSaldo?.(res.banco, saldo);
-      if (saldoRes && saldoRes.ok === false) { setOcupado(false); setErro(saldoRes.erro || "Conta criada, mas o saldo não entrou."); return; }
+      if (saldoRes && saldoRes.ok === false) { setOcupado(false); setErro(saldoRes.erro || s("erro_saldo_parcial")); return; }
     }
     setOcupado(false);
     setNova(false); setNomeNova(""); setSaldoNova("");
@@ -126,38 +129,38 @@ export default function HomeResumo({
 
   return (
     <div>
-      <section style={card} aria-label="Fluxo do mês">
+      <section style={card} aria-label={s("fluxo")}>
         <p style={titulo}>
-          Fluxo do mês
-          <span title="Caixa do mês pela data do lançamento. Competência fica no planejamento." style={{ width: 16, height: 16, borderRadius: "999px", border: `1.5px solid ${c.fraco}`, color: c.fraco, fontSize: "0.65rem", display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>i</span>
+          {s("fluxo")}
+          <span title={s("fluxo_dica")} style={{ width: 16, height: 16, borderRadius: "999px", border: `1.5px solid ${c.fraco}`, color: c.fraco, fontSize: "0.65rem", display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>i</span>
         </p>
-        <LinhaFluxo tipo="entrou" label="Entrou" valor={dinheiro(fluxo?.entrou)} cor={c.entrou} borda={c.borda} />
-        <LinhaFluxo tipo="saiu" label="Saiu" valor={dinheiro(fluxo?.saiu)} cor={c.saiu} borda={c.borda} />
-        <LinhaFluxo tipo="diferenca" label="Diferença" valor={dinheiro(fluxo?.diferenca)} cor={c.texto} borda="transparent" />
+        <LinhaFluxo tipo="entrou" label={s("entrou")} valor={dinheiro(fluxo?.entrou)} cor={c.entrou} borda={c.borda} />
+        <LinhaFluxo tipo="saiu" label={s("saiu")} valor={dinheiro(fluxo?.saiu)} cor={c.saiu} borda={c.borda} />
+        <LinhaFluxo tipo="diferenca" label={s("diferenca")} valor={dinheiro(fluxo?.diferenca)} cor={c.texto} borda="transparent" />
         {Number(fluxo?.guardado) > 0 && (
           <p style={{ margin: "0.15rem 0 0", fontSize: "0.78rem", color: c.acento, fontWeight: 650 }}>
-            Guardou {dinheiro(fluxo.guardado)}
-            <span style={{ color: c.medio, fontWeight: 500 }}> · não entra no Saiu</span>
+            {s("guardou")} {dinheiro(fluxo.guardado)}
+            <span style={{ color: c.medio, fontWeight: 500 }}> · {s("guardou_nota")}</span>
           </p>
         )}
         <p style={{ margin: "0.45rem 0 0", fontSize: "0.72rem", color: c.fraco, display: "flex", alignItems: "center", gap: "0.3rem" }}>
-          <span aria-hidden="true">↕</span> ganhos e gastos do mês
+          <span aria-hidden="true">↕</span> {s("fluxo_nota")}
         </p>
       </section>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem", margin: "-0.25rem 0 0.85rem" }}>
         <span style={{ background: c.chip, color: c.medio, border: `1px solid ${c.borda}`, borderRadius: 999, padding: "0.28rem 0.7rem", fontSize: "0.75rem", fontWeight: 650 }}>
-          Débito {dinheiro(fluxo?.debito)}
+          {s("debito")} {dinheiro(fluxo?.debito)}
         </span>
         <span style={{ background: c.chip, color: c.medio, border: `1px solid ${c.borda}`, borderRadius: 999, padding: "0.28rem 0.7rem", fontSize: "0.75rem", fontWeight: 650 }}>
-          Cartão {dinheiro(fluxo?.cartao)}
+          {s("cartao")} {dinheiro(fluxo?.cartao)}
         </span>
       </div>
 
-      <section style={card} aria-label="Nas contas agora">
-        <p style={titulo}>Nas contas agora</p>
+      <section style={card} aria-label={s("contas")}>
+        <p style={titulo}>{s("contas")}</p>
         {bancos.length === 0 && !nova && (
-          <p style={{ margin: "0.2rem 0 0.6rem", fontSize: "0.82rem", color: c.medio }}>Nenhuma conta cadastrada. O disponível é a soma do que você informar.</p>
+          <p style={{ margin: "0.2rem 0 0.6rem", fontSize: "0.82rem", color: c.medio }}>{s("contas_vazias")}</p>
         )}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(108px, 1fr))", gap: "0.65rem", alignItems: "start" }}>
           {bancos.map((banco) => (
@@ -187,35 +190,35 @@ export default function HomeResumo({
                   onClick={() => abrir(banco)}
                   style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: c.texto, fontWeight: 750, fontSize: "0.95rem", fontVariantNumeric: "tabular-nums", fontFamily: "inherit" }}
                 >
-                  {banco.saldo_atual == null ? "informar" : dinheiro(banco.saldo_atual)}
+                  {banco.saldo_atual == null ? s("informar") : dinheiro(banco.saldo_atual)}
                 </button>
               )}
             </div>
           ))}
           <div style={{ minWidth: 0, borderLeft: bancos.length ? `1px solid ${c.borda}` : "none", paddingLeft: bancos.length ? "0.7rem" : 0 }}>
-            <p style={{ margin: "0 0 0.2rem", fontSize: "0.78rem", color: c.medio }}>Disponível</p>
+            <p style={{ margin: "0 0 0.2rem", fontSize: "0.78rem", color: c.medio }}>{s("disponivel")}</p>
             <p style={{ margin: 0, color: c.texto, fontWeight: 800, fontSize: "0.95rem", fontVariantNumeric: "tabular-nums" }}>{dinheiro(disponivel)}</p>
           </div>
         </div>
         {nova ? (
           <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem", marginTop: "0.85rem" }}>
-            <input aria-label="Nome da conta" placeholder="Ex.: XP Conta digital" value={nomeNova} onChange={(e) => setNomeNova(e.target.value)} style={{ flex: "1 1 140px", background: c.fundo, color: c.texto, border: `1px solid ${c.borda}`, borderRadius: 8, padding: "0.45rem 0.6rem", font: "inherit" }} />
-            <input aria-label="Saldo inicial" placeholder="Saldo" inputMode="decimal" value={saldoNova} onChange={(e) => setSaldoNova(e.target.value)} style={{ width: 110, background: c.fundo, color: c.texto, border: `1px solid ${c.borda}`, borderRadius: 8, padding: "0.45rem 0.6rem", font: "inherit" }} />
-            <button type="button" disabled={ocupado} onClick={criar} style={{ border: "none", borderRadius: 8, background: c.acento, color: "#fff", fontWeight: 700, padding: "0.45rem 0.75rem", cursor: "pointer", fontFamily: "inherit" }}>{ocupado ? "Salvando..." : "Salvar"}</button>
-            <button type="button" onClick={() => { setNova(false); setErro(""); }} style={{ border: "none", background: "none", color: c.medio, cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
+            <input aria-label={s("erro_nome_conta")} placeholder={s("ph_conta")} value={nomeNova} onChange={(e) => setNomeNova(e.target.value)} style={{ flex: "1 1 140px", background: c.fundo, color: c.texto, border: `1px solid ${c.borda}`, borderRadius: 8, padding: "0.45rem 0.6rem", font: "inherit" }} />
+            <input aria-label={s("ph_saldo")} placeholder={s("ph_saldo")} inputMode="decimal" value={saldoNova} onChange={(e) => setSaldoNova(e.target.value)} style={{ width: 110, background: c.fundo, color: c.texto, border: `1px solid ${c.borda}`, borderRadius: 8, padding: "0.45rem 0.6rem", font: "inherit" }} />
+            <button type="button" disabled={ocupado} onClick={criar} style={{ border: "none", borderRadius: 8, background: c.acento, color: "#fff", fontWeight: 700, padding: "0.45rem 0.75rem", cursor: "pointer", fontFamily: "inherit" }}>{ocupado ? s("salvando") : s("salvar")}</button>
+            <button type="button" onClick={() => { setNova(false); setErro(""); }} style={{ border: "none", background: "none", color: c.medio, cursor: "pointer", fontFamily: "inherit" }}>{s("cancelar")}</button>
           </div>
         ) : (
           <button type="button" onClick={() => { setNova(true); setErro(""); }} style={{ marginTop: "0.75rem", background: "none", border: "none", padding: 0, color: c.acento, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", fontSize: "0.8rem" }}>
-            Adicionar conta
+            {s("adicionar_conta")}
           </button>
         )}
         {erro && <p style={{ margin: "0.55rem 0 0", fontSize: "0.78rem", color: c.saiu }}>{erro}</p>}
       </section>
 
-      <section style={{ ...card, marginBottom: 0 }} aria-label="Faturas">
-        <p style={titulo}>Faturas</p>
+      <section style={{ ...card, marginBottom: 0 }} aria-label={s("faturas")}>
+        <p style={titulo}>{s("faturas")}</p>
         {faturas.length === 0 ? (
-          <p style={{ margin: "0.35rem 0 0.7rem", fontSize: "0.82rem", color: c.medio }}>Nenhuma fatura aberta neste ciclo.</p>
+          <p style={{ margin: "0.35rem 0 0.7rem", fontSize: "0.82rem", color: c.medio }}>{s("faturas_vazias")}</p>
         ) : faturas.map((f) => (
           <div key={f.cartaoId} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", padding: "0.72rem 0", borderBottom: `1px solid ${c.borda}` }}>
             <div style={{ minWidth: 0 }}>
@@ -226,7 +229,7 @@ export default function HomeResumo({
           </div>
         ))}
         <p style={{ margin: "0.7rem 0 0", fontSize: "0.75rem", color: c.medio, background: c.fundo, borderRadius: 10, padding: "0.55rem 0.7rem" }}>
-          pagamento de fatura não conta de novo no Saiu
+          {s("fatura_nota")}
         </p>
       </section>
     </div>

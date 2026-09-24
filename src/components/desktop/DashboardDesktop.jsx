@@ -4,6 +4,7 @@ import { ehPagamentoFatura } from "../../lib/formaPagamento";
 import { calcularFechamento } from "../../lib/fechamento";
 import { listarFaturas } from "../../lib/faturas";
 import HomeResumo from "../HomeResumo";
+import { t as tr } from "../../lib/i18n";
 
 // Dashboard analytics (Fase 2, desktop-only). Recebe os lançamentos que o App.jsx
 // já carregou — nenhuma query nova, tudo é agregação client-side.
@@ -11,6 +12,7 @@ import HomeResumo from "../HomeResumo";
 // são do mês selecionado; a tendência são os 6 meses até ele.
 
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+const MESES_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const BAR_COLORS = ["#4F46E5", "#0891B2", "#7C3AED", "#DB2777", "#EA580C", "#059669", "#CA8A04", "#475569"];
 
 const CSS = `
@@ -71,7 +73,10 @@ export default function DashboardDesktop({
   rascunhos = [], onConfirmarRascunho, onRejeitarRascunho, normalizeText = (x) => x,
   tetos = [],
   bancos = [], cartoes = [], onSalvarSaldo, onCriarConta,
+  idioma = "pt-BR",
 }) {
+  const s = (key) => tr(idioma, key);
+  const meses = idioma === "en" ? MESES_EN : MESES;
   const dados = useMemo(() => {
     // A conta mora em lib/fechamento.js. Esta tela já divergiu uma vez (aporte de
     // meta aparecendo como gasto) — débito/cartão, pagamento de fatura e Guardou
@@ -88,7 +93,7 @@ export default function DashboardDesktop({
       const doPeriodo = doMes(a, m);
       return {
         key: prefixoDe(a, m),
-        label: MESES[m],
+        label: meses[m],
         ano: a,
         receita: soma(doPeriodo.filter((l) => l.tipo === "receita" && l.meta_id == null)),
         gasto: soma(doPeriodo.filter((l) => l.tipo === "gasto" && l.meta_id == null && !ehPagamentoFatura(l))),
@@ -103,11 +108,11 @@ export default function DashboardDesktop({
       mesAnterior: f.labelAnterior,
       tendencia, maxTend,
     };
-  }, [lancamentos, ano, mes, normalizeText]);
+  }, [lancamentos, ano, mes, normalizeText, meses]);
 
   const faturas = useMemo(
-    () => listarFaturas(lancamentos, cartoes, ano, mes, { normalizar: normalizeText }),
-    [lancamentos, cartoes, ano, mes, normalizeText],
+    () => listarFaturas(lancamentos, cartoes, ano, mes, { normalizar: normalizeText, idioma }),
+    [lancamentos, cartoes, ano, mes, normalizeText, idioma],
   );
 
   // Δ do gasto total vs mês anterior. Sem base de comparação, não inventa percentual.
@@ -126,7 +131,7 @@ export default function DashboardDesktop({
       {rascunhos.length > 0 && (
         <div className="pdx-panel">
           <div className="pdx-panel__head">
-            <p className="pdx-panel__title">Pendentes do WhatsApp ({rascunhos.length})</p>
+            <p className="pdx-panel__title">{s("pendentes_zap")} ({rascunhos.length})</p>
           </div>
           {rascunhos.map((r) => (
             <div className="pdx-rasc" key={r.id}>
@@ -141,8 +146,8 @@ export default function DashboardDesktop({
                 {r.tipo === "receita" ? "+" : "−"}{formatBRL(r.valor)}
               </span>
               <div className="pdx-rasc__acoes">
-                <button className="pdx-btn2" onClick={() => onRejeitarRascunho?.(r.id)}>Rejeitar</button>
-                <button className="pdx-btn2 pdx-btn2--ok" onClick={() => onConfirmarRascunho?.(r)}>Confirmar</button>
+                <button className="pdx-btn2" onClick={() => onRejeitarRascunho?.(r.id)}>{s("rejeitar")}</button>
+                <button className="pdx-btn2 pdx-btn2--ok" onClick={() => onConfirmarRascunho?.(r)}>{s("confirmar")}</button>
               </div>
             </div>
           ))}
@@ -155,13 +160,14 @@ export default function DashboardDesktop({
         faturas={faturas}
         bancos={bancos}
         formatBRL={formatBRL}
+        idioma={idioma}
         onSalvarSaldo={onSalvarSaldo}
         onCriarConta={onCriarConta}
       />
 
       <div className="pdx-strip">
         <span className="pdx-strip__item">
-          Gasto total do mês <b>{formatBRL(dados.gastoTotal)}</b>
+          {s("gasto_total")} <b>{formatBRL(dados.gastoTotal)}</b>
         </span>
         <span className={`pdx-delta pdx-delta--${deltaClasse}`}>
           {deltaClasse === "flat" ? "=" : deltaClasse === "up" ? "▲" : "▼"}
@@ -172,13 +178,13 @@ export default function DashboardDesktop({
         </span>
         {deltaPct !== null && (
           <span className="pdx-strip__item" style={{ fontSize: "0.8rem" }}>
-            {deltaAbs >= 0 ? "+" : "−"}{formatBRL(Math.abs(deltaAbs))} em relação ao mês anterior
+            {deltaAbs >= 0 ? "+" : "−"}{formatBRL(Math.abs(deltaAbs))} {s("vs_anterior")}
           </span>
         )}
         {dados.evitavel > 0 && (
           <span className="pdx-strip__evit">
-            {formatBRL(dados.evitavel)} evitável
-            {dados.gastoTotal > 0 && ` · ${((dados.evitavel / dados.gastoTotal) * 100).toFixed(0)}% do gasto`}
+            {formatBRL(dados.evitavel)} {s("evitavel")}
+            {dados.gastoTotal > 0 && ` · ${((dados.evitavel / dados.gastoTotal) * 100).toFixed(0)}% ${s("do_gasto")}`}
           </span>
         )}
       </div>
@@ -186,11 +192,11 @@ export default function DashboardDesktop({
       <div className="pdx-dash-panels">
         <div className="pdx-panel">
           <div className="pdx-panel__head">
-            <p className="pdx-panel__title">Gasto por categoria</p>
-            <p className="pdx-panel__sub">{MESES[mes]}/{ano}</p>
+            <p className="pdx-panel__title">{s("gasto_categoria")}</p>
+            <p className="pdx-panel__sub">{meses[mes]}/{ano}</p>
           </div>
           {dados.categorias.length === 0 ? (
-            <p className="pdx-panel__empty">Sem gastos neste mês.</p>
+            <p className="pdx-panel__empty">{s("sem_gastos")}</p>
           ) : (
             dados.categorias.map((item, i) => {
               // Com teto, a barra mede contra o que a pessoa PROMETEU e o rotulo vira
@@ -210,7 +216,7 @@ export default function DashboardDesktop({
                   <span className="pdx-cat__val">
                     {formatBRL(item.total)}
                     {limite > 0
-                      ? <span style={{ color: corBarra }}>{" / "}{formatBRL(limite)} · {Math.round(pctTeto)}% usado</span>
+                      ? <span style={{ color: corBarra }}>{" / "}{formatBRL(limite)} · {Math.round(pctTeto)}% {s("pct_usado")}</span>
                       : <span>{dados.gastoTotal > 0 ? `${((item.total / dados.gastoTotal) * 100).toFixed(0)}%` : "—"}</span>}
                   </span>
                 </div>
@@ -225,13 +231,13 @@ export default function DashboardDesktop({
 
         <div className="pdx-panel">
           <div className="pdx-panel__head">
-            <p className="pdx-panel__title">Tendência 6 meses</p>
+            <p className="pdx-panel__title">{s("tendencia")}</p>
             <div className="pdx-legend">
-              <span><i style={{ background: t.receita }} />Receita</span>
-              <span><i style={{ background: t.gasto }} />Gasto</span>
+              <span><i style={{ background: t.receita }} />{s("receita_legenda")}</span>
+              <span><i style={{ background: t.gasto }} />{s("gasto_legenda")}</span>
             </div>
           </div>
-          <svg className="pdx-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Receita e gasto por mês nos últimos 6 meses">
+          <svg className="pdx-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={s("chart_aria")}>
             <line x1="0" y1={BASE} x2={W} y2={BASE} stroke={t.surfaceBorder} strokeWidth="1" />
             {dados.tendencia.map((m, i) => {
               const centro = i * PASSO + PASSO / 2;
@@ -241,10 +247,10 @@ export default function DashboardDesktop({
               return (
                 <g key={m.key}>
                   <rect x={centro - LARG - 2} y={BASE - hR} width={LARG} height={hR} rx="3" fill={t.receita}>
-                    <title>{`${m.label}/${m.ano} · receita ${formatBRL(m.receita)}`}</title>
+                    <title>{`${m.label}/${m.ano} · ${s("receita_legenda")} ${formatBRL(m.receita)}`}</title>
                   </rect>
                   <rect x={centro + 2} y={BASE - hG} width={LARG} height={hG} rx="3" fill={t.gasto}>
-                    <title>{`${m.label}/${m.ano} · gasto ${formatBRL(m.gasto)}`}</title>
+                    <title>{`${m.label}/${m.ano} · ${s("gasto_legenda")} ${formatBRL(m.gasto)}`}</title>
                   </rect>
                   <text x={centro} y={BASE + 22} textAnchor="middle" fontWeight={atual ? 700 : 500} fill={atual ? t.textPrimary : t.textSecondary}>
                     {m.label}
@@ -261,7 +267,7 @@ export default function DashboardDesktop({
 
       {dados.vazio && (
         <div className="pdx-panel">
-          <p className="pdx-panel__empty">Nenhum lançamento em {MESES[mes]}/{ano}. Troque o mês na barra do topo ou registre um lançamento.</p>
+          <p className="pdx-panel__empty">{s("nenhum_no_mes")} {meses[mes]}/{ano}.</p>
         </div>
       )}
     </div>
