@@ -51,6 +51,46 @@ describe("agente normaliza a forma antes de gravar", () => {
     expect(acoes[1].dados.forma_pagamento).toBe("Débito");
   });
 
+  it("no crédito XP e crédito AXP apontam o cartão XP", () => {
+    const [xp] = prepararAcoes(
+      [{ tipo: "criar", dados: { descricao: "almoço", valor: 50, tipo: "gasto", categoria: "Alimentação", forma_pagamento: "Crédito", cartao_id: null } }],
+      "gastei 50 no crédito XP",
+      cartoes,
+    );
+    expect(xp.dados.forma_pagamento).toBe("Crédito");
+    expect(xp.dados.cartao_id).toBe(2);
+
+    const [axp] = prepararAcoes(
+      [{ tipo: "criar", dados: { descricao: "crédito AXP", valor: 20, tipo: "gasto", categoria: "Alimentação", forma_pagamento: "Crédito", cartao_id: null } }],
+      "20 reais",
+      cartoes,
+    );
+    expect(axp.dados.forma_pagamento).toBe("Crédito");
+    expect(axp.dados.cartao_id).toBe(2);
+    expect(acharCartaoNoTexto("crédito AXP", cartoes)?.id).toBe(2);
+    expect(acharCartaoNoTexto("cartão XP", cartoes)?.id).toBe(2);
+  });
+
+  it("crédito sem nome não chuta cartão quando há mais de um", () => {
+    const [acao] = prepararAcoes(
+      [{ tipo: "criar", dados: { descricao: "almoço cartão de crédito do hoje", valor: 650.88, tipo: "gasto", categoria: "Alimentação", forma_pagamento: "Crédito", cartao_id: null } }],
+      "almoço cartão de crédito",
+      cartoes,
+    );
+    expect(acao.dados.forma_pagamento).toBe("Crédito");
+    expect(acao.dados.cartao_id ?? null).toBeNull();
+  });
+
+  it("crédito sem nome, com um cartão só, usa esse cartão", () => {
+    const [acao] = prepararAcoes(
+      [{ tipo: "criar", dados: { descricao: "almoço", valor: 40, tipo: "gasto", categoria: "Alimentação", forma_pagamento: "Crédito", cartao_id: null } }],
+      "almoço 40 no crédito",
+      [{ id: 2, nome: "XP" }],
+    );
+    expect(acao.dados.forma_pagamento).toBe("Crédito");
+    expect(acao.dados.cartao_id).toBe(2);
+  });
+
   it("crédito na fala vira Crédito e acha o cartão, mesmo se o modelo gravar Débito", () => {
     const [acao] = prepararAcoes(
       [{ tipo: "criar", dados: { descricao: "almoço", valor: 50, tipo: "gasto", categoria: "Alimentação", forma_pagamento: "Débito", cartao_id: null } }],
@@ -135,6 +175,19 @@ describe("agente normaliza a forma antes de gravar", () => {
     );
     expect(acao.dados.forma_pagamento).toBe("PIX");
     expect(acao.dados.cartao_id).toBe(1);
+  });
+
+  it("paguei a fatura do AXP continua pagamento, no cartão XP, nunca Crédito", () => {
+    const [acao] = prepararAcoes(
+      [{ tipo: "criar", dados: { descricao: "fatura", valor: 1500, tipo: "gasto", categoria: "Outros", forma_pagamento: "pix" } }],
+      "paguei a fatura do AXP",
+      cartoes,
+    );
+    expect(acao.dados.categoria).toBe("Pagamento fatura");
+    expect(acao.dados.forma_pagamento).toBe("PIX");
+    expect(acao.dados.forma_pagamento).not.toBe("Crédito");
+    expect(acao.dados.cartao_id).toBe(2);
+    expect(acao.dados.abate_saldo).toBe(false);
   });
 
   it("paguei a fatura do XP continua pagamento, nunca Crédito", () => {

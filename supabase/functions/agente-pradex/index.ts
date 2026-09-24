@@ -161,7 +161,7 @@ REGRAS DURAS:
 8. Múltiplos gastos numa msg: lance todos, confirme num bloco só.
 9. Receitas: "recebi 5000" → tipo='receita', categoria da lista.
 10. Parcelamento: "comprei celular 3000 em 10x no nubank" → parcelado=true, total_parcelas=10. RPC divide automaticamente.
-11. Cartões: use cartao_id se mencionar nome. "no crédito" sem nome → forma_pagamento="Crédito" (C maiúsculo, com acento), cartao_id=null. Forma de pagamento SEMPRE num destes: "Crédito", "Débito", "PIX", "Dinheiro". Nunca minúsculo.
+11. Cartões: se a pessoa citar um cartão ou apelido, forma_pagamento="Crédito" e cartao_id DESSE cartão. Apelidos do cartão de nome XP: "XP", "AXP", "cartão XP". É obrigatório preencher cartao_id — não deixe null e não guarde o apelido só na descrição. "no crédito" ou "cartão de crédito" sem nenhum nome ou apelido: forma_pagamento="Crédito"; se há um único cartão cadastrado, use o cartao_id dele; se há mais de um, cartao_id=null e precisa_confirmar=true perguntando qual cartão. Forma de pagamento SEMPRE num destes: "Crédito", "Débito", "PIX", "Dinheiro". Nunca minúsculo.
 12. Datas: default HOJE. "ontem" → data de ontem. Formato ISO YYYY-MM-DD.
 13. "Paguei a fatura" / "paguei o cartão" NÃO é compra nova. categoria="Pagamento fatura", abate_saldo=false, forma_pagamento="Débito" ou "PIX" (nunca "Crédito"), cartao_id do cartão citado. As compras no crédito já contaram como gasto.
 

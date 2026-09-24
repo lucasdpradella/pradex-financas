@@ -47,20 +47,45 @@ function escaparRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function termoPresente(texto: string, termo: string): boolean {
+  if (termo.length < 2) return false;
+  return new RegExp(`(?:^|[^a-z0-9])${escaparRegex(termo)}(?:[^a-z0-9]|$)`).test(texto);
+}
+
+// A fala não usa o nome cadastrado. "AXP" e "cartão XP" são o cartão cujo nome é XP.
+const APELIDOS_XP = ["cartao xp", "axp", "xp"];
+
+function cartaoEhXp(nome: string): boolean {
+  return nome === "xp" || nome.endsWith(" xp") || nome.startsWith("xp ");
+}
+
+function termosDoCartao(nome: unknown): string[] {
+  const n = semAcento(nome);
+  const termos = new Set<string>();
+  if (n.length >= 2) termos.add(n);
+  if (cartaoEhXp(n)) for (const t of APELIDOS_XP) termos.add(t);
+  return [...termos].sort((a, b) => b.length - a.length);
+}
+
 export function acharCartaoNoTexto(
   texto: unknown,
   cartoes: Array<{ id: number; nome?: string }>,
 ): { id: number; nome?: string } | null {
   const n = semAcento(texto);
   if (!n) return null;
-  const hits = (cartoes || []).filter((c) => {
-    const nome = semAcento(c?.nome);
-    // Palavra inteira: "XP" não pode casar dentro de "experiência".
-    if (nome.length < 2) return false;
-    return new RegExp(`(?:^|[^a-z0-9])${escaparRegex(nome)}(?:[^a-z0-9]|$)`).test(n);
+  const hits = (cartoes || []).flatMap((c) => {
+    const termo = termosDoCartao(c?.nome).find((t) => termoPresente(n, t));
+    return termo ? [{ cartao: c, termo }] : [];
   });
-  hits.sort((a, b) => semAcento(b.nome).length - semAcento(a.nome).length);
-  return hits[0] || null;
+  hits.sort((a, b) => b.termo.length - a.termo.length);
+  return hits[0]?.cartao || null;
+}
+
+/** "AXP" / "XP" na fala, mas nenhum cartão cadastrado responde por isso. */
+function citaCartaoSemDono(texto: string, cartoes: Array<{ id: number; nome?: string }>): boolean {
+  const n = semAcento(texto);
+  const temApelido = termoPresente(n, "axp") || termoPresente(n, "xp") || termoPresente(n, "cartao xp");
+  return temApelido && !acharCartaoNoTexto(texto, cartoes);
 }
 
 // "crédito" / "cartão de crédito" na fala. "cartão de débito" não entra.
@@ -120,16 +145,24 @@ export function prepararAcao(
       if (hit) next.cartao_id = hit.id;
     }
   } else if (next.tipo !== "receita" && next.meta_id == null) {
-    // Compra. O modelo omite a forma ou grava Débito mesmo quando a fala foi
-    // "no crédito" / "cartão XP". A fatura some do crédito e o fechamento conta
-    // como débito. Aporte de meta (meta_id) não entra aqui.
-    const mencionado = acharCartaoNoTexto(contexto, cartoes);
-    if (next.cartao_id == null && mencionado) next.cartao_id = mencionado.id;
+    // Compra. Descrição + fala (a fala inteira só com uma ação, pra não cruzar
+    // dois lançamentos). "crédito AXP" mora na descrição quando o modelo não
+    // preenche cartao_id.
+    const corpusCartao = acoesNaMensagem === 1
+      ? `${next.descricao || ""} ${textoUsuario || ""}`
+      : `${next.descricao || ""}`;
+    const mencionado = acharCartaoNoTexto(corpusCartao, cartoes);
     const dita = formaDitaPeloTexto(contexto);
-    if (dita) {
-      next.forma_pagamento = dita;
-    } else if (mencionado) {
-      next.forma_pagamento = "Crédito";
+    if (dita) next.forma_pagamento = dita;
+    else if (mencionado) next.forma_pagamento = "Crédito";
+
+    if (next.forma_pagamento === "Crédito" && next.cartao_id == null) {
+      if (mencionado) next.cartao_id = mencionado.id;
+      else if ((cartoes?.length === 1) && !citaCartaoSemDono(corpusCartao, cartoes)) {
+        next.cartao_id = cartoes[0].id;
+      }
+    } else if (next.cartao_id == null && mencionado) {
+      next.cartao_id = mencionado.id;
     }
   }
 
