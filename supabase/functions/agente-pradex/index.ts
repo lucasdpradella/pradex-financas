@@ -17,7 +17,7 @@ import {
   detectarComando, aplicarComando, tomVigente, estaEmSilencio, instrucaoDeTom, LIMITES,
 } from "./tom.ts";
 import { prepararAcoes } from "./forma.ts";
-import { normalizePhone } from "./phone.ts";
+import { normalizePhone, parseSilenciados } from "./phone.ts";
 import {
   blocoMoedaIdioma, formatarValorAgente, frase, normalizarIdioma, normalizarMoeda,
   type IdiomaLivro, type MoedaLivro,
@@ -374,12 +374,7 @@ function podeUsarAgente(perfil: { plano?: unknown; trial_inicio?: unknown; trial
 // número sem conta cai no onboarding e recebe resposta a cada mensagem.
 // Configurar sem redeploy:
 //   supabase secrets set AGENTE_SILENCIADOS="5511947065739,55..." --project-ref sjvuhqqsjboncwpboclv
-const SILENCIADOS: Set<string> = new Set(
-  (Deno.env.get("AGENTE_SILENCIADOS") ?? "")
-    .split(",")
-    .map((s) => normalizePhone(s))
-    .filter(Boolean),
-);
+const SILENCIADOS: Set<string> = parseSilenciados(Deno.env.get("AGENTE_SILENCIADOS") ?? "");
 
 const MSG_SEM_PLANO = "Oi! 👋 Lançar por aqui faz parte do plano *Essencial* do Pradex.\n\n" +
   "Seu app continua funcionando normalmente — dá pra registrar tudo por lá.\n\n" +
