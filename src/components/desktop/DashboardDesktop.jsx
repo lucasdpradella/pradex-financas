@@ -1,5 +1,9 @@
 import { useMemo } from "react";
 import { desktopTheme as t } from "./theme";
+import { ehPagamentoFatura } from "../../lib/formaPagamento";
+import { calcularFechamento } from "../../lib/fechamento";
+import { listarFaturas } from "../../lib/faturas";
+import HomeResumo from "../HomeResumo";
 
 // Dashboard analytics (Fase 2, desktop-only). Recebe os lançamentos que o App.jsx
 // já carregou — nenhuma query nova, tudo é agregação client-side.
@@ -66,58 +70,19 @@ export default function DashboardDesktop({
   lancamentos, ano, mes, formatBRL,
   rascunhos = [], onConfirmarRascunho, onRejeitarRascunho, normalizeText = (x) => x,
   tetos = [],
+  bancos = [], cartoes = [], onSalvarSaldo, onCriarConta,
 }) {
   const dados = useMemo(() => {
+    // A conta mora em lib/fechamento.js. Esta tela já divergiu uma vez (aporte de
+    // meta aparecendo como gasto) — débito/cartão, pagamento de fatura e Guardou
+    // não podem ter uma segunda implementação aqui.
+    const f = calcularFechamento(lancamentos, ano, mes, { normalizar: normalizeText });
+
     const doMes = (a, m) => {
       const p = prefixoDe(a, m);
       return lancamentos.filter((l) => l.data_lancamento?.startsWith(p));
     };
 
-    const lancMes = doMes(ano, mes);
-
-    // APORTE DE META NÃO É CONSUMO. Esta tela tem a própria agregação, escrita antes
-    // de `lib/fechamento.js` existir — e quando as METAS entraram (17/09) só o
-    // fechamento aprendeu a separar poupança de gasto. Resultado: "Metas" apareceu
-    // como categoria no Gasto por categoria, e o Lucas viu na hora.
-    //
-    // A duplicação estava documentada como risco no topo do fechamento.js e cobrou o
-    // preço exatamente aqui. Enquanto as duas contas existirem, QUALQUER regra nova
-    // precisa entrar nos dois lugares.
-    // `abate_saldo !== false` (18/09): o aporte de dinheiro que já estava guardado
-    // enche a caixinha mas não passou pela conta neste mês — fica fora do saldo.
-    const aporteDoMes = (l) => l.meta_id != null && l.abate_saldo !== false;
-    const gastosTodos = lancMes.filter((l) => l.tipo === "gasto");
-    const gastosMes = gastosTodos.filter((l) => l.meta_id == null);
-    const guardado = soma(gastosTodos.filter(aporteDoMes));
-
-    // Resgate ('receita' com meta_id) não é renda: é dinheiro voltando do próprio
-    // bolso. Fora das receitas, dentro do saldo.
-    const receitasTodas = lancMes.filter((l) => l.tipo === "receita");
-    const receitas = soma(receitasTodas.filter((l) => l.meta_id == null));
-    const resgatado = soma(receitasTodas.filter(aporteDoMes));
-
-    const gastoTotal = soma(gastosMes);
-    const debito = soma(gastosMes.filter((l) => l.forma_pagamento !== "Crédito"));
-    const cartao = soma(gastosMes.filter((l) => l.forma_pagamento === "Crédito"));
-    const evitavel = soma(gastosMes.filter((l) => l.poderia_ter_evitado));
-
-    // Gasto por categoria do mês, desc. Deriva das categorias presentes nos próprios
-    // lançamentos (não da lista de categorias) pra não perder gasto de categoria removida.
-    const porCat = {};
-    gastosMes.forEach((l) => {
-      const cat = l.categoria || "Sem categoria";
-      porCat[cat] = (porCat[cat] || 0) + Number(l.valor || 0);
-    });
-    const categorias = Object.entries(porCat)
-      .map(([cat, total]) => ({ cat, total }))
-      .sort((a, b) => b.total - a.total);
-    const maxCat = Math.max(...categorias.map((c) => c.total), 1);
-
-    // Mês anterior, só pro delta do gasto total.
-    const ant = passoMes(ano, mes, -1);
-    const gastoAnterior = soma(doMes(ant.ano, ant.mes).filter((l) => l.tipo === "gasto" && l.meta_id == null));
-
-    // Tendência: os 6 meses até o selecionado (inclusive).
     const tendencia = Array.from({ length: 6 }, (_, i) => {
       const { ano: a, mes: m } = passoMes(ano, mes, i - 5);
       const doPeriodo = doMes(a, m);
@@ -126,34 +91,24 @@ export default function DashboardDesktop({
         label: MESES[m],
         ano: a,
         receita: soma(doPeriodo.filter((l) => l.tipo === "receita" && l.meta_id == null)),
-        gasto: soma(doPeriodo.filter((l) => l.tipo === "gasto" && l.meta_id == null)),
+        gasto: soma(doPeriodo.filter((l) => l.tipo === "gasto" && l.meta_id == null && !ehPagamentoFatura(l))),
       };
     });
     const maxTend = Math.max(...tendencia.flatMap((x) => [x.receita, x.gasto]), 1);
 
     return {
-      vazio: lancMes.length === 0,
-      receitas, gastoTotal, debito, cartao, evitavel, guardado,
-      // O aporte saiu da conta de verdade, então DESCONTA do saldo — mesmo não sendo
-      // consumo. É a regra do Lucas: guardar = aplicar = debitar.
-      saldo: receitas + resgatado - gastoTotal - guardado,
-      categorias, maxCat,
-      gastoAnterior, mesAnterior: `${MESES[ant.mes]}/${ant.ano}`,
+      ...f,
+      vazio: !f.temLancamentos,
+      maxCat: f.maxCategoria,
+      mesAnterior: f.labelAnterior,
       tendencia, maxTend,
     };
-  }, [lancamentos, ano, mes]);
+  }, [lancamentos, ano, mes, normalizeText]);
 
-  const cards = [
-    { label: "Receitas", value: dados.receitas, color: t.receita },
-    { label: "Débito", value: dados.debito, color: t.gasto },
-    { label: "Cartão", value: dados.cartao, color: t.gasto },
-    // O card de Guardou só aparece quando houve aporte. Sem ele, o dinheiro que saiu
-    // do saldo não estaria explicado em lugar nenhum da tela — a pessoa veria o saldo
-    // menor e nenhuma linha dizendo pra onde foi. Com aporte zerado seria só um zero
-    // ocupando espaço.
-    ...(dados.guardado > 0 ? [{ label: "Guardou", value: dados.guardado, color: t.accent }] : []),
-    { label: "Saldo", value: dados.saldo, color: dados.saldo >= 0 ? t.receita : t.gasto },
-  ];
+  const faturas = useMemo(
+    () => listarFaturas(lancamentos, cartoes, ano, mes, { normalizar: normalizeText }),
+    [lancamentos, cartoes, ano, mes, normalizeText],
+  );
 
   // Δ do gasto total vs mês anterior. Sem base de comparação, não inventa percentual.
   const deltaAbs = dados.gastoTotal - dados.gastoAnterior;
@@ -194,14 +149,15 @@ export default function DashboardDesktop({
         </div>
       )}
 
-      <div className="pdx-dash-cards">
-        {cards.map((c) => (
-          <div className="pdx-card" key={c.label}>
-            <p className="pdx-card__label">{c.label}</p>
-            <p className="pdx-card__value" style={{ color: c.color }}>{formatBRL(c.value)}</p>
-          </div>
-        ))}
-      </div>
+      <HomeResumo
+        variant="desktop"
+        fluxo={dados}
+        faturas={faturas}
+        bancos={bancos}
+        formatBRL={formatBRL}
+        onSalvarSaldo={onSalvarSaldo}
+        onCriarConta={onCriarConta}
+      />
 
       <div className="pdx-strip">
         <span className="pdx-strip__item">

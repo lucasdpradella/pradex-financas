@@ -174,3 +174,75 @@ describe("destaque do mês", () => {
     expect(calcularFechamento([], 2026, 5, { hoje: HOJE }).destaque).toMatch(/Nenhum gasto/);
   });
 });
+
+describe("fluxo da home", () => {
+  it("Entrou, Saiu e Diferença seguem o caixa do mês", () => {
+    const dados = [
+      l({ data_lancamento: "2026-09-01", tipo: "receita", valor: 40000, categoria: "Salário" }),
+      l({ data_lancamento: "2026-09-04", valor: 15000, forma_pagamento: "Débito" }),
+      l({ data_lancamento: "2026-09-08", valor: 20000, forma_pagamento: "Crédito" }),
+    ];
+    const f = calcularFechamento(dados, 2026, 8, { hoje: new Date(2026, 8, 24) });
+    expect(f.entrou).toBe(40000);
+    expect(f.saiu).toBe(35000);
+    expect(f.diferenca).toBe(5000);
+  });
+
+  it("crédito minúsculo conta como cartão, não como débito", () => {
+    const dados = [
+      l({ data_lancamento: "2026-09-03", valor: 80, forma_pagamento: "crédito" }),
+      l({ data_lancamento: "2026-09-04", valor: 20, forma_pagamento: "DÉBITO" }),
+    ];
+    const f = calcularFechamento(dados, 2026, 8, { hoje: new Date(2026, 8, 24) });
+    expect(f.cartao).toBe(80);
+    expect(f.debito).toBe(20);
+    expect(f.saiu).toBe(100);
+  });
+
+  it("pagamento de fatura não entra de novo no Saiu", () => {
+    const dados = [
+      l({ data_lancamento: "2026-09-02", tipo: "receita", valor: 5000 }),
+      l({ data_lancamento: "2026-09-05", valor: 800, forma_pagamento: "Crédito", cartao_id: 2 }),
+      l({
+        data_lancamento: "2026-09-20",
+        valor: 800,
+        forma_pagamento: "PIX",
+        categoria: "Pagamento fatura",
+        abate_saldo: false,
+        cartao_id: 2,
+        descricao: "paguei a fatura",
+      }),
+    ];
+    const f = calcularFechamento(dados, 2026, 8, { hoje: new Date(2026, 8, 24) });
+    expect(f.saiu).toBe(800);
+    expect(f.cartao).toBe(800);
+    expect(f.debito).toBe(0);
+    expect(f.pagamentoFatura).toBe(800);
+    expect(f.diferenca).toBe(4200);
+    expect(f.saldo).toBe(4200);
+  });
+
+  it("Guardou não mistura no Saiu", () => {
+    const dados = [
+      l({ data_lancamento: "2026-09-01", tipo: "receita", valor: 3000 }),
+      l({ data_lancamento: "2026-09-05", valor: 400 }),
+      l({ data_lancamento: "2026-09-10", valor: 500, meta_id: 7 }),
+    ];
+    const f = calcularFechamento(dados, 2026, 8, { hoje: new Date(2026, 8, 24) });
+    expect(f.saiu).toBe(400);
+    expect(f.guardado).toBe(500);
+    expect(f.diferenca).toBe(2600);
+    expect(f.saldo).toBe(2100);
+  });
+
+  it("resgate entra no Entrou e não nas receitas", () => {
+    const dados = [
+      l({ data_lancamento: "2026-09-01", tipo: "receita", valor: 1000 }),
+      l({ data_lancamento: "2026-09-12", tipo: "receita", valor: 200, meta_id: 7 }),
+    ];
+    const f = calcularFechamento(dados, 2026, 8, { hoje: new Date(2026, 8, 24) });
+    expect(f.receitas).toBe(1000);
+    expect(f.resgatado).toBe(200);
+    expect(f.entrou).toBe(1200);
+  });
+});

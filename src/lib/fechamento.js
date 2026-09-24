@@ -3,10 +3,11 @@
 // Lógica pura, sem React e sem query: recebe os lançamentos que o App já carregou.
 // Fica testável no Vitest do mesmo jeito que lancamentos.js e plano.js.
 //
-// NOTA: o DashboardDesktop tem agregação quase idêntica inline (receitas, gastos,
-// débito × cartão, evitável, por categoria). Não unifiquei aqui de propósito — mexer
-// numa tela que funciona não estava no escopo. Unificar depois é barato: o dashboard
-// passaria a chamar calcularFechamento e jogar fora o próprio useMemo.
+// A home (Fluxo do mês) e o Relatórios leem daqui. Débito × cartão é case-insensitive
+// (src/lib/formaPagamento.js): "crédito" minúsculo do agente não pode cair no Débito.
+// Pagamento de fatura fica fora do Saiu — a compra no crédito já é o gasto.
+
+import { ehCredito, ehPagamentoFatura } from "./formaPagamento";
 
 export const MESES_CURTO = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
@@ -113,13 +114,16 @@ export function calcularFechamento(lancamentos, ano, mes, { hoje = new Date(), n
   // conta pra poupança neste mês". Quem quer o total acumulado da caixinha pergunta
   // pra `acumuladoDaMeta` (lib/metas.js), que conta os dois.
   const gastosTodos = doMes.filter((l) => l.tipo === "gasto");
-  const gastos = gastosTodos.filter((l) => l.meta_id == null);
+  // Pagamento de fatura não é consumo: a compra no crédito já entrou. Contar os dois
+  // faz o Saiu (e o saldo do mês) dobrar no dia em que a pessoa quita o cartão.
+  const pagamentosFatura = gastosTodos.filter((l) => ehPagamentoFatura(l));
+  const gastos = gastosTodos.filter((l) => l.meta_id == null && !ehPagamentoFatura(l));
   const aportes = gastosTodos.filter((l) => l.meta_id != null && l.abate_saldo !== false);
   const guardado = soma(aportes);
 
   const ant = passoMes(ano, mes, -1);
   const doMesAnterior = lancamentosDoMes(lancamentos, ant.ano, ant.mes);
-  const gastosAnterior = doMesAnterior.filter((l) => l.tipo === "gasto" && l.meta_id == null);
+  const gastosAnterior = doMesAnterior.filter((l) => l.tipo === "gasto" && l.meta_id == null && !ehPagamentoFatura(l));
 
   // Resgate ('receita' com meta_id) também não é renda — é dinheiro voltando do
   // próprio bolso. Fora das receitas, dentro do saldo, pelo mesmo raciocínio.
@@ -163,8 +167,17 @@ export function calcularFechamento(lancamentos, ano, mes, { hoje = new Date(), n
     resgatado,
     saldo: receitas + resgatado - gastoTotal - guardado,
 
-    debito: soma(gastos.filter((l) => l.forma_pagamento !== "Crédito")),
-    cartao: soma(gastos.filter((l) => l.forma_pagamento === "Crédito")),
+    // Fluxo da home (caixa por data_lancamento). Guardou fica de fora do Saiu:
+    // diferença responde "entrou menos o que foi gasto", não "menos o que foi poupado".
+    entrou: receitas + resgatado,
+    saiu: gastoTotal,
+    diferenca: receitas + resgatado - gastoTotal,
+    pagamentoFatura: soma(pagamentosFatura),
+
+    // "crédito" / "Crédito" / "CRÉDITO" são a mesma forma. O que não é crédito
+    // (débito, PIX, dinheiro, vazio) fica no chip Débito.
+    debito: soma(gastos.filter((l) => !ehCredito(l.forma_pagamento))),
+    cartao: soma(gastos.filter((l) => ehCredito(l.forma_pagamento))),
 
     evitavel: soma(gastos.filter((l) => l.poderia_ter_evitado)),
     evitavelAnterior: soma(gastosAnterior.filter((l) => l.poderia_ter_evitado)),
