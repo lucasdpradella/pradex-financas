@@ -16,6 +16,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import {
   detectarComando, aplicarComando, tomVigente, estaEmSilencio, instrucaoDeTom, LIMITES,
 } from "./tom.ts";
+import { prepararAcoes } from "./forma.ts";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // ===== CONFIG =====
@@ -160,8 +161,9 @@ REGRAS DURAS:
 8. Múltiplos gastos numa msg: lance todos, confirme num bloco só.
 9. Receitas: "recebi 5000" → tipo='receita', categoria da lista.
 10. Parcelamento: "comprei celular 3000 em 10x no nubank" → parcelado=true, total_parcelas=10. RPC divide automaticamente.
-11. Cartões: use cartao_id se mencionar nome. "no crédito" sem nome → forma_pagamento="crédito", cartao_id=null.
+11. Cartões: use cartao_id se mencionar nome. "no crédito" sem nome → forma_pagamento="Crédito" (C maiúsculo, com acento), cartao_id=null. Forma de pagamento SEMPRE num destes: "Crédito", "Débito", "PIX", "Dinheiro". Nunca minúsculo.
 12. Datas: default HOJE. "ontem" → data de ontem. Formato ISO YYYY-MM-DD.
+13. "Paguei a fatura" / "paguei o cartão" NÃO é compra nova. categoria="Pagamento fatura", abate_saldo=false, forma_pagamento="Débito" ou "PIX" (nunca "Crédito"), cartao_id do cartão citado. As compras no crédito já contaram como gasto.
 
 EDIÇÃO/DELEÇÃO:
 - "esquece o último", "errei", "apaga aquilo" → DELETAR mais recente.
@@ -234,6 +236,7 @@ const TOOL_REGISTRAR_ACOES = {
                 data_lancamento: { type: "string" },
                 forma_pagamento: { type: ["string", "null"] },
                 cartao_id: { type: ["integer", "null"] },
+                abate_saldo: { type: "boolean" },
                 parcelado: { type: "boolean" },
                 total_parcelas: { type: ["integer", "null"], minimum: 2 },
               },
@@ -671,6 +674,11 @@ function validarCategorias(acoes: any[], categorias: Array<{ nome: string; tipo:
     if (!dados || dados.categoria === undefined || dados.categoria === null) return acao;
     const tipoLanc = dados.tipo === "receita" ? "receita" : "gasto";
     const alvo = normalizarNome(String(dados.categoria));
+    // Categoria reservada: não existe no cadastro do cliente e não pode cair em Outros,
+    // senão o pagamento de fatura volta a contar no Saiu.
+    if (alvo === "pagamento fatura" || alvo === "pagamento de fatura") {
+      return { ...acao, dados: { ...dados, categoria: "Pagamento fatura" } };
+    }
     const match = categorias.find((c) => c.tipo === tipoLanc && normalizarNome(c.nome) === alvo);
     if (match) return { ...acao, dados: { ...dados, categoria: match.nome } };
     logInfo(cid, "categoria_fora_da_lista", { original: dados.categoria, tipo: tipoLanc, fallback: "Outros" });
@@ -685,7 +693,7 @@ async function processarLancamento(supabase: SupabaseClient, userId: string, nom
   const resp = await callAnthropic(texto, { nomeCliente, telefone, dataHoje, tom, ...ctx }, cid);
   if (!resp) return { mensagem: "Tive um problema do meu lado processando sua mensagem. Tenta de novo em alguns segundos 🙏", acoesAplicadas: null };
   if (resp.precisa_confirmar || !resp.acoes || resp.acoes.length === 0) return { mensagem: resp.mensagem_resposta, acoesAplicadas: null };
-  const acoesValidadas = validarCategorias(resp.acoes, ctx.categorias, cid);
+  const acoesValidadas = prepararAcoes(validarCategorias(resp.acoes, ctx.categorias, cid), texto, ctx.cartoes);
   const { data: ids, error } = await supabase.rpc("agente_aplicar_acoes", { p_user_id: userId, p_acoes: acoesValidadas });
   if (error) { logErro(cid, "rpc_aplicar_acoes_failed", error); return { mensagem: "Entendi mas tive problema gravando os lançamentos. Tenta de novo, e se persistir, lança pelo app 🙏", acoesAplicadas: null }; }
   return { mensagem: resp.mensagem_resposta, acoesAplicadas: ids ?? [] };
