@@ -1,7 +1,7 @@
 // Brasil: DDI 55 + DDD + 9 + 8 dígitos. EUA/Canadá: DDI 1 + 10 dígitos.
-// A normalização mora em phone.ts do agente — cadastro, perfil e WhatsApp
-// precisam gravar o mesmo dígito em fp_perfil.telefone.
-import { normalizePhone, isBrazilMobileE164, isNanpE164 } from "../../supabase/functions/agente-pradex/phone.ts";
+// Dinamarca: DDI 45 + 8 dígitos. A normalização mora em phone.ts do agente —
+// cadastro, perfil e WhatsApp precisam gravar o mesmo dígito em fp_perfil.telefone.
+import { normalizePhone, isBrazilMobileE164, isNanpE164, isDenmarkE164 } from "../../supabase/functions/agente-pradex/phone.ts";
 
 const onlyDigits = (value) => String(value || "").replace(/\D/g, "");
 
@@ -17,9 +17,13 @@ export function isValidTelefoneNanp(normalizado) {
   return isNanpE164(String(normalizado || ""));
 }
 
+export function isValidTelefoneDk(normalizado) {
+  return isDenmarkE164(String(normalizado || ""));
+}
+
 export function isValidTelefone(normalizado) {
   const digits = String(normalizado || "");
-  return isValidTelefoneBr(digits) || isValidTelefoneNanp(digits);
+  return isValidTelefoneBr(digits) || isValidTelefoneNanp(digits) || isValidTelefoneDk(digits);
 }
 
 export function formatTelefoneDisplay(normalizado) {
@@ -32,6 +36,10 @@ export function formatTelefoneDisplay(normalizado) {
   }
   if (isValidTelefoneNanp(digits)) {
     return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7, 11)}`;
+  }
+  if (isValidTelefoneDk(digits)) {
+    const nacional = digits.slice(2);
+    return `+45 ${nacional.slice(0, 2)} ${nacional.slice(2, 4)} ${nacional.slice(4, 6)} ${nacional.slice(6, 8)}`;
   }
   return digits;
 }
@@ -60,10 +68,29 @@ function formatBrInput(digits) {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
 }
 
+// "45" sozinho ainda pode ser o DDD 45 (Paraná). Dinamarca quando o terceiro
+// dígito já não é o 9 do celular BR, ou quando fechou em 10 (45 + 8). Com 11
+// e terceiro 9 continua (45) 99999-9999.
+function isDenmarkTyping(digits) {
+  if (!digits.startsWith("45") || digits.length < 3 || digits.length > 10) return false;
+  if (digits[2] === "9" && digits.length !== 10) return false;
+  if (digits[2] < "2" || digits[2] > "9") return false;
+  return true;
+}
+
+function formatDkInput(digits) {
+  const rest = digits.slice(2, 10);
+  if (!rest) return "+45";
+  const pairs = rest.match(/.{1,2}/g) || [];
+  return `+45 ${pairs.join(" ")}`;
+}
+
 // Máscara progressiva. BR continua (11) 99999-9999. EUA com DDI vira +1 (202) 555-0147.
+// Dinamarca com DDI vira +45 81 92 71 02.
 export function formatTelefoneInput(value) {
   let digits = onlyDigits(value);
   if (isNanpTyping(digits)) return formatNanpInput(digits.slice(0, 11));
+  if (isDenmarkTyping(digits)) return formatDkInput(digits);
   if (digits.startsWith("55") && digits.length > 11) digits = digits.slice(2);
   return formatBrInput(digits.slice(0, 11));
 }

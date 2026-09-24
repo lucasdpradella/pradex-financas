@@ -473,7 +473,7 @@ export default function PradexFinancas() {
       }
       const telefoneNorm = normalizeTelefone(cadastroTelefone);
       if (!isValidTelefone(telefoneNorm)) {
-        setAuthErro("Telefone inválido. Use um celular brasileiro com DDD ou um número dos EUA com +1."); setAuthLoading(false); return;
+        setAuthErro("Telefone inválido. Use um celular brasileiro com DDD, um número dos EUA com +1 ou um da Dinamarca com +45."); setAuthLoading(false); return;
       }
       try {
         const dupRes = await fetch(
@@ -1920,7 +1920,7 @@ export default function PradexFinancas() {
               <input
                 type="tel"
                 inputMode="numeric"
-                placeholder="WhatsApp: (11) 99999-9999 ou +1 202 555 0147"
+                placeholder="WhatsApp: (11) 99999-9999, +1 202 555 0147 ou +45 81 92 71 02"
                 value={formatTelefoneInput(cadastroTelefone)}
                 onChange={e => setCadastroTelefone(e.target.value)}
                 style={{ ...inputStyle, marginBottom: "0.4rem" }}
