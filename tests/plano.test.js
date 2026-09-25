@@ -15,10 +15,12 @@ import {
   planoDaUrl,
   PRECO,
   checkoutComEmail,
+  ROTULO,
+  nivelPlano,
 } from "../src/lib/plano";
 
 describe("normalizePlano", () => {
-  it("aceita os três planos válidos", () => {
+  it("aceita os quatro planos válidos", () => {
     for (const p of PLANOS) expect(normalizePlano(p)).toBe(p);
   });
 
@@ -40,6 +42,8 @@ describe("temAcesso — a matriz de planos", () => {
     none: { whatsapp: false, fp: false, relatorios: false },
     essencial: { whatsapp: true, fp: false, relatorios: false },
     assistente: { whatsapp: true, fp: true, relatorios: true },
+    // Casal = nível 3: tudo do Assistente (o que ele vende é o segundo acesso).
+    casal: { whatsapp: true, fp: true, relatorios: true },
   };
 
   for (const [plano, esperado] of Object.entries(MATRIZ)) {
@@ -334,5 +338,38 @@ describe("checkoutComEmail", () => {
   it("aceita os dois checkouts reais", () => {
     expect(checkoutComEmail(CHECKOUT.essencial, "x@y.com")).toContain("a2xpq3u?email=");
     expect(checkoutComEmail(CHECKOUT.assistente, "x@y.com")).toContain("4pteia8?email=");
+  });
+});
+
+describe("plano Casal", () => {
+  it("é o nível 3, acima do Assistente", () => {
+    expect(PLANOS).toContain("casal");
+    expect(nivelPlano("casal")).toBe(3);
+    expect(nivelPlano("casal")).toBeGreaterThan(nivelPlano("assistente"));
+    expect(nivelPlano("desconhecido")).toBe(0);
+  });
+
+  it("herda tudo do Assistente", () => {
+    for (const recurso of Object.keys(RECURSOS)) {
+      if (temAcesso("assistente", recurso)) expect(temAcesso("casal", recurso)).toBe(true);
+    }
+    expect(temAcesso("casal", "inexistente")).toBe(true);
+  });
+
+  it("tem rótulo e preço", () => {
+    expect(ROTULO.casal).toBe("Casal");
+    expect(PRECO.casal).toBe("R$ 249,00");
+  });
+
+  it("não aparece paywall pra quem está no Casal", () => {
+    for (const recurso of Object.keys(RECURSOS)) expect(paywallNoSave("casal", recurso)).toBeNull();
+  });
+
+  // Enquanto a oferta não existir na Cakto, CHECKOUT.casal é null e o convite por URL
+  // não pode aparecer (seria um botão sem destino).
+  it("checkout do Casal é a oferta 344ridx_1135957 e o convite por URL funciona", () => {
+    expect(CHECKOUT.casal).toBe("https://pay.cakto.com.br/344ridx_1135957");
+    expect(planoDaUrl("?plano=casal")).toBe("casal");
+    expect(planoDaUrl("?plano=CASAL")).toBe("casal");
   });
 });

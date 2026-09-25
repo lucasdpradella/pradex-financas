@@ -173,6 +173,7 @@ export default function PainelMetricas({ supabaseUrl, apiKey, token }) {
             <Card rotulo="Free" valor={fmtNum(planos.free)} />
             <Card rotulo="Essencial" valor={fmtNum(planos.essencial)} sub="R$ 29,90/mês" />
             <Card rotulo="Assistente" valor={fmtNum(planos.assistente)} sub="R$ 79,90/mês" />
+            <Card rotulo="Casal" valor={fmtNum(planos.casal ?? 0)} sub="R$ 249,00/mês" />
           </div>
           <p className="pdx-met__nota">
             A receita é <strong>estimada</strong>: contagem × preço de tabela. Não desconta taxa da
