@@ -248,7 +248,7 @@ describe("agente normaliza a forma antes de gravar", () => {
   });
 });
 
-// Bug de 25–27/09 (Augusto, Steffani): compra comum no débito/PIX gravada como
+// Bug de 25–27/09 (clientes reais, falas anonimizadas): compra comum no débito/PIX gravada como
 // "Pagamento fatura" com abate_saldo=false, fora do Saiu. As falas abaixo são reais.
 describe("pagamento de fatura exige intenção explícita na fala", () => {
   const categorias = [
@@ -341,10 +341,10 @@ describe("pagamento de fatura exige intenção explícita na fala", () => {
     expect(inferirCategoriaGasto("sorveteria", categorias)).toBe("Alimentação");
     expect(inferirCategoriaGasto("Uber", [{ nome: "Outros", tipo: "gasto" }])).toBe("Outros");
     expect(inferirCategoriaGasto("coisa sem pista", categorias)).toBe("Outros");
-    // Steffani removeu Alimentação e usa categorias próprias.
-    const steffani = ["Restaurante", "Mercado", "Gasolina", "Outros"].map((nome) => ({ nome, tipo: "gasto" }));
-    expect(inferirCategoriaGasto("Mercado", steffani)).toBe("Mercado");
-    expect(inferirCategoriaGasto("padaria", steffani)).toBe("Outros");
+    // Cliente que removeu Alimentação e usa categorias próprias.
+    const semAlimentacao = ["Restaurante", "Mercado", "Gasolina", "Outros"].map((nome) => ({ nome, tipo: "gasto" }));
+    expect(inferirCategoriaGasto("Mercado", semAlimentacao)).toBe("Mercado");
+    expect(inferirCategoriaGasto("padaria", semAlimentacao)).toBe("Outros");
   });
 
   it("aporte de meta com abate_saldo=false fica intacto", () => {
