@@ -341,6 +341,10 @@ describe("pagamento de fatura exige intenção explícita na fala", () => {
     expect(inferirCategoriaGasto("sorveteria", categorias)).toBe("Alimentação");
     expect(inferirCategoriaGasto("Uber", [{ nome: "Outros", tipo: "gasto" }])).toBe("Outros");
     expect(inferirCategoriaGasto("coisa sem pista", categorias)).toBe("Outros");
+    // Steffani removeu Alimentação e usa categorias próprias.
+    const steffani = ["Restaurante", "Mercado", "Gasolina", "Outros"].map((nome) => ({ nome, tipo: "gasto" }));
+    expect(inferirCategoriaGasto("Mercado", steffani)).toBe("Mercado");
+    expect(inferirCategoriaGasto("padaria", steffani)).toBe("Outros");
   });
 
   it("aporte de meta com abate_saldo=false fica intacto", () => {

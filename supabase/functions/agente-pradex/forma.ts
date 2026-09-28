@@ -84,6 +84,13 @@ export function inferirCategoriaGasto(
     : GASTOS_PADRAO;
   const existe = (nome: string) => lista.find((c) => semAcento(c) === semAcento(nome));
   const n = semAcento(descricao);
+  // Categoria do próprio cliente citada na descrição ("Mercado", "Restaurante") vence
+  // as regras genéricas — tem cliente que removeu Alimentação e usa as dele.
+  const citada = lista
+    .filter((c) => semAcento(c) !== "outros")
+    .sort((a, b) => b.length - a.length)
+    .find((c) => termoPresente(n, semAcento(c)));
+  if (citada) return citada;
   for (const [nome, re] of REGRAS_CATEGORIA) {
     if (re.test(n)) {
       const achou = existe(nome);
