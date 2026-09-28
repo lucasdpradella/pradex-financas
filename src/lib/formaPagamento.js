@@ -60,8 +60,12 @@ export const ehCredito = (forma) => normalizarFormaPagamento(forma) === "Crédit
 // Não pode casar com "no crédito" — isso é compra, não quitação.
 const RE_PAGAMENTO = /\b(paguei|pago|pagar|pagamento|quitei|quitacao|quitar)\b.{0,40}\b(fatura|cartao|cartoes)\b/;
 
+// Espelho de supabase/functions/agente-pradex/forma.ts: "no cartão de crédito" e
+// "cartão de débito" são o meio da compra, não a fatura sendo quitada (28/09).
+const RE_CARTAO_COMO_MEIO = /\b(?:(?:no|na|com|pelo|via|usando)(?: o| a)?(?: meu| minha)? cartao(?: de (?:debito|credito))?|cartao de debito)\b/g;
+
 export function textoEhPagamentoFatura(texto) {
-  return RE_PAGAMENTO.test(semAcento(texto));
+  return RE_PAGAMENTO.test(semAcento(texto).replace(RE_CARTAO_COMO_MEIO, " "));
 }
 
 export function ehPagamentoFatura(lancamento) {
