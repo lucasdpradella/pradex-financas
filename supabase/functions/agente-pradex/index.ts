@@ -162,7 +162,8 @@ REGRAS DURAS:
 10. Parcelamento: "comprei celular 3000 em 10x no nubank" → parcelado=true, total_parcelas=10. RPC divide automaticamente.
 11. Cartões: se a pessoa citar um cartão ou apelido, forma_pagamento="Crédito" e cartao_id DESSE cartão. Apelidos do cartão de nome XP: "XP", "AXP", "cartão XP". É obrigatório preencher cartao_id — não deixe null e não guarde o apelido só na descrição. "no crédito" ou "cartão de crédito" sem nenhum nome ou apelido: forma_pagamento="Crédito"; se há um único cartão cadastrado, use o cartao_id dele; se há mais de um, cartao_id=null e precisa_confirmar=true perguntando qual cartão. Forma de pagamento SEMPRE num destes: "Crédito", "Débito", "PIX", "Dinheiro". Nunca minúsculo.
 12. Datas: default HOJE. "ontem" → data de ontem. Formato ISO YYYY-MM-DD.
-13. "Paguei a fatura" / "paguei o cartão" NÃO é compra nova. categoria="Pagamento fatura", abate_saldo=false, forma_pagamento="Débito" ou "PIX" (nunca "Crédito"), cartao_id do cartão citado. As compras no crédito já contaram como gasto.
+13. "Paguei a fatura" / "paguei o cartão" NÃO é compra nova. categoria="Pagamento fatura", forma_pagamento="Débito" ou "PIX" (nunca "Crédito"), cartao_id do cartão citado. As compras no crédito já contaram como gasto.
+14. "Pagamento fatura" SÓ quando o cliente falar em pagar/quitar a fatura ou o cartão. Gasto no débito, no PIX ou em dinheiro ("gastei 90 no débito no restaurante", "20 no pix no bar") é compra comum: categoria real da lista (Alimentação, Transporte...), nunca "Pagamento fatura". Não copie a categoria dos últimos lançamentos só porque a forma é a mesma.
 
 EDIÇÃO/DELEÇÃO:
 - "esquece o último", "errei", "apaga aquilo" → DELETAR mais recente.
@@ -237,7 +238,6 @@ const TOOL_REGISTRAR_ACOES = {
                 data_lancamento: { type: "string" },
                 forma_pagamento: { type: ["string", "null"] },
                 cartao_id: { type: ["integer", "null"] },
-                abate_saldo: { type: "boolean" },
                 parcelado: { type: "boolean" },
                 total_parcelas: { type: ["integer", "null"], minimum: 2 },
               },
@@ -724,7 +724,7 @@ async function processarLancamento(supabase: SupabaseClient, userId: string, nom
   const resp = await callAnthropic(texto, { nomeCliente, telefone, dataHoje, tom, moeda: livro.moeda, idioma: livro.idioma, ...ctx }, cid);
   if (!resp) return { mensagem: frase(livro.idioma, "Tive um problema do meu lado processando sua mensagem. Tenta de novo em alguns segundos 🙏", "I hit a problem on my side processing your message. Try again in a few seconds 🙏"), acoesAplicadas: null };
   if (resp.precisa_confirmar || !resp.acoes || resp.acoes.length === 0) return { mensagem: resp.mensagem_resposta, acoesAplicadas: null };
-  const acoesValidadas = prepararAcoes(validarCategorias(resp.acoes, ctx.categorias, cid), texto, ctx.cartoes);
+  const acoesValidadas = prepararAcoes(validarCategorias(resp.acoes, ctx.categorias, cid), texto, ctx.cartoes, ctx.categorias);
   const { data: ids, error } = await supabase.rpc("agente_aplicar_acoes", { p_user_id: userId, p_acoes: acoesValidadas });
   if (error) { logErro(cid, "rpc_aplicar_acoes_failed", error); return { mensagem: frase(livro.idioma, "Entendi mas tive problema gravando os lançamentos. Tenta de novo, e se persistir, lança pelo app 🙏", "I understood, but I couldn't save the entries. Try again, or add them in the app 🙏"), acoesAplicadas: null }; }
   return { mensagem: resp.mensagem_resposta, acoesAplicadas: ids ?? [] };

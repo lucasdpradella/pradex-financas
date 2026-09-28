@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { acharCartaoNoTexto, normalizarFormaPagamento, prepararAcoes, textoEhPagamentoFatura } from "../supabase/functions/agente-pradex/forma.ts";
+import { acharCartaoNoTexto, inferirCategoriaGasto, normalizarFormaPagamento, prepararAcoes, textoEhPagamentoFatura } from "../supabase/functions/agente-pradex/forma.ts";
+import { textoEhPagamentoFatura as textoEhPagamentoFaturaApp } from "../src/lib/formaPagamento.js";
 
 const cartoes = [
   { id: 1, nome: "Santander" },
@@ -244,5 +245,112 @@ describe("agente normaliza a forma antes de gravar", () => {
     );
     expect(acao.dados.forma_pagamento).toBe("Débito");
     expect(acao.dados.cartao_id ?? null).toBeNull();
+  });
+});
+
+// Bug de 25–27/09 (Augusto, Steffani): compra comum no débito/PIX gravada como
+// "Pagamento fatura" com abate_saldo=false, fora do Saiu. As falas abaixo são reais.
+describe("pagamento de fatura exige intenção explícita na fala", () => {
+  const categorias = [
+    ...["Moradia", "Alimentação", "Transporte", "Saúde", "Lazer", "Educação", "Assinaturas", "Outros"].map((nome) => ({ nome, tipo: "gasto" })),
+    { nome: "Vendas", tipo: "receita" },
+  ];
+  const bradesco = [{ id: 6, nome: "Bradesco" }];
+
+  const casos = [
+    ["Gastei 90 no débito restaurante Hong bin", "restaurante Hong bin", 90, "Débito", "Alimentação"],
+    ["Gastei 20 no Pix em corner chopp", "corner chopp", 20, "PIX", "Alimentação"],
+    ["Gastei 15 no débito em bebida", "bebida", 15, "Débito", "Alimentação"],
+    ["Gastei 38,99 no débito em Uber", "Uber", 38.99, "Débito", "Transporte"],
+    ["Gastei 40 reais e 60 centavos do débito na padaria.", "padaria", 40.6, "Débito", "Alimentação"],
+    ["$24 mercado", "Mercado", 24, "Débito", "Alimentação"],
+  ];
+
+  for (const [fala, descricao, valor, forma, categoria] of casos) {
+    it(`"${fala}": modelo mandou Pagamento fatura + abate_saldo=false, grava como compra`, () => {
+      const [acao] = prepararAcoes(
+        [{ tipo: "criar", dados: { descricao, valor, tipo: "gasto", categoria: "Pagamento fatura", forma_pagamento: forma, abate_saldo: false } }],
+        fala,
+        bradesco,
+        categorias,
+      );
+      expect(acao.dados.categoria).toBe(categoria);
+      expect(acao.dados.abate_saldo).toBe(true);
+      expect(acao.dados.tipo).toBe("gasto");
+      expect(acao.dados.forma_pagamento).toBe(forma);
+    });
+
+    it(`"${fala}": só abate_saldo=false (categoria certa) também volta a abater`, () => {
+      const [acao] = prepararAcoes(
+        [{ tipo: "criar", dados: { descricao, valor, tipo: "gasto", categoria, forma_pagamento: forma, abate_saldo: false } }],
+        fala,
+        bradesco,
+        categorias,
+      );
+      expect(acao.dados.categoria).toBe(categoria);
+      expect(acao.dados.abate_saldo).toBe(true);
+    });
+  }
+
+  it("as falas reais não são pagamento de fatura", () => {
+    for (const [fala] of casos) expect(textoEhPagamentoFatura(fala)).toBe(false);
+  });
+
+  it("verdadeiro positivo: 'paguei a fatura do XP 1200' continua pagamento", () => {
+    expect(textoEhPagamentoFatura("paguei a fatura do XP 1200")).toBe(true);
+    const [acao] = prepararAcoes(
+      [{ tipo: "criar", dados: { descricao: "Fatura XP", valor: 1200, tipo: "gasto", categoria: "Outros", forma_pagamento: "PIX" } }],
+      "paguei a fatura do XP 1200",
+      cartoes,
+      categorias,
+    );
+    expect(acao.dados.categoria).toBe("Pagamento fatura");
+    expect(acao.dados.abate_saldo).toBe(false);
+    expect(acao.dados.forma_pagamento).toBe("PIX");
+    expect(acao.dados.cartao_id).toBe(2);
+  });
+
+  it("'paguei o cartão Santander' é pagamento; 'paguei 50 no cartão de crédito' é compra", () => {
+    expect(textoEhPagamentoFatura("paguei o cartão Santander")).toBe(true);
+    expect(textoEhPagamentoFatura("quitei a fatura do nubank")).toBe(true);
+    expect(textoEhPagamentoFatura("paguei 50 no cartão de crédito")).toBe(false);
+    expect(textoEhPagamentoFatura("paguei 30 com o cartão de débito na farmácia")).toBe(false);
+    expect(textoEhPagamentoFatura("paguei a fatura do cartão de crédito")).toBe(true);
+  });
+
+  it("app espelha a mesma regra", () => {
+    expect(textoEhPagamentoFaturaApp("paguei a fatura do XP 1200")).toBe(true);
+    expect(textoEhPagamentoFaturaApp("paguei 50 no cartão de crédito")).toBe(false);
+    expect(textoEhPagamentoFaturaApp("Gastei 90 no débito restaurante Hong bin")).toBe(false);
+  });
+
+  it("descrição de fatura sem intenção na fala não vira pagamento", () => {
+    const [acao] = prepararAcoes(
+      [{ tipo: "criar", dados: { descricao: "Pagamento fatura", valor: 20, tipo: "gasto", categoria: "Pagamento fatura", forma_pagamento: "Débito", abate_saldo: false } }],
+      "20 reais débito conta Xp",
+      cartoes,
+      categorias,
+    );
+    expect(acao.dados.categoria).toBe("Outros");
+    expect(acao.dados.abate_saldo).toBe(true);
+  });
+
+  it("categoria inferida respeita a lista do cliente", () => {
+    expect(inferirCategoriaGasto("Boteco do Breno", categorias)).toBe("Alimentação");
+    expect(inferirCategoriaGasto("espetinho", categorias)).toBe("Alimentação");
+    expect(inferirCategoriaGasto("sorveteria", categorias)).toBe("Alimentação");
+    expect(inferirCategoriaGasto("Uber", [{ nome: "Outros", tipo: "gasto" }])).toBe("Outros");
+    expect(inferirCategoriaGasto("coisa sem pista", categorias)).toBe("Outros");
+  });
+
+  it("aporte de meta com abate_saldo=false fica intacto", () => {
+    const [meta] = prepararAcoes(
+      [{ tipo: "criar", dados: { descricao: "aporte", valor: 100, tipo: "gasto", categoria: "Meta", forma_pagamento: "PIX", meta_id: 9, abate_saldo: false } }],
+      "guardei 100 que já estava guardado",
+      cartoes,
+      categorias,
+    );
+    expect(meta.dados.abate_saldo).toBe(false);
+    expect(meta.dados.categoria).toBe("Meta");
   });
 });

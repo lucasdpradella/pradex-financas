@@ -39,8 +39,58 @@ export function normalizarFormaPagamento(value: unknown): string | null {
 
 const RE_PAGAMENTO = /\b(paguei|pago|pagar|pagamento|quitei|quitacao|quitar)\b.{0,40}\b(fatura|cartao|cartoes)\b/;
 
+// "no cartão", "com o cartão de crédito", "cartão de débito" são o MEIO da compra,
+// não a conta sendo quitada. Sem tirar isso antes, "paguei 50 no cartão de crédito"
+// (compra) casava com RE_PAGAMENTO e virava pagamento de fatura. Cartão de débito
+// não tem fatura, então sai sempre.
+const RE_CARTAO_COMO_MEIO = /\b(?:(?:no|na|com|pelo|via|usando)(?: o| a)?(?: meu| minha)? cartao(?: de (?:debito|credito))?|cartao de debito)\b/g;
+
+/**
+ * Intenção EXPLÍCITA de quitar fatura: "paguei a fatura do XP", "paguei o cartão
+ * Santander". É a ÚNICA porta pra "Pagamento fatura" (28/09): categoria do modelo e
+ * abate_saldo=false não contam como intenção.
+ */
 export function textoEhPagamentoFatura(texto: unknown): boolean {
-  return RE_PAGAMENTO.test(semAcento(texto));
+  const n = semAcento(texto).replace(RE_CARTAO_COMO_MEIO, " ");
+  return RE_PAGAMENTO.test(n);
+}
+
+const ehCategoriaPagamento = (categoria: unknown) => {
+  const c = semAcento(categoria);
+  return c === "pagamento fatura" || c === "pagamento de fatura";
+};
+
+// Categoria de uma compra quando o modelo mandou "Pagamento fatura" sem o cliente
+// ter falado em fatura. Ordem importa: a primeira regra que casar vence. Só vale se a
+// categoria existir na lista do cliente; senão cai em "Outros", como validarCategorias.
+const REGRAS_CATEGORIA: Array<[string, RegExp]> = [
+  ["Alimentação", /\b(padaria|restaurante|lanchonete|lanches?|mercado|supermercado|feira|acougue|hortifruti|ifood|keeta|rappi|pizza\w*|hamburguer\w*|burger|sushi|churrasc\w*|espetinho|boteco|bar|chopp|chope|cerveja|bebidas?|sorvete\w*|cafe|cafeteria|almoco|jantar|comida|acai|doceria|conveniencia)\b/],
+  ["Transporte", /\b(uber|99pop|taxi|onibus|metro|bilhete unico|posto|gasolina|combustivel|etanol|estacionamento|pedagio)\b/],
+  ["Saúde", /\b(farmacia|drogaria|remedios?|medic[oa]|consulta|exames?|dentista|hospital)\b/],
+  ["Assinaturas", /\b(netflix|spotify|assinatura|prime video|disney|hbo|youtube premium)\b/],
+  ["Lazer", /\b(cinema|show|ingressos?|teatro)\b/],
+  ["Educação", /\b(curso|livros?|escola|faculdade)\b/],
+  ["Moradia", /\b(aluguel|condominio|conta de luz|conta de agua|internet|energia)\b/],
+];
+
+const GASTOS_PADRAO = ["Moradia", "Alimentação", "Transporte", "Saúde", "Lazer", "Educação", "Assinaturas", "Outros"];
+
+export function inferirCategoriaGasto(
+  descricao: unknown,
+  categorias?: Array<{ nome: string; tipo: string }>,
+): string {
+  const lista = categorias?.length
+    ? categorias.filter((c) => c.tipo === "gasto").map((c) => c.nome)
+    : GASTOS_PADRAO;
+  const existe = (nome: string) => lista.find((c) => semAcento(c) === semAcento(nome));
+  const n = semAcento(descricao);
+  for (const [nome, re] of REGRAS_CATEGORIA) {
+    if (re.test(n)) {
+      const achou = existe(nome);
+      if (achou) return achou;
+    }
+  }
+  return existe("Outros") || "Outros";
 }
 
 function escaparRegex(value: string): string {
@@ -122,6 +172,7 @@ export function prepararAcao(
   textoUsuario: string,
   cartoes: Array<{ id: number; nome?: string }>,
   acoesNaMensagem: number,
+  categorias?: Array<{ nome: string; tipo: string }>,
 ): any {
   const dados = acao?.dados;
   if (!dados || (acao.tipo !== "criar" && acao.tipo !== "editar")) return acao;
@@ -129,9 +180,26 @@ export function prepararAcao(
   const next = { ...dados, forma_pagamento: normalizarFormaPagamento(dados.forma_pagamento) };
   const proprio = `${next.descricao || ""} ${next.categoria || ""}`;
   const contexto = acoesNaMensagem === 1 ? `${proprio} ${textoUsuario || ""}` : proprio;
-  const pagamento = textoEhPagamentoFatura(contexto)
-    || semAcento(next.categoria) === "pagamento fatura"
-    || semAcento(next.categoria) === "pagamento de fatura";
+
+  // Pagamento de fatura exige que o CLIENTE tenha falado em fatura/pagar o cartão.
+  // Bug de 25–27/09: "Gastei 90 no débito restaurante Hong bin" chegou do modelo com
+  // categoria "Pagamento fatura" e/ou abate_saldo=false e saiu do Saiu. A categoria
+  // do modelo NÃO entra no corpus (ela mesma contém "pagamento ... fatura" e se
+  // autoconfirmaria). Com uma ação, vale a fala; com várias, a fala tem que ter a
+  // intenção E a descrição tem que ser a da fatura (senão o mercado vira pagamento).
+  const falaTemIntencao = textoUsuario ? textoEhPagamentoFatura(textoUsuario) : false;
+  const descricaoTemIntencao = textoEhPagamentoFatura(next.descricao || "");
+  const pagamento = acoesNaMensagem === 1
+    ? (textoUsuario ? falaTemIntencao : descricaoTemIntencao)
+    : (textoUsuario ? falaTemIntencao && descricaoTemIntencao : descricaoTemIntencao);
+
+  if (!pagamento && next.meta_id == null) {
+    // Gasto comum: nunca "Pagamento fatura", nunca abate_saldo=false.
+    if (ehCategoriaPagamento(next.categoria)) {
+      next.categoria = next.tipo === "receita" ? "Outros" : inferirCategoriaGasto(next.descricao, categorias);
+    }
+    if (next.abate_saldo === false) next.abate_saldo = true;
+  }
 
   if (pagamento && next.tipo !== "receita") {
     next.tipo = "gasto";
@@ -173,7 +241,8 @@ export function prepararAcoes(
   acoes: any[],
   textoUsuario: string,
   cartoes: Array<{ id: number; nome?: string }>,
+  categorias?: Array<{ nome: string; tipo: string }>,
 ): any[] {
   const lista = acoes || [];
-  return lista.map((acao) => prepararAcao(acao, textoUsuario, cartoes, lista.length));
+  return lista.map((acao) => prepararAcao(acao, textoUsuario, cartoes, lista.length, categorias));
 }
