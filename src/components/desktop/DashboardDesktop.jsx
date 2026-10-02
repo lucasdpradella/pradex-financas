@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { desktopTheme as t } from "./theme";
 import { ehPagamentoFatura } from "../../lib/formaPagamento";
 import { calcularFechamento } from "../../lib/fechamento";
-import { listarFaturas } from "../../lib/faturas";
 import HomeResumo from "../HomeResumo";
 import { t as tr } from "../../lib/i18n";
 
@@ -58,6 +57,16 @@ const CSS = `
 .pdx-legend { display: flex; gap: 1rem; font-size: 0.78rem; color: ${t.textSecondary}; }
 .pdx-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 0.35rem; }
 .pdx-chart { width: 100%; height: auto; display: block; overflow: visible; }
+.pdx-ult { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 1rem; padding: 0.6rem 0; border-bottom: 1px solid ${t.surfaceBorder}; cursor: pointer; }
+.pdx-ult:last-child { border-bottom: none; padding-bottom: 0; }
+.pdx-ult:hover .pdx-ult__desc { color: ${t.accent}; }
+.pdx-ult__desc { margin: 0; font-size: 0.9rem; color: ${t.textPrimary}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdx-ult__meta { margin: 0.1rem 0 0; font-size: 0.72rem; color: ${t.textSecondary}; }
+.pdx-ult__val { min-width: 120px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pdx-chip { font-size: 0.7rem; background: ${t.chipBg}; color: ${t.chipText}; border-radius: 999px; padding: 0.12rem 0.55rem; white-space: nowrap; }
+.pdx-tag { margin-left: 0.4rem; font-size: 0.65rem; font-weight: 600; background: ${t.chipBg}; color: ${t.chipText}; border-radius: 999px; padding: 0.1rem 0.5rem; }
+.pdx-comp { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.6rem 0; border-bottom: 1px solid ${t.surfaceBorder}; }
+.pdx-comp:last-child { border-bottom: none; padding-bottom: 0; }
 .pdx-chart text { font-family: inherit; font-size: 13px; fill: ${t.textSecondary}; }
 `;
 
@@ -72,7 +81,8 @@ export default function DashboardDesktop({
   lancamentos, ano, mes, formatBRL,
   rascunhos = [], onConfirmarRascunho, onRejeitarRascunho, normalizeText = (x) => x,
   tetos = [],
-  bancos = [], cartoes = [], onSalvarSaldo, onCriarConta,
+  cartoes = [],
+  compromissos = [], ultimos = [], onEditar, formaLabel = (f) => f || "—",
   idioma = "pt-BR",
 }) {
   const s = (key) => tr(idioma, key);
@@ -110,10 +120,11 @@ export default function DashboardDesktop({
     };
   }, [lancamentos, ano, mes, normalizeText, meses]);
 
-  const faturas = useMemo(
-    () => listarFaturas(lancamentos, cartoes, ano, mes, { normalizar: normalizeText, idioma }),
-    [lancamentos, cartoes, ano, mes, normalizeText, idioma],
-  );
+  const dataCurta = (d) => {
+    if (!d) return "";
+    const [, m, dia] = String(d).split("-");
+    return `${dia} ${meses[parseInt(m, 10) - 1] || ""}`;
+  };
 
   // Δ do gasto total vs mês anterior. Sem base de comparação, não inventa percentual.
   const deltaAbs = dados.gastoTotal - dados.gastoAnterior;
@@ -157,17 +168,15 @@ export default function DashboardDesktop({
       <HomeResumo
         variant="desktop"
         fluxo={dados}
-        faturas={faturas}
-        bancos={bancos}
+        cartoes={cartoes}
         formatBRL={formatBRL}
         idioma={idioma}
-        onSalvarSaldo={onSalvarSaldo}
-        onCriarConta={onCriarConta}
+        normalizar={normalizeText}
       />
 
       <div className="pdx-strip">
         <span className="pdx-strip__item">
-          {s("gasto_total")} <b>{formatBRL(dados.gastoTotal)}</b>
+          {s("gasto_total")} <b>{formatBRL(dados.gastoTotal)}</b> {s("gasto_total_sub")}
         </span>
         <span className={`pdx-delta pdx-delta--${deltaClasse}`}>
           {deltaClasse === "flat" ? "=" : deltaClasse === "up" ? "▲" : "▼"}
@@ -227,6 +236,52 @@ export default function DashboardDesktop({
               );
             })
           )}
+        </div>
+
+        <div className="pdx-panel">
+          <div className="pdx-panel__head">
+            <p className="pdx-panel__title">{s("proximos")}</p>
+          </div>
+          {compromissos.some((m) => m.total > 0) ? compromissos.map((m) => (
+            <div className="pdx-comp" key={m.key}>
+              <div>
+                <p className="pdx-ult__desc">{m.label}</p>
+                <p className="pdx-ult__meta">
+                  {m.comprasAtivas > 0 ? `${m.comprasAtivas} ${m.comprasAtivas > 1 ? s("parceladas") : s("parcelada_uma")}` : s("sem_parcelas")}
+                </p>
+              </div>
+              <span className="pdx-ult__val" style={{ color: m.total > 0 ? t.textPrimary : t.textSecondary }}>{formatBRL(m.total)}</span>
+            </div>
+          )) : <p className="pdx-panel__empty">{s("nada_comprometido")}</p>}
+        </div>
+      </div>
+
+      <div className="pdx-dash-panels">
+        <div className="pdx-panel">
+          <div className="pdx-panel__head">
+            <p className="pdx-panel__title">{s("ultimos")}</p>
+          </div>
+          {ultimos.length === 0 ? (
+            <p className="pdx-panel__empty">{s("painel_vazio")}</p>
+          ) : ultimos.map((l) => {
+            const pagamento = ehPagamentoFatura(l);
+            const receita = l.tipo === "receita";
+            return (
+              <div className="pdx-ult" key={l.id} onClick={() => onEditar?.(l)}>
+                <div style={{ minWidth: 0 }}>
+                  <p className="pdx-ult__desc" title={normalizeText(l.descricao)}>
+                    {normalizeText(l.descricao)}
+                    {pagamento && <span className="pdx-tag">{s("nao_e_gasto")}</span>}
+                  </p>
+                  <p className="pdx-ult__meta">{dataCurta(l.data_lancamento)} · {formaLabel(l.forma_pagamento)}</p>
+                </div>
+                <span className="pdx-chip">{normalizeText(l.categoria) || "—"}</span>
+                <span className="pdx-ult__val" style={{ color: pagamento ? t.textSecondary : receita ? t.receita : t.gasto }}>
+                  {pagamento ? "" : receita ? "+" : "−"}{formatBRL(l.valor)}
+                </span>
+              </div>
+            );
+          })}
         </div>
 
         <div className="pdx-panel">

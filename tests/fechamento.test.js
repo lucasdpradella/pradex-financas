@@ -246,3 +246,91 @@ describe("fluxo da home", () => {
     expect(f.entrou).toBe(1200);
   });
 });
+
+describe("home do mês: fatura do cartão, débito e receitas (data da compra)", () => {
+  const HOJE_OUT = new Date(2026, 9, 1);
+  const out = (over) => l({ data_lancamento: "2026-10-10", ...over });
+
+  it("compra no crédito entra na fatura do cartão dela, com valor cheio", () => {
+    const dados = [
+      out({ valor: 300, forma_pagamento: "Crédito", cartao_id: 1 }),
+      out({ valor: 200, forma_pagamento: "Crédito", cartao_id: 2 }),
+      out({ valor: 50, forma_pagamento: "Crédito", cartao_id: 1 }),
+    ];
+    const f = calcularFechamento(dados, 2026, 9, { hoje: HOJE_OUT });
+    expect(f.cartao).toBe(550);
+    expect(f.debito).toBe(0);
+    expect(f.cartaoPorCartao).toEqual([
+      { cartaoId: "1", total: 350 },
+      { cartaoId: "2", total: 200 },
+    ]);
+  });
+
+  it("PIX de Pagamento fatura não conta em lugar nenhum (nem débito, nem fatura, nem receita)", () => {
+    const dados = [
+      out({ valor: 800, forma_pagamento: "Crédito", cartao_id: 2 }),
+      out({
+        data_lancamento: "2026-10-20",
+        valor: 800,
+        forma_pagamento: "PIX",
+        categoria: "Pagamento fatura",
+        abate_saldo: false,
+        cartao_id: 2,
+        descricao: "paguei a fatura",
+      }),
+    ];
+    const f = calcularFechamento(dados, 2026, 9, { hoje: HOJE_OUT });
+    expect(f.debito).toBe(0);
+    expect(f.cartao).toBe(800); // valor cheio, sem descontar o pagamento
+    expect(f.cartaoPorCartao).toEqual([{ cartaoId: "2", total: 800 }]);
+    expect(f.receitas).toBe(0);
+    expect(f.gastoTotal).toBe(800);
+    expect(f.categorias.map((c) => c.cat)).not.toContain("Pagamento fatura");
+    expect(f.pagamentoFatura).toBe(800);
+  });
+
+  it("parcela futura cai no mês dela, não no mês da compra", () => {
+    const dados = [
+      out({ valor: 100, forma_pagamento: "Crédito", cartao_id: 1, parcela_atual: 1, total_parcelas: 3 }),
+      l({ data_lancamento: "2026-11-10", valor: 100, forma_pagamento: "Crédito", cartao_id: 1, parcela_atual: 2, total_parcelas: 3 }),
+      l({ data_lancamento: "2026-12-10", valor: 100, forma_pagamento: "Crédito", cartao_id: 1, parcela_atual: 3, total_parcelas: 3 }),
+    ];
+    const outubro = calcularFechamento(dados, 2026, 9, { hoje: HOJE_OUT });
+    const novembro = calcularFechamento(dados, 2026, 10, { hoje: HOJE_OUT });
+    expect(outubro.cartao).toBe(100);
+    expect(outubro.cartaoPorCartao).toEqual([{ cartaoId: "1", total: 100 }]);
+    expect(novembro.cartao).toBe(100);
+  });
+
+  it("'crédito' minúsculo vai pra fatura; PIX, dinheiro e sem forma vão pro débito", () => {
+    const dados = [
+      out({ valor: 70, forma_pagamento: "crédito", cartao_id: 3 }),
+      out({ valor: 10, forma_pagamento: "PIX" }),
+      out({ valor: 20, forma_pagamento: "Dinheiro" }),
+      out({ valor: 30, forma_pagamento: null }),
+      out({ valor: 40, forma_pagamento: "débito" }),
+    ];
+    const f = calcularFechamento(dados, 2026, 9, { hoje: HOJE_OUT });
+    expect(f.cartao).toBe(70);
+    expect(f.cartaoPorCartao).toEqual([{ cartaoId: "3", total: 70 }]);
+    expect(f.debito).toBe(100);
+  });
+
+  it("aporte de meta fica fora do débito e resgate fica fora das receitas", () => {
+    const dados = [
+      out({ tipo: "receita", valor: 9000, categoria: "Salário" }),
+      out({ valor: 500, meta_id: 7, forma_pagamento: "PIX" }),
+      out({ tipo: "receita", valor: 200, meta_id: 7 }),
+      out({ valor: 40, forma_pagamento: "PIX" }),
+    ];
+    const f = calcularFechamento(dados, 2026, 9, { hoje: HOJE_OUT });
+    expect(f.debito).toBe(40);
+    expect(f.receitas).toBe(9000);
+    expect(f.cartaoPorCartao).toEqual([]);
+  });
+
+  it("crédito sem cartão vira a linha sem cartão", () => {
+    const f = calcularFechamento([out({ valor: 15, forma_pagamento: "Crédito", cartao_id: null })], 2026, 9, { hoje: HOJE_OUT });
+    expect(f.cartaoPorCartao).toEqual([{ cartaoId: null, total: 15 }]);
+  });
+});

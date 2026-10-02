@@ -3,7 +3,7 @@
 // Lógica pura, sem React e sem query: recebe os lançamentos que o App já carregou.
 // Fica testável no Vitest do mesmo jeito que lancamentos.js e plano.js.
 //
-// A home (Fluxo do mês) e o Relatórios leem daqui. Débito × cartão é case-insensitive
+// A home (Fatura do cartão / Débito do mês / Receitas do mês) e o Relatórios leem daqui. Débito × cartão é case-insensitive
 // (src/lib/formaPagamento.js): "crédito" minúsculo do agente não pode cair no Débito.
 // Pagamento de fatura fica fora do Saiu — a compra no crédito já é o gasto.
 
@@ -48,6 +48,19 @@ export const maiorSequencia = (dias) => {
     anterior = d;
   }
   return melhor;
+};
+
+// Compras no crédito do mês somadas por cartão (data da compra, valor cheio — sem
+// descontar pagamento de fatura). Crédito sem cartão vira a linha `cartaoId: null`.
+const agruparPorCartao = (credito) => {
+  const mapa = new Map();
+  for (const l of credito) {
+    const id = l.cartao_id == null || l.cartao_id === "" ? null : String(l.cartao_id);
+    mapa.set(id, (mapa.get(id) || 0) + Number(l.valor || 0));
+  }
+  return [...mapa.entries()]
+    .map(([cartaoId, total]) => ({ cartaoId, total: Math.round(total * 100) / 100 }))
+    .sort((a, b) => b.total - a.total);
 };
 
 const agruparPorCategoria = (gastos, normalizar) => {
@@ -178,6 +191,8 @@ export function calcularFechamento(lancamentos, ano, mes, { hoje = new Date(), n
     // (débito, PIX, dinheiro, vazio) fica no chip Débito.
     debito: soma(gastos.filter((l) => !ehCredito(l.forma_pagamento))),
     cartao: soma(gastos.filter((l) => ehCredito(l.forma_pagamento))),
+    // Fatura do cartão "por data da compra": uma linha por cartao_id.
+    cartaoPorCartao: agruparPorCartao(gastos.filter((l) => ehCredito(l.forma_pagamento))),
 
     evitavel: soma(gastos.filter((l) => l.poderia_ter_evitado)),
     evitavelAnterior: soma(gastosAnterior.filter((l) => l.poderia_ter_evitado)),

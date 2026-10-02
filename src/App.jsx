@@ -30,7 +30,7 @@ import MetasCaixinhas from "./components/MetasCaixinhas";
 import RankingMetas from "./components/RankingMetas";
 import { montarLancamentoAporte } from "./lib/metas";
 import { calcularFechamento } from "./lib/fechamento";
-import { listarFaturas, rotuloMes } from "./lib/faturas";
+import { rotuloMes } from "./lib/faturas";
 import { completarLancamento, ehCredito, ehPagamentoFatura } from "./lib/formaPagamento";
 import HomeResumo from "./components/HomeResumo";
 import LivroSettings from "./components/LivroSettings";
@@ -1713,7 +1713,6 @@ export default function PradexFinancas() {
   const gastosDebito = gastos.filter(l => !ehCredito(l.forma_pagamento)).reduce((s, l) => s + Number(l.valor), 0);
   const gastosCredito = gastos.filter(l => ehCredito(l.forma_pagamento)).reduce((s, l) => s + Number(l.valor), 0);
   const fluxoHome = calcularFechamento(lancamentos, mesDashboard.ano, mesDashboard.mes, { normalizar: normalizeText });
-  const faturasHome = listarFaturas(lancamentos, cartoes, mesDashboard.ano, mesDashboard.mes, { normalizar: normalizeText, idioma: idiomaLivro });
   // Compromissos ja assumidos pros proximos 3 meses.
   //
   // ANTES so contava parcela de CREDITO (forma_pagamento === "Credito" && total_parcelas).
@@ -2347,10 +2346,11 @@ export default function PradexFinancas() {
           rascunhos={rascunhos}
           onConfirmarRascunho={confirmarRascunho}
           onRejeitarRascunho={rejeitarRascunho}
-          bancos={bancos}
           cartoes={cartoes}
-          onSalvarSaldo={salvarSaldoBanco}
-          onCriarConta={criarBanco}
+          compromissos={projecaoParcelas}
+          ultimos={lancamentos.slice(0, 5)}
+          onEditar={handleEdit}
+          formaLabel={(forma) => getFormaPagamentoLabel(forma, tx("nao_informado"))}
         />
         </>
       )}
@@ -2611,12 +2611,10 @@ export default function PradexFinancas() {
           <HomeResumo
             variant="mobile"
             fluxo={fluxoHome}
-            faturas={faturasHome}
-            bancos={bancos}
+            cartoes={cartoes}
             formatBRL={formatBRL}
             idioma={idiomaLivro}
-            onSalvarSaldo={salvarSaldoBanco}
-            onCriarConta={criarBanco}
+            normalizar={normalizeText}
           />
           <ConvitePlano planoConvite={planoConvite} plano={plano} email={session?.user?.email} isDesktop={isDesktop} onFechar={dispensarConvite} />
           {/* Card do agente: os TRES casos moram em CardAgente.jsx agora, porque
@@ -2631,7 +2629,7 @@ export default function PradexFinancas() {
             onIniciarTrial={iniciarTrial}
             carregando={iniciandoTrial}
           />
-          {lancamentos.length === 0 && bancos.length === 0 ? (
+          {lancamentos.length === 0 ? (
             <div style={{ textAlign: "center", padding: "1.5rem 0 2rem", color: "#5C6570" }}>
               <p style={{ fontSize: "0.95rem", color: "#8B93A1", margin: "0 0 0.4rem" }}>{tx("painel_vazio")}</p>
               <p style={{ fontSize: "0.82rem", color: "#8B93A1", margin: 0 }}>{tx("painel_vazio_hint")}</p>
@@ -2716,11 +2714,12 @@ export default function PradexFinancas() {
                         {l.poderia_ter_evitado && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#E8943A", background: "#E8943A15" }}>{tx("badge_evitavel")}</span>}
                         {l.recorrente && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#2FBF8A", background: "#2FBF8A15" }}>{tx("badge_recorrente")}</span>}
                         {normalizeText(l.descricao)}
+                        {ehPagamentoFatura(l) && <span style={{ marginLeft: "6px", fontSize: "0.62rem", color: "#8B93A1", background: "#0C0E14", border: "1px solid #1E2330", padding: "1px 6px", borderRadius: "999px" }}>{tx("nao_e_gasto")}</span>}
                         {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.7rem", color: "#5C6570", background: "#1E2330", padding: "1px 6px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
                       </p>
                       <p style={{ margin: 0, fontSize: "0.7rem", color: "#5C6570", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento, tx("nao_informado"))} · {formatData(l.data_lancamento)}{autorDe(l.criado_por || l.user_id) ? ` · ${autorDe(l.criado_por || l.user_id)}` : ""}</p>
                     </div>
-                    <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: l.tipo === "receita" ? "#2FBF8A" : "#E06C65" }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
+                    <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: ehPagamentoFatura(l) ? "#8B93A1" : l.tipo === "receita" ? "#2FBF8A" : "#E06C65" }}>{ehPagamentoFatura(l) ? "" : l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
                   </div>
                 ))}
               </div>
