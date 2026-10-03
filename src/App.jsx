@@ -1012,7 +1012,7 @@ export default function PradexFinancas() {
     } finally { setSalvandoMeta(false); }
   };
 
-  // Editar / arquivar / excluir caixinha (out/2026). Antes só existia criar, aportar e
+  // Editar / excluir (= arquivar) caixinha (out/2026). Antes só existia criar, aportar e
   // trocar a dificuldade: quem criava uma meta errada ficava preso com ela.
   //
   // `return=representation` em vez de minimal: com RLS, um PATCH/DELETE que não acha
@@ -1048,47 +1048,13 @@ export default function PradexFinancas() {
     } finally { setSalvandoMeta(false); }
   };
 
-  // Arquivar = some da lista, mas o histórico (aportes) e os pontos dos marcos ficam.
-  // Libera o nome pra uma caixinha nova (o índice único só vale entre as ativas).
+  // "Excluir caixinha" na tela = ARQUIVAR aqui (decisão do Lucas, 03/10: arquivar vs
+  // excluir confundia). A caixinha some da lista pra sempre e libera o nome (o índice
+  // único só vale entre as ativas), mas os aportes, o histórico e os pontos ficam — os
+  // números do mês não mudam. Não há exclusão de verdade pelo app de propósito: apagar
+  // a meta esbarraria na FK `on delete set null` + `lancamentos_abate_saldo_so_em_aporte`
+  // (aporte com abate_saldo = false não pode ficar sem meta) e apagaria dinheiro real.
   const arquivarMeta = (meta) => editarMeta(meta, { arquivada: true });
-
-  // Excluir de verdade. Os aportes vão junto, e PRIMEIRO: a FK de Lancamentos.meta_id
-  // é `on delete set null`, e um aporte de "dinheiro que já estava guardado"
-  // (abate_saldo = false) sem meta viola `lancamentos_abate_saldo_so_em_aporte` — o
-  // DELETE da meta falhava inteiro (23514). Era o "não consigo excluir" relatado.
-  // `meta_marcos` cai em cascata no banco, então os pontos dessa caixinha saem do ranking.
-  const excluirMeta = async (meta) => {
-    if (!session?.token || !meta?.id) return false;
-    setSalvandoMeta(true);
-    setErroMeta("");
-    try {
-      const resAportes = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?meta_id=eq.${meta.id}`, {
-        method: "DELETE",
-        headers: { ...api(session.token), Prefer: "return=minimal" },
-      });
-      if (!resAportes.ok) {
-        const err = await resAportes.json().catch(() => ({}));
-        setErroMeta(`Não consegui apagar os registros da caixinha. ${String(err?.message || "").slice(0, 120)}`);
-        return false;
-      }
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/metas?id=eq.${meta.id}`, {
-        method: "DELETE",
-        headers: { ...api(session.token), Prefer: "return=representation" },
-      });
-      const corpo = await res.json().catch(() => null);
-      if (!res.ok || !Array.isArray(corpo) || corpo.length === 0) {
-        setErroMeta(`Não consegui excluir a caixinha. ${String(corpo?.message || "").slice(0, 120)}`);
-        await Promise.all([fetchLancamentos(), fetchMetas()]);
-        return false;
-      }
-      await Promise.all([fetchLancamentos(), fetchMetas()]);
-      fetchRanking();
-      return true;
-    } catch (e) {
-      setErroMeta("Falha de rede. Tenta de novo.");
-      return false;
-    } finally { setSalvandoMeta(false); }
-  };
 
   const aportarNaMeta = async ({ meta, valor, data, forma, resgate, abateSaldo = true }) => {
     if (!session?.token) return;
@@ -2592,7 +2558,6 @@ export default function PradexFinancas() {
               onMudarDificuldade={mudarDificuldade}
               onEditar={editarMeta}
               onArquivar={arquivarMeta}
-              onExcluir={excluirMeta}
               celebracao={celebracao}
               onFecharCelebracao={() => setCelebracao(null)}
             />

@@ -334,21 +334,3 @@ export function validarEdicaoMeta({ nome, valorAlvo, prazo, aplicadoEm }, meta, 
   };
 }
 
-/**
- * O que some junto se a caixinha for excluída: os lançamentos de guardar/tirar dela.
- *
- * Excluir só a meta não funciona quando há aporte de "dinheiro que já estava
- * guardado" (`abate_saldo = false`): a FK `meta_id ... on delete set null` deixaria
- * a linha com abate_saldo false e sem meta, o que a constraint
- * `lancamentos_abate_saldo_so_em_aporte` recusa — o DELETE inteiro falha (23514).
- * E os aportes normais virariam "gasto" comum no mês. Por isso a exclusão apaga os
- * aportes primeiro, com o aviso na tela, e quem quer manter o histórico arquiva.
- */
-export function resumoExclusaoMeta(meta, lancamentos) {
-  const aportes = (lancamentos || []).filter((l) => meta?.id != null && String(l?.meta_id) === String(meta.id));
-  return {
-    quantidade: aportes.length,
-    ids: aportes.map((l) => l.id),
-    guardado: aportes.filter((l) => l.tipo === "gasto").reduce((s, l) => s + num(l.valor), 0),
-  };
-}

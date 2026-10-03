@@ -16,7 +16,7 @@ import React, { useMemo, useState } from "react";
 import {
   comProgresso, metasAtivas, limiteDeMetas, LIMITE_FREE, FORMAS_APORTE,
   DIFICULDADES, DIFICULDADE_PADRAO, dificuldadeDe, mensagemDoMarco, pontosDoMarco,
-  validarEdicaoMeta, resumoExclusaoMeta,
+  validarEdicaoMeta,
 } from "../lib/metas";
 import { CHECKOUT, PRECO, checkoutComEmail } from "../lib/plano";
 import { useFormatMoney, useSimboloMoeda } from "../lib/moeda";
@@ -66,7 +66,6 @@ export default function MetasCaixinhas({
   onCriar,
   onAportar,
   onArquivar,
-  onExcluir,
   onEditar,
   onMudarDificuldade,
 
@@ -170,15 +169,10 @@ export default function MetasCaixinhas({
     if (ok !== false) fecharEdicao();
   }
 
+  // "Excluir caixinha" = arquivar (ver arquivarMeta no App).
   async function arquivar(meta) {
     setErro("");
     const ok = await onArquivar?.(meta);
-    if (ok !== false) fecharEdicao();
-  }
-
-  async function excluir(meta) {
-    setErro("");
-    const ok = await onExcluir?.(meta);
     if (ok !== false) fecharEdicao();
   }
 
@@ -278,7 +272,7 @@ export default function MetasCaixinhas({
               )}
             </p>
 
-            {/* EDITAR / ARQUIVAR / EXCLUIR (out/2026). Até aqui uma caixinha criada
+            {/* EDITAR / EXCLUIR (= arquivar) (out/2026). Até aqui uma caixinha criada
                 errada não tinha conserto: só dava pra trocar a dificuldade. Fica
                 atrás do link "editar" pelo mesmo motivo da dificuldade — é raro. */}
             {editando === m.id && edicao && (
@@ -334,7 +328,7 @@ export default function MetasCaixinhas({
                   </button>
                 </div>
 
-                {(onExcluir || onArquivar) && !confirmandoExclusao && (
+                {onArquivar && !confirmandoExclusao && (
                   <button
                     type="button"
                     onClick={() => setConfirmandoExclusao(true)}
@@ -344,54 +338,34 @@ export default function MetasCaixinhas({
                   </button>
                 )}
 
-                {confirmandoExclusao && (() => {
-                  const r = resumoExclusaoMeta(m, lancamentos);
-                  return (
-                    <div role="alertdialog" aria-label={`Excluir ${m.nome}`} style={{ border: `1px solid ${COR.perigo}`, borderRadius: "10px", padding: "0.7rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                      <p style={{ margin: 0, fontSize: "0.78rem", color: COR.texto, lineHeight: 1.45 }}>
-                        {r.quantidade === 0
-                          ? `Excluir "${m.nome}"? Ela ainda não tem nenhum registro de guardar/tirar.`
-                          : `Excluir "${m.nome}" apaga junto ${r.quantidade === 1 ? "o registro" : `os ${r.quantidade} registros`} de guardar/tirar dela (${formatBRL(r.guardado)} guardados). Os meses desses registros voltam a mostrar esse dinheiro no saldo, e os pontos dela saem do ranking.`}
-                      </p>
-                      {r.quantidade > 0 && onArquivar && (
-                        <p style={{ margin: 0, fontSize: "0.72rem", color: COR.medio, lineHeight: 1.45 }}>
-                          Só quer tirar da lista? Arquive: some daqui, mas o histórico e os pontos ficam.
-                        </p>
-                      )}
-                      <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                        {onExcluir && (
-                          <button
-                            type="button"
-                            onClick={() => excluir(m)}
-                            disabled={salvando}
-                            className="pdx-tap"
-                            style={{ padding: "0.5rem 0.8rem", border: "none", borderRadius: "8px", background: COR.perigo, color: "#fff", fontSize: "0.78rem", fontWeight: 700, cursor: salvando ? "not-allowed" : "pointer", opacity: salvando ? 0.7 : 1, fontFamily: "inherit" }}
-                          >
-                            {r.quantidade === 0 ? "Excluir" : "Excluir tudo"}
-                          </button>
-                        )}
-                        {onArquivar && (
-                          <button
-                            type="button"
-                            onClick={() => arquivar(m)}
-                            disabled={salvando}
-                            className="pdx-tap"
-                            style={{ padding: "0.5rem 0.8rem", border: `1px solid ${COR.borda}`, borderRadius: "8px", background: "transparent", color: COR.texto, fontSize: "0.78rem", cursor: "pointer", fontFamily: "inherit" }}
-                          >
-                            Arquivar
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => setConfirmandoExclusao(false)}
-                          style={{ padding: "0.5rem 0.4rem", border: "none", background: "transparent", color: COR.medio, fontSize: "0.78rem", cursor: "pointer", fontFamily: "inherit" }}
-                        >
-                          Voltar
-                        </button>
-                      </div>
+                {/* UMA ação só (decisão do Lucas, 03/10): "arquivar" vs "excluir"
+                    confundia. Pra quem usa é "excluir"; por baixo é arquivar — some da
+                    lista pra sempre, mas os registros e os pontos ficam. */}
+                {onArquivar && confirmandoExclusao && (
+                  <div role="alertdialog" aria-label={`Excluir ${m.nome}`} style={{ border: `1px solid ${COR.perigo}`, borderRadius: "10px", padding: "0.7rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                    <p style={{ margin: 0, fontSize: "0.78rem", color: COR.texto, lineHeight: 1.45 }}>
+                      Excluir a caixinha "{m.nome}"? Ela some da sua lista. Seus registros continuam no histórico.
+                    </p>
+                    <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        onClick={() => arquivar(m)}
+                        disabled={salvando}
+                        className="pdx-tap"
+                        style={{ padding: "0.5rem 0.8rem", border: "none", borderRadius: "8px", background: COR.perigo, color: "#fff", fontSize: "0.78rem", fontWeight: 700, cursor: salvando ? "not-allowed" : "pointer", opacity: salvando ? 0.7 : 1, fontFamily: "inherit" }}
+                      >
+                        Excluir caixinha
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmandoExclusao(false)}
+                        style={{ padding: "0.5rem 0.4rem", border: "none", background: "transparent", color: COR.medio, fontSize: "0.78rem", cursor: "pointer", fontFamily: "inherit" }}
+                      >
+                        Voltar
+                      </button>
                     </div>
-                  );
-                })()}
+                  </div>
+                )}
               </div>
             )}
 
