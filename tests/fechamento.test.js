@@ -7,6 +7,7 @@ import {
   diasComLancamento,
   maiorSequencia,
   calcularFechamento,
+  tendenciaMeses,
 } from "../src/lib/fechamento";
 
 // Helper: lançamento com os campos que o app realmente usa.
@@ -332,5 +333,33 @@ describe("home do mês: fatura do cartão, débito e receitas (data da compra)",
   it("crédito sem cartão vira a linha sem cartão", () => {
     const f = calcularFechamento([out({ valor: 15, forma_pagamento: "Crédito", cartao_id: null })], 2026, 9, { hoje: HOJE_OUT });
     expect(f.cartaoPorCartao).toEqual([{ cartaoId: null, total: 15 }]);
+  });
+});
+
+describe("tendenciaMeses (Relatórios, mês fechado)", () => {
+  const dados = [
+    l({ data_lancamento: "2026-05-02", tipo: "receita", valor: 5000 }),
+    l({ data_lancamento: "2026-09-03", tipo: "receita", valor: 6000 }),
+    l({ data_lancamento: "2026-09-04", valor: 300, forma_pagamento: "PIX" }),
+    l({ data_lancamento: "2026-09-05", valor: 200, forma_pagamento: "crédito", cartao_id: 1 }),
+    l({ data_lancamento: "2026-09-20", valor: 200, forma_pagamento: "PIX", categoria: "Pagamento fatura", abate_saldo: false, cartao_id: 1 }),
+    l({ data_lancamento: "2026-09-21", valor: 999, meta_id: 3 }),
+    l({ data_lancamento: "2026-10-01", valor: 50, forma_pagamento: "Débito" }),
+  ];
+
+  it("devolve 6 meses até o selecionado, atravessando o ano", () => {
+    const t = tendenciaMeses(dados, 2027, 1, { hoje: new Date(2027, 1, 10) });
+    expect(t.map((m) => m.key)).toEqual(["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"]);
+    expect(t[5].mesCorrente).toBe(true);
+  });
+
+  it("cada mês segue o fechamento: sem pagamento de fatura e sem meta", () => {
+    const t = tendenciaMeses(dados, 2026, 9, { hoje: new Date(2026, 9, 3) });
+    expect(t).toHaveLength(6);
+    expect(t[0]).toMatchObject({ key: "2026-05", receitas: 5000, gasto: 0 });
+    const set = t.find((m) => m.key === "2026-09");
+    expect(set).toMatchObject({ receitas: 6000, debito: 300, cartao: 200, gasto: 500, mesCorrente: false });
+    const out = t.find((m) => m.key === "2026-10");
+    expect(out).toMatchObject({ debito: 50, gasto: 50, mesCorrente: true });
   });
 });

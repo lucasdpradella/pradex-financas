@@ -10,7 +10,6 @@ import {
   normalizeText,
   limparDescricaoParcela,
   montarDescricaoParcela,
-  getMonthKey,
   agruparPorParcelaGrupo,
   agruparLancamentos,
 } from "./lib/lancamentos";
@@ -1713,27 +1712,6 @@ export default function PradexFinancas() {
   const gastosDebito = gastos.filter(l => !ehCredito(l.forma_pagamento)).reduce((s, l) => s + Number(l.valor), 0);
   const gastosCredito = gastos.filter(l => ehCredito(l.forma_pagamento)).reduce((s, l) => s + Number(l.valor), 0);
   const fluxoHome = calcularFechamento(lancamentos, mesDashboard.ano, mesDashboard.mes, { normalizar: normalizeText });
-  // Compromissos ja assumidos pros proximos 3 meses.
-  //
-  // ANTES so contava parcela de CREDITO (forma_pagamento === "Credito" && total_parcelas).
-  // Recorrente ficava de fora: o PRADELLA viu "nenhuma parcela futura" no dashboard
-  // enquanto o Historico, rolando pra frente, mostrava a VIVO de R$330 em out/nov/dez.
-  //
-  // Os dois sao a mesma coisa do ponto de vista de quem planeja: dinheiro que JA esta
-  // comprometido. Entao o filtro passa a ser "gasto com data em mes futuro", o que
-  // pega parcela, recorrente e qualquer lancamento agendado.
-  const projecaoParcelas = Array.from({ length: 3 }, (_, offset) => {
-    const dataBase = new Date();
-    dataBase.setDate(1);
-    dataBase.setMonth(dataBase.getMonth() + offset + 1);
-    const monthKey = getMonthKey(dataBase);
-    const parcelasMes = lancamentos
-      .filter(l => l.tipo === "gasto" && l.data_lancamento?.startsWith(monthKey))
-      .sort((a, b) => Number(b.valor) - Number(a.valor));
-    const total = parcelasMes.reduce((s, l) => s + Number(l.valor), 0);
-    const comprasAtivas = new Set(parcelasMes.map(l => l.parcela_grupo_id || `${limparDescricaoParcela(l.descricao)}-${l.cartao_id || "sem-cartao"}`)).size;
-    return { key: monthKey, label: `${mesesCurtos[parseInt(monthKey.split("-")[1], 10) - 1]} ${monthKey.split("-")[0]}`, total, comprasAtivas, parcelas: parcelasMes.slice(0, 3) };
-  });
   const formatData = (d) => { if (!d) return ""; const [y, m, day] = d.split("-"); return `${day} ${mesesCurtos[parseInt(m)-1]}`; };
 
   const lancamentosAgrupados = agruparLancamentos(lancamentos);
@@ -2347,7 +2325,6 @@ export default function PradexFinancas() {
           onConfirmarRascunho={confirmarRascunho}
           onRejeitarRascunho={rejeitarRascunho}
           cartoes={cartoes}
-          compromissos={projecaoParcelas}
           ultimos={lancamentos.slice(0, 5)}
           onEditar={handleEdit}
           formaLabel={(forma) => getFormaPagamentoLabel(forma, tx("nao_informado"))}
@@ -2678,28 +2655,6 @@ export default function PradexFinancas() {
                     </div>
                     );
                   }) : <p style={{ margin: 0, fontSize: "0.85rem", color: "#5C6570" }}>{tx("sem_gastos")}</p>}
-                </div>
-                <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", border: "1px solid #1E2330" }}>
-                  <p style={{ margin: "0 0 1.25rem", fontSize: "0.75rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>{tx("proximos")}</p>
-                  {projecaoParcelas.some(m => m.total > 0) ? projecaoParcelas.map((mes) => (
-                    <div key={mes.key} style={{ padding: "0.85rem 0", borderBottom: "1px solid #1E2330" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.75rem", marginBottom: mes.parcelas.length > 0 ? "0.45rem" : 0 }}>
-                        <div>
-                          <p style={{ margin: "0 0 0.15rem", fontSize: "0.82rem", color: "#F1F2F4", fontWeight: 600 }}>{mes.label}</p>
-                          <p style={{ margin: 0, fontSize: "0.7rem", color: "#5C6570" }}>{mes.comprasAtivas > 0 ? `${mes.comprasAtivas} ${mes.comprasAtivas > 1 ? tx("parceladas") : tx("parcelada_uma")}` : tx("sem_parcelas")}</p>
-                        </div>
-                        <p style={{ margin: 0, fontSize: "0.88rem", fontWeight: 700, color: mes.total > 0 ? "#E06C65" : "#5C6570", whiteSpace: "nowrap" }}>{formatBRL(mes.total)}</p>
-                      </div>
-                      {mes.parcelas.map((parcela) => (
-                        <div key={parcela.id} style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", marginTop: "0.3rem" }}>
-                          <p style={{ margin: 0, fontSize: "0.72rem", color: "#8B93A1", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {limparDescricaoParcela(parcela.descricao)} {parcela.total_parcelas ? <span style={{ color: "#6366F1" }}>{parcela.parcela_atual}/{parcela.total_parcelas}x</span> : parcela.recorrente ? <span style={{ color: "#8B93A1" }}>{tx("recorrente_inline")}</span> : null}
-                          </p>
-                          <p style={{ margin: 0, fontSize: "0.72rem", color: "#8B93A1", whiteSpace: "nowrap" }}>{formatBRL(parcela.valor)}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )) : <p style={{ margin: 0, fontSize: "0.85rem", color: "#5C6570" }}>{tx("nada_comprometido")}</p>}
                 </div>
               </div>
               <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", border: "1px solid #1E2330", marginTop: "1rem" }}>

@@ -214,3 +214,26 @@ export function calcularFechamento(lancamentos, ano, mes, { hoje = new Date(), n
     destaque: montarDestaque(catAtual, catAnterior, doMesAnterior.length > 0),
   };
 }
+
+/**
+ * Tendência por mês fechado (Relatórios, out/2026): os `meses` meses até o
+ * selecionado (inclusive), cada um calculado pelo MESMO calcularFechamento — por
+ * data_lancamento, sem meta_id e sem pagamento de fatura. `gasto` = débito + cartão.
+ */
+export function tendenciaMeses(lancamentos, ano, mes, { meses = 6, hoje = new Date(), normalizar = (x) => x } = {}) {
+  return Array.from({ length: meses }, (_, i) => {
+    const p = passoMes(ano, mes, i - (meses - 1));
+    const f = calcularFechamento(lancamentos, p.ano, p.mes, { hoje, normalizar });
+    return {
+      key: prefixoMes(p.ano, p.mes),
+      ano: p.ano,
+      mes: p.mes,
+      label: MESES_CURTO[p.mes],
+      receitas: f.receitas,
+      debito: f.debito,
+      cartao: f.cartao,
+      gasto: f.debito + f.cartao,
+      mesCorrente: f.mesCorrente,
+    };
+  });
+}
