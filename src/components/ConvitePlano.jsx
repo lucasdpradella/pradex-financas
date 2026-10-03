@@ -1,4 +1,4 @@
-import { CHECKOUT, PRECO, temAcesso, checkoutComEmail } from "../lib/plano";
+import { CHECKOUT, PRECO, ROTULO, nivelPlano, checkoutComEmail } from "../lib/plano";
 
 // Banner de convite — aparece quando a pessoa chegou por um link com `?plano=`.
 //
@@ -15,17 +15,20 @@ import { CHECKOUT, PRECO, temAcesso, checkoutComEmail } from "../lib/plano";
 // Não bloqueia nada e fecha com o ×. Sem auto-redirect pro checkout de propósito:
 // `window.open` fora de clique é bloqueado pelo navegador, e mandar pra fora do app
 // alguém que só queria olhar é pior que não ter botão nenhum.
-const ROTULO = { essencial: "Essencial", assistente: "Assistente" };
-
 const DESCRICAO = {
   essencial: "Lançamentos pelo WhatsApp e teto por categoria, liberados na hora.",
   assistente: "Tudo do Essencial mais o Planejamento Financeiro completo.",
+  casal: "Tudo do Assistente para os dois, no mesmo livro — um paga, os dois usam.",
 };
 
 export default function ConvitePlano({ planoConvite, plano, email, isDesktop = false, onFechar }) {
   if (!planoConvite) return null;
   // Já tem o que o convite oferece: o banner viraria cobrança de quem já pagou.
-  if (temAcesso(plano, planoConvite === "assistente" ? "fp" : "whatsapp")) return null;
+  // Compara nível com nível: quem está no Assistente e recebeu convite do Casal ainda
+  // tem o que subir; quem está no Casal não recebe convite de nada abaixo.
+  if (nivelPlano(plano) >= nivelPlano(planoConvite)) return null;
+  // Plano sem checkout configurado (Casal antes da oferta existir): sem botão, sem banner.
+  if (!CHECKOUT[planoConvite]) return null;
 
   const cTitulo = isDesktop ? "#111827" : "#F1F2F4";
   const cCorpo = isDesktop ? "#4B5563" : "#8B93A1";

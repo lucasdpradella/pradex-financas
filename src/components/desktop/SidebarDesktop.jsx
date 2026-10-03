@@ -1,5 +1,5 @@
 import { desktopTheme as t, SIDEBAR_WIDTH } from "./theme";
-import { temAcesso, planoNecessario } from "../../lib/plano";
+import { temAcesso, planoNecessario, ROTULO } from "../../lib/plano";
 import { t as tr } from "../../lib/i18n";
 
 // Ícones outline (estilo Tabler/Lucide) inline — sem dependência nova.
@@ -109,7 +109,7 @@ export default function SidebarDesktop({ tela, setTela, userEmail, userRole, onL
               <Icon name={item.icon} />
               {tr(idioma, item.labelKey)}
               {desabilitado && <span className="pdx-sb__soon">em breve</span>}
-              {trancado && <span className="pdx-sb__soon" aria-label={`Requer plano ${planoNecessario(item.recurso) === "essencial" ? "Essencial" : "Assistente"}`}>🔒</span>}
+              {trancado && <span className="pdx-sb__soon" aria-label={`Requer plano ${ROTULO[planoNecessario(item.recurso)] ?? "Assistente"}`}>🔒</span>}
             </button>
           );
         })}

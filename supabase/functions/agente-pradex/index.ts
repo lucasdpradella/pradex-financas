@@ -353,7 +353,7 @@ async function resolverLivro(supabase: SupabaseClient, userId: string): Promise<
 // O agente é o produto do plano Essencial. Espelha src/lib/plano.js: planos são
 // ordinais, então Assistente entra junto. Sem esta checagem o gate do front seria
 // cosmético — quem já tem o número continuaria lançando de graça pelo Zap.
-const NIVEL_PLANO: Record<string, number> = { none: 0, essencial: 1, assistente: 2 };
+const NIVEL_PLANO: Record<string, number> = { none: 0, essencial: 1, assistente: 2, casal: 3 };
 const CHECKOUT_ESSENCIAL = "https://pay.cakto.com.br/a2xpq3u";
 
 // Espelha podeUsarWhatsapp de src/lib/plano.js: pago OU trial ativo. As duas pontas

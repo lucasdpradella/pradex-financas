@@ -34,7 +34,7 @@ const DIAS_META_PARADA = 30;       // a partir de quando "parada" é verdade
 const DIAS_PRAZO_APERTADO = 15;    // "em risco" olha só o prazo que está chegando
 const LIMITE_VARREDURA = 1000;     // PostgREST corta em 1000 sem avisar
 
-const NIVEL_PLANO: Record<string, number> = { none: 0, essencial: 1, assistente: 2 };
+const NIVEL_PLANO: Record<string, number> = { none: 0, essencial: 1, assistente: 2, casal: 3 };
 
 const log = (evento: string, dados: unknown = {}) =>
   console.log(JSON.stringify({ evento, ...(dados as object), ts: new Date().toISOString() }));

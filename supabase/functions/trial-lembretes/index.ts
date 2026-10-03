@@ -131,7 +131,7 @@ Deno.serve(async (req: Request) => {
 
       // Quem assinou durante o trial não recebe lembrete de fim de teste — seria
       // pedir dinheiro a quem já pagou.
-      if (p.plano === "essencial" || p.plano === "assistente") { resumo.pulados++; continue; }
+      if (p.plano === "essencial" || p.plano === "assistente" || p.plano === "casal") { resumo.pulados++; continue; }
       if (!p.telefone) { resumo.pulados++; continue; }
 
       const dia = diaDoTrial(new Date(p.trial_inicio), agora);
