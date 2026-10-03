@@ -2,14 +2,13 @@ import { useMemo } from "react";
 import { desktopTheme as t } from "./theme";
 import { ehPagamentoFatura } from "../../lib/formaPagamento";
 import { calcularFechamento } from "../../lib/fechamento";
-import { listarFaturas } from "../../lib/faturas";
 import HomeResumo from "../HomeResumo";
 import { t as tr } from "../../lib/i18n";
 
 // Dashboard analytics (Fase 2, desktop-only). Recebe os lançamentos que o App.jsx
 // já carregou — nenhuma query nova, tudo é agregação client-side.
 // O mês vem por prop (seletor da top-bar): cards, categorias, comparação e evitável
-// são do mês selecionado; a tendência são os 6 meses até ele.
+// são do mês selecionado. A tendência de 6 meses mora em Relatórios (out/2026).
 
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const MESES_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -55,24 +54,23 @@ const CSS = `
 .pdx-btn2:hover { background: ${t.mainBg}; color: ${t.textPrimary}; }
 .pdx-btn2--ok { background: ${t.accent}; border-color: ${t.accent}; color: #fff; }
 .pdx-btn2--ok:hover { background: ${t.accentHover}; color: #fff; }
-.pdx-legend { display: flex; gap: 1rem; font-size: 0.78rem; color: ${t.textSecondary}; }
-.pdx-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 0.35rem; }
-.pdx-chart { width: 100%; height: auto; display: block; overflow: visible; }
-.pdx-chart text { font-family: inherit; font-size: 13px; fill: ${t.textSecondary}; }
+.pdx-ult { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 1rem; padding: 0.6rem 0; border-bottom: 1px solid ${t.surfaceBorder}; cursor: pointer; }
+.pdx-ult:last-child { border-bottom: none; padding-bottom: 0; }
+.pdx-ult:hover .pdx-ult__desc { color: ${t.accent}; }
+.pdx-ult__desc { margin: 0; font-size: 0.9rem; color: ${t.textPrimary}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdx-ult__meta { margin: 0.1rem 0 0; font-size: 0.72rem; color: ${t.textSecondary}; }
+.pdx-ult__val { min-width: 120px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pdx-chip { font-size: 0.7rem; background: ${t.chipBg}; color: ${t.chipText}; border-radius: 999px; padding: 0.12rem 0.55rem; white-space: nowrap; }
+.pdx-tag { margin-left: 0.4rem; font-size: 0.65rem; font-weight: 600; background: ${t.chipBg}; color: ${t.chipText}; border-radius: 999px; padding: 0.1rem 0.5rem; }
 `;
 
-const prefixoDe = (ano, mes) => `${ano}-${String(mes + 1).padStart(2, "0")}`;
-const passoMes = (ano, mes, delta) => {
-  const total = ano * 12 + mes + delta;
-  return { ano: Math.floor(total / 12), mes: ((total % 12) + 12) % 12 };
-};
-const soma = (arr) => arr.reduce((s, l) => s + Number(l.valor || 0), 0);
 
 export default function DashboardDesktop({
   lancamentos, ano, mes, formatBRL,
   rascunhos = [], onConfirmarRascunho, onRejeitarRascunho, normalizeText = (x) => x,
   tetos = [],
-  bancos = [], cartoes = [], onSalvarSaldo, onCriarConta,
+  cartoes = [],
+  ultimos = [], onEditar, formaLabel = (f) => f || "—",
   idioma = "pt-BR",
 }) {
   const s = (key) => tr(idioma, key);
@@ -83,45 +81,25 @@ export default function DashboardDesktop({
     // não podem ter uma segunda implementação aqui.
     const f = calcularFechamento(lancamentos, ano, mes, { normalizar: normalizeText });
 
-    const doMes = (a, m) => {
-      const p = prefixoDe(a, m);
-      return lancamentos.filter((l) => l.data_lancamento?.startsWith(p));
-    };
-
-    const tendencia = Array.from({ length: 6 }, (_, i) => {
-      const { ano: a, mes: m } = passoMes(ano, mes, i - 5);
-      const doPeriodo = doMes(a, m);
-      return {
-        key: prefixoDe(a, m),
-        label: meses[m],
-        ano: a,
-        receita: soma(doPeriodo.filter((l) => l.tipo === "receita" && l.meta_id == null)),
-        gasto: soma(doPeriodo.filter((l) => l.tipo === "gasto" && l.meta_id == null && !ehPagamentoFatura(l))),
-      };
-    });
-    const maxTend = Math.max(...tendencia.flatMap((x) => [x.receita, x.gasto]), 1);
-
     return {
       ...f,
       vazio: !f.temLancamentos,
       maxCat: f.maxCategoria,
       mesAnterior: f.labelAnterior,
-      tendencia, maxTend,
     };
-  }, [lancamentos, ano, mes, normalizeText, meses]);
+  }, [lancamentos, ano, mes, normalizeText]);
 
-  const faturas = useMemo(
-    () => listarFaturas(lancamentos, cartoes, ano, mes, { normalizar: normalizeText, idioma }),
-    [lancamentos, cartoes, ano, mes, normalizeText, idioma],
-  );
+  const dataCurta = (d) => {
+    if (!d) return "";
+    const [, m, dia] = String(d).split("-");
+    return `${dia} ${meses[parseInt(m, 10) - 1] || ""}`;
+  };
 
   // Δ do gasto total vs mês anterior. Sem base de comparação, não inventa percentual.
   const deltaAbs = dados.gastoTotal - dados.gastoAnterior;
   const deltaPct = dados.gastoAnterior > 0 ? (deltaAbs / dados.gastoAnterior) * 100 : null;
   const deltaClasse = Math.abs(deltaAbs) < 0.005 ? "flat" : deltaAbs > 0 ? "up" : "down";
 
-  // Geometria do gráfico de tendência (SVG puro, sem lib).
-  const W = 600, H = 210, BASE = 160, ALTURA = 130, PASSO = W / 6, LARG = 26;
 
   return (
     <div className="pdx-dash">
@@ -157,17 +135,15 @@ export default function DashboardDesktop({
       <HomeResumo
         variant="desktop"
         fluxo={dados}
-        faturas={faturas}
-        bancos={bancos}
+        cartoes={cartoes}
         formatBRL={formatBRL}
         idioma={idioma}
-        onSalvarSaldo={onSalvarSaldo}
-        onCriarConta={onCriarConta}
+        normalizar={normalizeText}
       />
 
       <div className="pdx-strip">
         <span className="pdx-strip__item">
-          {s("gasto_total")} <b>{formatBRL(dados.gastoTotal)}</b>
+          {s("gasto_total")} <b>{formatBRL(dados.gastoTotal)}</b> {s("gasto_total_sub")}
         </span>
         <span className={`pdx-delta pdx-delta--${deltaClasse}`}>
           {deltaClasse === "flat" ? "=" : deltaClasse === "up" ? "▲" : "▼"}
@@ -229,40 +205,34 @@ export default function DashboardDesktop({
           )}
         </div>
 
+
         <div className="pdx-panel">
           <div className="pdx-panel__head">
-            <p className="pdx-panel__title">{s("tendencia")}</p>
-            <div className="pdx-legend">
-              <span><i style={{ background: t.receita }} />{s("receita_legenda")}</span>
-              <span><i style={{ background: t.gasto }} />{s("gasto_legenda")}</span>
-            </div>
+            <p className="pdx-panel__title">{s("ultimos")}</p>
           </div>
-          <svg className="pdx-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={s("chart_aria")}>
-            <line x1="0" y1={BASE} x2={W} y2={BASE} stroke={t.surfaceBorder} strokeWidth="1" />
-            {dados.tendencia.map((m, i) => {
-              const centro = i * PASSO + PASSO / 2;
-              const hR = (m.receita / dados.maxTend) * ALTURA;
-              const hG = (m.gasto / dados.maxTend) * ALTURA;
-              const atual = m.key === prefixoDe(ano, mes);
-              return (
-                <g key={m.key}>
-                  <rect x={centro - LARG - 2} y={BASE - hR} width={LARG} height={hR} rx="3" fill={t.receita}>
-                    <title>{`${m.label}/${m.ano} · ${s("receita_legenda")} ${formatBRL(m.receita)}`}</title>
-                  </rect>
-                  <rect x={centro + 2} y={BASE - hG} width={LARG} height={hG} rx="3" fill={t.gasto}>
-                    <title>{`${m.label}/${m.ano} · ${s("gasto_legenda")} ${formatBRL(m.gasto)}`}</title>
-                  </rect>
-                  <text x={centro} y={BASE + 22} textAnchor="middle" fontWeight={atual ? 700 : 500} fill={atual ? t.textPrimary : t.textSecondary}>
-                    {m.label}
-                  </text>
-                  <text x={centro} y={BASE + 40} textAnchor="middle" fontSize="11" opacity="0.75">
-                    {m.ano}
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
+          {ultimos.length === 0 ? (
+            <p className="pdx-panel__empty">{s("painel_vazio")}</p>
+          ) : ultimos.map((l) => {
+            const pagamento = ehPagamentoFatura(l);
+            const receita = l.tipo === "receita";
+            return (
+              <div className="pdx-ult" key={l.id} onClick={() => onEditar?.(l)}>
+                <div style={{ minWidth: 0 }}>
+                  <p className="pdx-ult__desc" title={normalizeText(l.descricao)}>
+                    {normalizeText(l.descricao)}
+                    {pagamento && <span className="pdx-tag">{s("nao_e_gasto")}</span>}
+                  </p>
+                  <p className="pdx-ult__meta">{dataCurta(l.data_lancamento)} · {formaLabel(l.forma_pagamento)}</p>
+                </div>
+                <span className="pdx-chip">{normalizeText(l.categoria) || "—"}</span>
+                <span className="pdx-ult__val" style={{ color: pagamento ? t.textSecondary : receita ? t.receita : t.gasto }}>
+                  {pagamento ? "" : receita ? "+" : "−"}{formatBRL(l.valor)}
+                </span>
+              </div>
+            );
+          })}
         </div>
+
       </div>
 
       {dados.vazio && (

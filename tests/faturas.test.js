@@ -133,3 +133,17 @@ describe("listarFaturas", () => {
     expect(dataReferenciaDoMes(2026, 7, HOJE)).toBe("2026-08-15");
   });
 });
+
+describe("faturaPorDataDaCompra", () => {
+  it("junta o total por cartão com nome e dias do cadastro, sem ciclo", async () => {
+    const { faturaPorDataDaCompra } = await import("../src/lib/faturas");
+    const linhas = faturaPorDataDaCompra(
+      [{ cartaoId: "1", total: 350 }, { cartaoId: null, total: 15 }, { cartaoId: "9", total: 0 }],
+      [{ id: 1, nome: "XP", dia_fechamento: 5, dia_vencimento: 12 }],
+    );
+    expect(linhas).toEqual([
+      { cartaoId: "1", nome: "XP", total: 350, diaFechamento: 5, diaVencimento: 12 },
+      { cartaoId: null, nome: null, total: 15, diaFechamento: null, diaVencimento: null },
+    ]);
+  });
+});

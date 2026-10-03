@@ -181,3 +181,25 @@ export function acharCartaoNoTexto(texto, cartoes) {
   hits.sort((a, b) => semAcento(b.nome).length - semAcento(a.nome).length);
   return hits[0] || null;
 }
+
+/**
+ * Fatura do mês "por data da compra" (home, out/2026): junta `cartaoPorCartao` do
+ * fechamento com o cadastro do cartão. Valor cheio das compras no crédito com
+ * data no mês — sem ciclo de fechamento e sem descontar pagamento. Os dias de
+ * fechamento/vencimento só aparecem como texto de apoio.
+ */
+export function faturaPorDataDaCompra(cartaoPorCartao, cartoes, { normalizar = (x) => x } = {}) {
+  const porId = new Map((cartoes || []).map((c) => [String(c.id), c]));
+  return (cartaoPorCartao || [])
+    .filter((x) => Number(x.total) > 0)
+    .map((x) => {
+      const cartao = x.cartaoId == null ? null : porId.get(String(x.cartaoId));
+      return {
+        cartaoId: x.cartaoId,
+        nome: cartao ? (normalizar(cartao.nome || "") || cartao.nome || "") : null,
+        total: x.total,
+        diaFechamento: cartao?.dia_fechamento || null,
+        diaVencimento: cartao?.dia_vencimento || null,
+      };
+    });
+}

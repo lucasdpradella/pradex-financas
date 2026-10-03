@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { desktopTheme as t } from "./theme";
-import { calcularFechamento, formatarBRL } from "../../lib/fechamento";
+import { calcularFechamento, formatarBRL, tendenciaMeses } from "../../lib/fechamento";
 import { calcularDisciplina } from "../../lib/disciplina";
 
 // Relatórios v1 — fechamento do mês + score de disciplina (desktop-only).
@@ -75,7 +75,11 @@ const CSS = `
 .pdx-rcomp--na .pdx-rcomp__nome, .pdx-rcomp--na .pdx-rcomp__pts { color: ${t.textSecondary}; }
 .pdx-rnota { margin: 0.9rem 0 0; font-size: 0.75rem; color: ${t.textSecondary}; line-height: 1.5; }
 
-.pdx-rnobel { background: ${t.surface}; border: 1px solid ${t.surfaceBorder}; border-radius: 12px; padding: 1.25rem 1.35rem; display: flex; align-items: center; justify-content: space-between; gap: 1.25rem; flex-wrap: wrap; }
+.pdx-rchart { width: 100%; height: auto; display: block; overflow: visible; }
+.pdx-rchart text { font-family: inherit; font-size: 13px; fill: ${t.textSecondary}; }
+.pdx-rtend__head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 0.6rem; }
+.pdx-rtend__head .pdx-rpanel__title { margin: 0; }
+ background: ${t.surface}; border: 1px solid ${t.surfaceBorder}; border-radius: 12px; padding: 1.25rem 1.35rem; display: flex; align-items: center; justify-content: space-between; gap: 1.25rem; flex-wrap: wrap; }
 .pdx-rnobel h3 { margin: 0 0 0.3rem; font-size: 0.95rem; font-weight: 700; color: ${t.textPrimary}; }
 .pdx-rnobel p { margin: 0; font-size: 0.85rem; color: ${t.textSecondary}; max-width: 620px; }
 .pdx-rnobel a { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.6rem 1.1rem; border-radius: 9px; background: ${t.accent}; color: #fff; font-size: 0.87rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
@@ -111,6 +115,14 @@ export default function RelatoriosDesktop({ lancamentos, ano, mes, normalizeText
     [lancamentos, ano, mes, normalizeText],
   );
   const d = useMemo(() => calcularDisciplina(f), [f]);
+
+  const tendencia = useMemo(
+    () => tendenciaMeses(lancamentos, ano, mes, { normalizar: normalizeText }),
+    [lancamentos, ano, mes, normalizeText],
+  );
+  const maxTend = Math.max(...tendencia.flatMap((m) => [m.receitas, m.gasto]), 1);
+  // Geometria (SVG puro, sem lib): receita ao lado do gasto empilhado débito + cartão.
+  const W = 960, H = 200, BASE = 150, ALTURA = 125, PASSO = W / 6, LARG = 30;
 
   const delta = chipDelta(f.deltaGasto, f.deltaGastoPct);
   const totalSplit = f.debito + f.cartao;
@@ -233,6 +245,51 @@ export default function RelatoriosDesktop({ lancamentos, ano, mes, normalizeText
             </div>
           </>
         )}
+      </div>
+
+      {/* 4. Tendência por mês fechado (veio da home em out/2026) */}
+      <div className="pdx-rpanel">
+        <div className="pdx-rtend__head">
+          <p className="pdx-rpanel__title">Tendência 6 meses · mês fechado</p>
+          <div className="pdx-rlegend">
+            <span><i style={{ background: t.receita }} />Receitas</span>
+            <span><i style={{ background: BAR_COLORS[0] }} />Débito/PIX</span>
+            <span><i style={{ background: BAR_COLORS[1] }} />Crédito</span>
+          </div>
+        </div>
+        <svg className="pdx-rchart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Receitas, débito e crédito por mês nos últimos 6 meses">
+          <line x1="0" y1={BASE} x2={W} y2={BASE} stroke={t.surfaceBorder} strokeWidth="1" />
+          {tendencia.map((m, i) => {
+            const centro = i * PASSO + PASSO / 2;
+            const hR = (m.receitas / maxTend) * ALTURA;
+            const hD = (m.debito / maxTend) * ALTURA;
+            const hC = (m.cartao / maxTend) * ALTURA;
+            const atual = m.ano === ano && m.mes === mes;
+            return (
+              <g key={m.key}>
+                <rect x={centro - LARG - 2} y={BASE - hR} width={LARG} height={hR} rx="3" fill={t.receita}>
+                  <title>{`${m.label}/${m.ano} · receitas ${formatarBRL(m.receitas)}`}</title>
+                </rect>
+                <rect x={centro + 2} y={BASE - hD} width={LARG} height={hD} rx="3" fill={BAR_COLORS[0]}>
+                  <title>{`${m.label}/${m.ano} · débito/PIX ${formatarBRL(m.debito)}`}</title>
+                </rect>
+                <rect x={centro + 2} y={BASE - hD - hC} width={LARG} height={hC} rx="3" fill={BAR_COLORS[1]}>
+                  <title>{`${m.label}/${m.ano} · crédito ${formatarBRL(m.cartao)}`}</title>
+                </rect>
+                <text x={centro} y={BASE + 22} textAnchor="middle" fontWeight={atual ? 700 : 500} fill={atual ? t.textPrimary : t.textSecondary}>
+                  {m.label}
+                </text>
+                <text x={centro} y={BASE + 40} textAnchor="middle" fontSize="11" opacity="0.75">
+                  {m.mesCorrente ? "em andamento" : m.ano}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+        <p className="pdx-rnota">
+          Cada mês conta pela data do lançamento. Pagamento de fatura e caixinhas de meta ficam
+          de fora: a compra no crédito já é o gasto.
+        </p>
       </div>
 
       {/* 6. CTA Nobel */}

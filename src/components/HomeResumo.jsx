@@ -1,10 +1,17 @@
 import { useRef, useState } from "react";
-import { parseValorConta } from "../lib/formaPagamento";
+import { faturaPorDataDaCompra } from "../lib/faturas";
 import { t } from "../lib/i18n";
 
-// As três camadas da home: Fluxo do mês, Nas contas agora, Faturas.
-// O mesmo componente serve o mobile (escuro) e o desktop (claro). A conta é do
-// fechamento e de listarFaturas — aqui só se mostra e se edita o saldo.
+// Topo da home (out/2026): Fatura do cartão, Débito do mês e Receitas do mês do mês
+// selecionado, tudo por data_lancamento e com o valor cheio do mês. A conta mora em
+// lib/fechamento.js (`cartaoPorCartao`, `debito`, `receitas`, `pagamentoFatura`) —
+// aqui só se mostra. O mesmo componente serve o mobile (escuro) e o desktop (claro).
+//
+// A Fatura do cartão já nasce como carrossel de "faces". Hoje só existe a face
+// "Por data da compra". A face "Pelo fechamento" (ciclo do cartão, lib/faturas.js →
+// cicloQueContem) fica atrás de FATURA_PELO_FECHAMENTO e não é renderizada; quando
+// ligar, o mobile ganha os pontos + scroll-snap e o desktop as abas.
+export const FATURA_PELO_FECHAMENTO = false;
 
 const TEMA = {
   mobile: {
@@ -14,10 +21,11 @@ const TEMA = {
     medio: "#8B93A1",
     fraco: "#5C6570",
     fundo: "#0C0E14",
-    entrou: "#2FBF8A",
-    saiu: "#E06C65",
+    receita: "#2FBF8A",
+    gasto: "#E06C65",
+    fatura: "#E8943A",
     acento: "#6366F1",
-    chip: "#0C0E14",
+    raio: 16,
   },
   desktop: {
     card: "#FFFFFF",
@@ -26,212 +34,168 @@ const TEMA = {
     medio: "#6B7280",
     fraco: "#9AA1AE",
     fundo: "#F1F3F9",
-    entrou: "#059669",
-    saiu: "#DC2626",
+    receita: "#059669",
+    gasto: "#DC2626",
+    fatura: "#B45309",
     acento: "#4F46E5",
-    chip: "#F1F3F9",
+    raio: 12,
   },
 };
-
-function Icone({ tipo, cor }) {
-  const comum = { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: cor, strokeWidth: 2.2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true };
-  if (tipo === "entrou") return <svg {...comum}><path d="M12 19V5" /><path d="M6 11l6-6 6 6" /></svg>;
-  if (tipo === "saiu") return <svg {...comum}><path d="M12 5v14" /><path d="M6 13l6 6 6-6" /></svg>;
-  return <svg {...comum}><path d="M5 12h14" /></svg>;
-}
-
-function LinhaFluxo({ tipo, label, valor, cor, texto, borda }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", padding: "0.72rem 0", borderBottom: `1px solid ${borda}` }}>
-      <span style={{ display: "inline-flex", alignItems: "center", gap: "0.55rem", color: cor, fontWeight: 650, fontSize: "0.92rem" }}>
-        <span style={{ width: 28, height: 28, borderRadius: "999px", border: `1.5px solid ${cor}`, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <Icone tipo={tipo} cor={cor} />
-        </span>
-        {label}
-      </span>
-      <span style={{ color: cor, fontWeight: 750, fontSize: "1.05rem", fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em" }}>{valor}</span>
-    </div>
-  );
-}
 
 export default function HomeResumo({
   variant = "mobile",
   fluxo,
-  faturas = [],
-  bancos = [],
+  cartoes = [],
   formatBRL,
   idioma = "pt-BR",
-  onSalvarSaldo,
-  onCriarConta,
+  normalizar = (x) => x,
+  pelaDataDoFechamento = FATURA_PELO_FECHAMENTO,
 }) {
   const s = (key) => t(idioma, key);
   const c = TEMA[variant] || TEMA.mobile;
-  const cancelarEdicao = useRef(false);
-  const [editandoId, setEditandoId] = useState(null);
-  const [rascunho, setRascunho] = useState("");
-  const [erro, setErro] = useState("");
-  const [ocupado, setOcupado] = useState(false);
-  const [nova, setNova] = useState(false);
-  const [nomeNova, setNomeNova] = useState("");
-  const [saldoNova, setSaldoNova] = useState("");
-
+  const desktop = variant === "desktop";
   const dinheiro = (v) => formatBRL(Number(v || 0));
-  const disponivel = bancos.reduce((s, b) => s + Number(b.saldo_atual || 0), 0);
+  const trilho = useRef(null);
+  const [face, setFace] = useState(0);
 
-  const abrir = (banco) => {
-    setErro("");
-    setEditandoId(banco.id);
-    setRascunho(banco.saldo_atual == null ? "" : String(banco.saldo_atual).replace(".", ","));
-  };
-
-  const salvar = async (banco) => {
-    const valor = parseValorConta(rascunho);
-    if (valor == null) { setErro(s("erro_saldo")); return; }
-    setOcupado(true); setErro("");
-    const res = await onSalvarSaldo?.(banco, valor);
-    setOcupado(false);
-    if (res && res.ok === false) { setErro(res.erro || s("erro_salvar_saldo")); return; }
-    setEditandoId(null);
-  };
-
-  const criar = async () => {
-    const nome = nomeNova.trim();
-    if (!nome) { setErro(s("erro_nome_conta")); return; }
-    const saldo = saldoNova.trim() ? parseValorConta(saldoNova) : null;
-    if (saldoNova.trim() && saldo == null) { setErro(s("erro_saldo_invalido")); return; }
-    setOcupado(true); setErro("");
-    const res = await onCriarConta?.(nome);
-    if (!res?.ok) { setOcupado(false); setErro(res?.erro || s("erro_criar_conta")); return; }
-    if (saldo != null && res.banco) {
-      const saldoRes = await onSalvarSaldo?.(res.banco, saldo);
-      if (saldoRes && saldoRes.ok === false) { setOcupado(false); setErro(saldoRes.erro || s("erro_saldo_parcial")); return; }
-    }
-    setOcupado(false);
-    setNova(false); setNomeNova(""); setSaldoNova("");
-  };
+  const linhas = faturaPorDataDaCompra(fluxo?.cartaoPorCartao, cartoes, { normalizar });
+  const totalFatura = Number(fluxo?.cartao || 0);
+  const pagamentoFatura = Number(fluxo?.pagamentoFatura || 0);
 
   const card = {
     background: c.card,
     border: `1px solid ${c.borda}`,
-    borderRadius: 16,
-    padding: variant === "desktop" ? "1.15rem 1.3rem" : "1rem 1.05rem",
-    marginBottom: "0.85rem",
+    borderRadius: c.raio,
+    padding: desktop ? "1.1rem 1.25rem" : "1rem 1.05rem",
+    minWidth: 0,
+    boxSizing: "border-box",
   };
-  const titulo = {
-    margin: "0 0 0.35rem",
-    fontSize: "0.95rem",
-    fontWeight: 750,
-    color: c.texto,
-    display: "flex",
-    alignItems: "center",
-    gap: "0.4rem",
-  };
+  const rotulo = { margin: "0 0 0.3rem", fontSize: desktop ? "0.72rem" : "0.75rem", fontWeight: 600, color: c.medio, textTransform: "uppercase", letterSpacing: desktop ? "0.07em" : "0.1em" };
+  const valor = (cor, tam) => ({ margin: 0, fontSize: tam, fontWeight: 700, color: cor, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" });
+  const apoio = { margin: "0.2rem 0 0", fontSize: "0.74rem", color: desktop ? c.medio : c.fraco };
 
-  return (
-    <div>
-      <section style={card} aria-label={s("fluxo")}>
-        <p style={titulo}>
-          {s("fluxo")}
-          <span title={s("fluxo_dica")} style={{ width: 16, height: 16, borderRadius: "999px", border: `1.5px solid ${c.fraco}`, color: c.fraco, fontSize: "0.65rem", display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>i</span>
-        </p>
-        <LinhaFluxo tipo="entrou" label={s("entrou")} valor={dinheiro(fluxo?.entrou)} cor={c.entrou} borda={c.borda} />
-        <LinhaFluxo tipo="saiu" label={s("saiu")} valor={dinheiro(fluxo?.saiu)} cor={c.saiu} borda={c.borda} />
-        <LinhaFluxo tipo="diferenca" label={s("diferenca")} valor={dinheiro(fluxo?.diferenca)} cor={c.texto} borda="transparent" />
-        {Number(fluxo?.guardado) > 0 && (
-          <p style={{ margin: "0.15rem 0 0", fontSize: "0.78rem", color: c.acento, fontWeight: 650 }}>
-            {s("guardou")} {dinheiro(fluxo.guardado)}
-            <span style={{ color: c.medio, fontWeight: 500 }}> · {s("guardou_nota")}</span>
-          </p>
-        )}
-        <p style={{ margin: "0.45rem 0 0", fontSize: "0.72rem", color: c.fraco, display: "flex", alignItems: "center", gap: "0.3rem" }}>
-          <span aria-hidden="true">↕</span> {s("fluxo_nota")}
-        </p>
-      </section>
-
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem", margin: "-0.25rem 0 0.85rem" }}>
-        <span style={{ background: c.chip, color: c.medio, border: `1px solid ${c.borda}`, borderRadius: 999, padding: "0.28rem 0.7rem", fontSize: "0.75rem", fontWeight: 650 }}>
-          {s("debito")} {dinheiro(fluxo?.debito)}
-        </span>
-        <span style={{ background: c.chip, color: c.medio, border: `1px solid ${c.borda}`, borderRadius: 999, padding: "0.28rem 0.7rem", fontSize: "0.75rem", fontWeight: 650 }}>
-          {s("cartao")} {dinheiro(fluxo?.cartao)}
-        </span>
+  const faceCompra = (
+    <div key="compra" data-face="compra" style={{ flex: "0 0 100%", scrollSnapAlign: "start", minWidth: 0 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.75rem" }}>
+        <div style={{ minWidth: 0 }}>
+          <p style={rotulo}>{s("fatura_cartao")}</p>
+          <p style={{ ...apoio, margin: 0 }}>{s("fatura_sub_compra")}</p>
+        </div>
+        <p style={valor(c.fatura, desktop ? "1.35rem" : "1.35rem")}>{dinheiro(totalFatura)}</p>
       </div>
-
-      <section style={card} aria-label={s("contas")}>
-        <p style={titulo}>{s("contas")}</p>
-        {bancos.length === 0 && !nova && (
-          <p style={{ margin: "0.2rem 0 0.6rem", fontSize: "0.82rem", color: c.medio }}>{s("contas_vazias")}</p>
-        )}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(108px, 1fr))", gap: "0.65rem", alignItems: "start" }}>
-          {bancos.map((banco) => (
-            <div key={banco.id} style={{ minWidth: 0, paddingRight: "0.35rem" }}>
-              <p style={{ margin: "0 0 0.2rem", fontSize: "0.78rem", color: c.medio, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{banco.nome}</p>
-              {editandoId === banco.id ? (
-                <input
-                  aria-label={`Saldo de ${banco.nome}`}
-                  inputMode="decimal"
-                  value={rascunho}
-                  autoFocus
-                  disabled={ocupado}
-                  onChange={(e) => setRascunho(e.target.value)}
-                  onBlur={() => {
-                    if (cancelarEdicao.current) { cancelarEdicao.current = false; return; }
-                    salvar(banco);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); }
-                    if (e.key === "Escape") { cancelarEdicao.current = true; setEditandoId(null); }
-                  }}
-                  style={{ width: "100%", boxSizing: "border-box", background: c.fundo, color: c.texto, border: `1px solid ${c.acento}`, borderRadius: 8, padding: "0.35rem 0.45rem", font: "inherit", fontWeight: 700 }}
-                />
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => abrir(banco)}
-                  style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: c.texto, fontWeight: 750, fontSize: "0.95rem", fontVariantNumeric: "tabular-nums", fontFamily: "inherit" }}
-                >
-                  {banco.saldo_atual == null ? s("informar") : dinheiro(banco.saldo_atual)}
-                </button>
-              )}
+      {linhas.length === 0 ? (
+        <p style={{ margin: "0.7rem 0 0", fontSize: "0.82rem", color: c.medio }}>{s("fatura_vazia")}</p>
+      ) : (
+        <div style={{ marginTop: "0.35rem" }}>
+          {linhas.map((l, i) => (
+            <div key={l.cartaoId ?? "sem-cartao"} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.75rem", padding: "0.65rem 0", borderBottom: i === linhas.length - 1 ? "none" : `1px solid ${c.borda}` }}>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 500, color: c.texto, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.nome || s("sem_cartao")}</p>
+                {(l.diaFechamento || l.diaVencimento) && (
+                  <p style={{ margin: "0.12rem 0 0", fontSize: "0.7rem", color: desktop ? c.medio : c.fraco }}>
+                    {s("fecha_dia")} {l.diaFechamento || "-"} · {s("vence_dia")} {l.diaVencimento || "-"}
+                  </p>
+                )}
+              </div>
+              <p style={{ margin: 0, fontWeight: 700, color: desktop ? c.texto : c.fatura, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{dinheiro(l.total)}</p>
             </div>
           ))}
-          <div style={{ minWidth: 0, borderLeft: bancos.length ? `1px solid ${c.borda}` : "none", paddingLeft: bancos.length ? "0.7rem" : 0 }}>
-            <p style={{ margin: "0 0 0.2rem", fontSize: "0.78rem", color: c.medio }}>{s("disponivel")}</p>
-            <p style={{ margin: 0, color: c.texto, fontWeight: 800, fontSize: "0.95rem", fontVariantNumeric: "tabular-nums" }}>{dinheiro(disponivel)}</p>
-          </div>
         </div>
-        {nova ? (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem", marginTop: "0.85rem" }}>
-            <input aria-label={s("erro_nome_conta")} placeholder={s("ph_conta")} value={nomeNova} onChange={(e) => setNomeNova(e.target.value)} style={{ flex: "1 1 140px", background: c.fundo, color: c.texto, border: `1px solid ${c.borda}`, borderRadius: 8, padding: "0.45rem 0.6rem", font: "inherit" }} />
-            <input aria-label={s("ph_saldo")} placeholder={s("ph_saldo")} inputMode="decimal" value={saldoNova} onChange={(e) => setSaldoNova(e.target.value)} style={{ width: 110, background: c.fundo, color: c.texto, border: `1px solid ${c.borda}`, borderRadius: 8, padding: "0.45rem 0.6rem", font: "inherit" }} />
-            <button type="button" disabled={ocupado} onClick={criar} style={{ border: "none", borderRadius: 8, background: c.acento, color: "#fff", fontWeight: 700, padding: "0.45rem 0.75rem", cursor: "pointer", fontFamily: "inherit" }}>{ocupado ? s("salvando") : s("salvar")}</button>
-            <button type="button" onClick={() => { setNova(false); setErro(""); }} style={{ border: "none", background: "none", color: c.medio, cursor: "pointer", fontFamily: "inherit" }}>{s("cancelar")}</button>
-          </div>
-        ) : (
-          <button type="button" onClick={() => { setNova(true); setErro(""); }} style={{ marginTop: "0.75rem", background: "none", border: "none", padding: 0, color: c.acento, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", fontSize: "0.8rem" }}>
-            {s("adicionar_conta")}
-          </button>
-        )}
-        {erro && <p style={{ margin: "0.55rem 0 0", fontSize: "0.78rem", color: c.saiu }}>{erro}</p>}
-      </section>
+      )}
+    </div>
+  );
 
-      <section style={{ ...card, marginBottom: 0 }} aria-label={s("faturas")}>
-        <p style={titulo}>{s("faturas")}</p>
-        {faturas.length === 0 ? (
-          <p style={{ margin: "0.35rem 0 0.7rem", fontSize: "0.82rem", color: c.medio }}>{s("faturas_vazias")}</p>
-        ) : faturas.map((f) => (
-          <div key={f.cartaoId} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", padding: "0.72rem 0", borderBottom: `1px solid ${c.borda}` }}>
-            <div style={{ minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: "0.9rem", color: c.texto, fontWeight: 600 }}>{f.label}</p>
-              {f.vencimento && <p style={{ margin: "0.12rem 0 0", fontSize: "0.72rem", color: c.medio }}>{f.vencimento}</p>}
-            </div>
-            <p style={{ margin: 0, fontWeight: 750, color: c.texto, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{dinheiro(f.valor)}</p>
-          </div>
-        ))}
-        <p style={{ margin: "0.7rem 0 0", fontSize: "0.75rem", color: c.medio, background: c.fundo, borderRadius: 10, padding: "0.55rem 0.7rem" }}>
-          {s("fatura_nota")}
-        </p>
-      </section>
+  // Placeholder da segunda face: estrutura apenas, desligada por flag.
+  const faces = [{ id: "compra", label: s("face_compra"), node: faceCompra }];
+  if (pelaDataDoFechamento) {
+    faces.push({
+      id: "fechamento",
+      label: s("face_fechamento"),
+      node: (
+        <div key="fechamento" data-face="fechamento" style={{ flex: "0 0 100%", scrollSnapAlign: "start", minWidth: 0 }}>
+          <p style={rotulo}>{s("fatura_cartao")} · {s("face_fechamento")}</p>
+        </div>
+      ),
+    });
+  }
+  const variasFaces = faces.length > 1;
+
+  const irPara = (i) => {
+    setFace(i);
+    const el = trilho.current;
+    if (el && !desktop) el.scrollTo({ left: el.clientWidth * i, behavior: "smooth" });
+  };
+
+  const cardFatura = (
+    <section style={card} aria-label={s("fatura_cartao")}>
+      {variasFaces && desktop && (
+        <div role="tablist" style={{ display: "flex", gap: "0.35rem", marginBottom: "0.7rem" }}>
+          {faces.map((f, i) => (
+            <button key={f.id} role="tab" aria-selected={face === i} type="button" onClick={() => irPara(i)} style={{ border: "none", borderRadius: 999, padding: "0.2rem 0.65rem", fontSize: "0.72rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: face === i ? "#EEF2FF" : "transparent", color: face === i ? "#4338CA" : c.medio }}>{f.label}</button>
+          ))}
+        </div>
+      )}
+      <div
+        ref={trilho}
+        onScroll={variasFaces && !desktop ? (e) => {
+          const el = e.currentTarget;
+          if (el.clientWidth) setFace(Math.round(el.scrollLeft / el.clientWidth));
+        } : undefined}
+        style={{ display: "flex", overflowX: variasFaces && !desktop ? "auto" : "hidden", scrollSnapType: variasFaces && !desktop ? "x mandatory" : undefined, scrollbarWidth: "none" }}
+      >
+        {desktop ? faces[face]?.node : faces.map((f) => f.node)}
+      </div>
+      {variasFaces && !desktop && (
+        <div style={{ display: "flex", justifyContent: "center", gap: "0.35rem", marginTop: "0.6rem" }}>
+          {faces.map((f, i) => (
+            <button key={f.id} type="button" aria-label={f.label} onClick={() => irPara(i)} style={{ width: 7, height: 7, padding: 0, borderRadius: 999, border: "none", cursor: "pointer", background: face === i ? c.acento : c.borda }} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+
+  const notaPagamento = (
+    <p style={{ margin: desktop ? "0.85rem 0 0" : "0", fontSize: "0.72rem", color: c.medio, background: c.fundo, borderRadius: desktop ? 8 : 10, padding: "0.45rem 0.65rem" }}>
+      {s("pagamento_fatura_label")}{pagamentoFatura > 0 ? ` (${dinheiro(pagamentoFatura)})` : ""} {s("debito_nota_resto")}
+    </p>
+  );
+
+  const cardDebito = (
+    <section style={card} aria-label={s("debito_mes")}>
+      <p style={rotulo}>{s("debito_mes")}</p>
+      <p style={valor(c.gasto, desktop ? "1.6rem" : "1.15rem")}>{dinheiro(fluxo?.debito)}</p>
+      <p style={apoio}>{s("debito_sub")}</p>
+      {desktop && notaPagamento}
+    </section>
+  );
+
+  const cardReceitas = (
+    <section style={card} aria-label={s("receitas_mes")}>
+      <p style={rotulo}>{s("receitas_mes")}</p>
+      <p style={valor(c.receita, desktop ? "1.6rem" : "1.15rem")}>{dinheiro(fluxo?.receitas)}</p>
+      <p style={apoio}>{s("receitas_sub")}</p>
+    </section>
+  );
+
+  if (desktop) {
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr)", gap: "1rem", alignItems: "stretch" }}>
+        {cardFatura}
+        {cardDebito}
+        {cardReceitas}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginBottom: "0.85rem" }}>
+      <div style={{ marginBottom: "0.75rem" }}>{cardFatura}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "0.75rem", marginBottom: "0.75rem" }}>
+        {cardDebito}
+        {cardReceitas}
+      </div>
+      {notaPagamento}
     </div>
   );
 }

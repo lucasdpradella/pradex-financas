@@ -30,24 +30,24 @@ describe("iniciais", () => {
 });
 
 describe("i18n da home", () => {
-  it("inglês troca fluxo, faturas e o símbolo", () => {
+  it("inglês troca os blocos da home e o símbolo", () => {
     const html = renderToStaticMarkup(
       React.createElement(HomeResumo, {
         variant: "mobile",
         idioma: "en",
-        fluxo: { entrou: 40, saiu: 10, diferenca: 30, debito: 10, cartao: 0, guardado: 0 },
-        faturas: [],
-        bancos: [],
+        fluxo: { receitas: 40, debito: 10, cartao: 25, cartaoPorCartao: [{ cartaoId: "1", total: 25 }], pagamentoFatura: 0 },
+        cartoes: [{ id: 1, nome: "XP", dia_fechamento: 5, dia_vencimento: 12 }],
         formatBRL: (v) => formatMoney(v, "USD"),
       }),
     );
-    expect(html).toContain("Monthly cash flow");
-    expect(html).toContain("In");
-    expect(html).toContain("Out");
-    expect(html).toContain("Statements");
+    expect(html).toContain("Card statement");
+    expect(html).toContain("Debit this month");
+    expect(html).toContain("Income this month");
+    expect(html).toContain("Closes on day 5 · Due on day 12");
     expect(html).toContain("$40.00");
     expect(t("en", "livro_titulo")).toBe("Book");
-    expect(t("pt-BR", "fluxo")).toBe("Fluxo do mês");
+    expect(t("pt-BR", "fatura_cartao")).toBe("Fatura do cartão");
+    expect(t("en", "nao_e_gasto")).toBe("not spending");
     expect(t("en", "gasto_categoria")).toBe("Spending by category");
     expect(t("en", "col_valor")).toBe("Amount");
     expect(t("pt-BR", "badge_evitavel")).toBe("Evitável");
