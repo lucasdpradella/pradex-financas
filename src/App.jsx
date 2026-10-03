@@ -1012,6 +1012,84 @@ export default function PradexFinancas() {
     } finally { setSalvandoMeta(false); }
   };
 
+  // Editar / arquivar / excluir caixinha (out/2026). Antes só existia criar, aportar e
+  // trocar a dificuldade: quem criava uma meta errada ficava preso com ela.
+  //
+  // `return=representation` em vez de minimal: com RLS, um PATCH/DELETE que não acha
+  // linha volta 200/204 vazio. Sem conferir o que voltou, a tela diria "pronto" sem
+  // nada ter mudado.
+  const editarMeta = async (meta, dados) => {
+    if (!session?.token || !meta?.id) return false;
+    setSalvandoMeta(true);
+    setErroMeta("");
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/metas?id=eq.${meta.id}`, {
+        method: "PATCH",
+        headers: { ...api(session.token), Prefer: "return=representation" },
+        body: JSON.stringify(dados),
+      });
+      const corpo = await res.json().catch(() => null);
+      if (!res.ok) {
+        // 23505 = índice único de nome entre as ativas (metas_user_nome_ativa_idx).
+        setErroMeta(corpo?.code === "23505"
+          ? `Você já tem uma caixinha chamada "${dados?.nome}".`
+          : `Não consegui salvar a caixinha. ${String(corpo?.message || "").slice(0, 120)}`);
+        return false;
+      }
+      if (!Array.isArray(corpo) || corpo.length === 0) {
+        setErroMeta("Não consegui salvar: a caixinha não foi encontrada (ou você não tem permissão).");
+        return false;
+      }
+      await fetchMetas();
+      return true;
+    } catch (e) {
+      setErroMeta("Falha de rede. Tenta de novo.");
+      return false;
+    } finally { setSalvandoMeta(false); }
+  };
+
+  // Arquivar = some da lista, mas o histórico (aportes) e os pontos dos marcos ficam.
+  // Libera o nome pra uma caixinha nova (o índice único só vale entre as ativas).
+  const arquivarMeta = (meta) => editarMeta(meta, { arquivada: true });
+
+  // Excluir de verdade. Os aportes vão junto, e PRIMEIRO: a FK de Lancamentos.meta_id
+  // é `on delete set null`, e um aporte de "dinheiro que já estava guardado"
+  // (abate_saldo = false) sem meta viola `lancamentos_abate_saldo_so_em_aporte` — o
+  // DELETE da meta falhava inteiro (23514). Era o "não consigo excluir" relatado.
+  // `meta_marcos` cai em cascata no banco, então os pontos dessa caixinha saem do ranking.
+  const excluirMeta = async (meta) => {
+    if (!session?.token || !meta?.id) return false;
+    setSalvandoMeta(true);
+    setErroMeta("");
+    try {
+      const resAportes = await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos?meta_id=eq.${meta.id}`, {
+        method: "DELETE",
+        headers: { ...api(session.token), Prefer: "return=minimal" },
+      });
+      if (!resAportes.ok) {
+        const err = await resAportes.json().catch(() => ({}));
+        setErroMeta(`Não consegui apagar os registros da caixinha. ${String(err?.message || "").slice(0, 120)}`);
+        return false;
+      }
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/metas?id=eq.${meta.id}`, {
+        method: "DELETE",
+        headers: { ...api(session.token), Prefer: "return=representation" },
+      });
+      const corpo = await res.json().catch(() => null);
+      if (!res.ok || !Array.isArray(corpo) || corpo.length === 0) {
+        setErroMeta(`Não consegui excluir a caixinha. ${String(corpo?.message || "").slice(0, 120)}`);
+        await Promise.all([fetchLancamentos(), fetchMetas()]);
+        return false;
+      }
+      await Promise.all([fetchLancamentos(), fetchMetas()]);
+      fetchRanking();
+      return true;
+    } catch (e) {
+      setErroMeta("Falha de rede. Tenta de novo.");
+      return false;
+    } finally { setSalvandoMeta(false); }
+  };
+
   const aportarNaMeta = async ({ meta, valor, data, forma, resgate, abateSaldo = true }) => {
     if (!session?.token) return;
     const { lancamento, erro } = montarLancamentoAporte({ meta, valor, data, forma, resgate, abateSaldo, userId: session.user.id });
@@ -2512,6 +2590,9 @@ export default function PradexFinancas() {
               onCriar={criarMeta}
               onAportar={aportarNaMeta}
               onMudarDificuldade={mudarDificuldade}
+              onEditar={editarMeta}
+              onArquivar={arquivarMeta}
+              onExcluir={excluirMeta}
               celebracao={celebracao}
               onFecharCelebracao={() => setCelebracao(null)}
             />
