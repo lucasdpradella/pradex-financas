@@ -307,3 +307,30 @@ export function mensagemDoMarco(marco, meta) {
     frase: dif === "dificil" ? `${frase} E você disse que essa ia doer.` : frase,
   };
 }
+
+/**
+ * Edição de uma caixinha que já existe (out/2026 — antes só dava pra trocar a
+ * dificuldade). Devolve `{ dados }` pronto pro PATCH ou `{ erro }`.
+ * `valorAlvo` já vem como número (a tela usa o mesmo parseValor do criar).
+ */
+export function validarEdicaoMeta({ nome, valorAlvo, prazo, aplicadoEm }, meta, metas) {
+  const limpo = String(nome || "").trim();
+  if (!limpo) return { erro: "Dê um nome pra caixinha." };
+  const alvo = Number(valorAlvo);
+  if (valorAlvo === null || valorAlvo === undefined || !Number.isFinite(alvo) || alvo <= 0) {
+    return { erro: "Informe quanto você quer juntar." };
+  }
+  const repetida = metasAtivas(metas).some(
+    (m) => String(m.id) !== String(meta?.id) && String(m.nome || "").trim().toLowerCase() === limpo.toLowerCase(),
+  );
+  if (repetida) return { erro: `Você já tem uma caixinha chamada "${limpo}".` };
+  return {
+    dados: {
+      nome: limpo,
+      valor_alvo: Math.round(alvo * 100) / 100,
+      prazo: prazo || null,
+      aplicado_em: String(aplicadoEm || "").trim() || null,
+    },
+  };
+}
+

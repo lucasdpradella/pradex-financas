@@ -1011,6 +1011,50 @@ export default function PradexFinancas() {
     } finally { setSalvandoMeta(false); }
   };
 
+  // Editar / excluir (= arquivar) caixinha (out/2026). Antes só existia criar, aportar e
+  // trocar a dificuldade: quem criava uma meta errada ficava preso com ela.
+  //
+  // `return=representation` em vez de minimal: com RLS, um PATCH/DELETE que não acha
+  // linha volta 200/204 vazio. Sem conferir o que voltou, a tela diria "pronto" sem
+  // nada ter mudado.
+  const editarMeta = async (meta, dados) => {
+    if (!session?.token || !meta?.id) return false;
+    setSalvandoMeta(true);
+    setErroMeta("");
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/metas?id=eq.${meta.id}`, {
+        method: "PATCH",
+        headers: { ...api(session.token), Prefer: "return=representation" },
+        body: JSON.stringify(dados),
+      });
+      const corpo = await res.json().catch(() => null);
+      if (!res.ok) {
+        // 23505 = índice único de nome entre as ativas (metas_user_nome_ativa_idx).
+        setErroMeta(corpo?.code === "23505"
+          ? `Você já tem uma caixinha chamada "${dados?.nome}".`
+          : `Não consegui salvar a caixinha. ${String(corpo?.message || "").slice(0, 120)}`);
+        return false;
+      }
+      if (!Array.isArray(corpo) || corpo.length === 0) {
+        setErroMeta("Não consegui salvar: a caixinha não foi encontrada (ou você não tem permissão).");
+        return false;
+      }
+      await fetchMetas();
+      return true;
+    } catch (e) {
+      setErroMeta("Falha de rede. Tenta de novo.");
+      return false;
+    } finally { setSalvandoMeta(false); }
+  };
+
+  // "Excluir caixinha" na tela = ARQUIVAR aqui (decisão do Lucas, 03/10: arquivar vs
+  // excluir confundia). A caixinha some da lista pra sempre e libera o nome (o índice
+  // único só vale entre as ativas), mas os aportes, o histórico e os pontos ficam — os
+  // números do mês não mudam. Não há exclusão de verdade pelo app de propósito: apagar
+  // a meta esbarraria na FK `on delete set null` + `lancamentos_abate_saldo_so_em_aporte`
+  // (aporte com abate_saldo = false não pode ficar sem meta) e apagaria dinheiro real.
+  const arquivarMeta = (meta) => editarMeta(meta, { arquivada: true });
+
   const aportarNaMeta = async ({ meta, valor, data, forma, resgate, abateSaldo = true }) => {
     if (!session?.token) return;
     const { lancamento, erro } = montarLancamentoAporte({ meta, valor, data, forma, resgate, abateSaldo, userId: session.user.id });
@@ -2489,6 +2533,8 @@ export default function PradexFinancas() {
               onCriar={criarMeta}
               onAportar={aportarNaMeta}
               onMudarDificuldade={mudarDificuldade}
+              onEditar={editarMeta}
+              onArquivar={arquivarMeta}
               celebracao={celebracao}
               onFecharCelebracao={() => setCelebracao(null)}
             />
