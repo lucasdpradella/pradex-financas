@@ -29,3 +29,17 @@ descreveu o Pradex como "projeto de portfólio". O contexto que eles guardavam f
   os comentários HTML antes de gravar `public/guia.html`.
 
 Regra: nota interna vai em comentário de JS/JSX (some no build) ou em `docs/`, nunca em comentário HTML.
+
+## Adendo (aprovado pelo Lucas em 04/10/2026)
+- O site público não liga o Pradex a "assessor de investimentos", Nobel/Nobel Capital ou XP:
+  removido da home (Landing e conteúdo sem JS do `index.html`), `/sobre` (texto, meta e JSON-LD:
+  sem `jobTitle`/`worksFor`), `/guia` (rodapé; `montar-guia.mjs` troca e falha se sobrar) e manifest do PWA.
+  O aviso "não faz recomendação de investimento" virou "organização e controle de gastos: não
+  movimenta dinheiro e não acessa conta bancária".
+- Público: "planejamento de aposentadoria"/"Planejamento Financeiro" → "Projeções do seu dinheiro".
+  Relatórios aparecem como "(em breve)". O nome do menu dentro do app (Planejamento) não mudou.
+- Redes: `src/lib/redes.js` (vazio). Preenchido, aparece no rodapé da Landing e das páginas
+  geradas e no `sameAs` do Organization (rode `node scripts/gerar-paginas-publicas.mjs`).
+  A `/sobre` tem `"sameAs": []` à mão — atualizar junto.
+- Não mexido: `/privacidade` e `/excluir-conta` (documentos legais, ainda dizem "planejamento
+  financeiro" e listam "investimentos" entre os dados coletados).

@@ -5,6 +5,7 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { PRECO, DIAS_TRIAL } from "../src/lib/plano.js";
+import { REDES } from "../src/lib/redes.js";
 
 const raiz = path.resolve(__dirname, "..");
 const ler = (rel) => fs.readFileSync(path.join(raiz, rel), "utf8");
@@ -96,6 +97,41 @@ describe("páginas públicas estáticas", () => {
     const vercel = JSON.parse(ler("vercel.json"));
     for (const [rota, arquivo] of Object.entries(PAGINAS)) {
       expect(vercel.rewrites).toContainEqual({ source: rota, destination: arquivo.replace("public", "") });
+    }
+  });
+
+  // Decisão do Lucas (04/10/2026): o site público não liga o Pradex ao emprego dele.
+  // XP como exemplo de cartão também fica fora das páginas públicas.
+  describe("site público sem vínculo com assessoria/Nobel/XP", () => {
+    const VINCULO = [/nobel/i, /assessor/i, /\bXP\b/, /planejamento de aposentadoria/i, /planejamento financeiro/i];
+    const PUBLICOS = [
+      "index.html",
+      "public/sobre.html",
+      "public/guia.html",
+      "src/components/Landing.jsx",
+      ...Object.values(PAGINAS),
+    ];
+    for (const arq of PUBLICOS) {
+      it(arq, () => {
+        let conteudo = ler(arq);
+        // Comentário de JSX/JS some no build; o que importa é o que vai pra tela.
+        if (arq.endsWith(".jsx")) conteudo = conteudo.replace(/\/\/.*$/gm, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+        for (const re of VINCULO) expect(conteudo).not.toMatch(re);
+      });
+    }
+
+    it("JSON-LD da /sobre não tem worksFor/jobTitle", () => {
+      const blocos = jsonLd(ler("public/sobre.html"));
+      const texto = JSON.stringify(blocos);
+      expect(texto).not.toMatch(/worksFor|jobTitle/);
+    });
+  });
+
+  it("sameAs do Organization vem de lib/redes.js (sem handle inventado)", () => {
+    const esperados = Object.values(REDES).filter(Boolean);
+    for (const arquivo of Object.values(PAGINAS)) {
+      const org = jsonLd(ler(arquivo)).find((b) => b["@type"] === "Organization");
+      expect(org.sameAs).toEqual(esperados);
     }
   });
 });

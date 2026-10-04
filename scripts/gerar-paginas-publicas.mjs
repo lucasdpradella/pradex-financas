@@ -15,6 +15,7 @@
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { PRECO, DIAS_TRIAL } from "../src/lib/plano.js";
+import { redesPreenchidas, ROTULO_REDE } from "../src/lib/redes.js";
 
 const PUBLIC = fileURLToPath(new URL("../public/", import.meta.url));
 const css = `    :root { color-scheme: dark; }
@@ -58,6 +59,8 @@ const ORG = {
   "@context": "https://schema.org", "@type": "Organization", "@id": `${BASE}/#organizacao`,
   name: "Pradex Finanças", alternateName: "PRADEX", url: `${BASE}/`, logo: `${BASE}/icon-512.png`,
   email: "pradex.financas@gmail.com",
+  // Instagram/TikTok oficiais: preencher em src/lib/redes.js (vazio até o Lucas mandar os @).
+  sameAs: redesPreenchidas().map(([, url]) => url),
   contactPoint: { "@type": "ContactPoint", contactType: "customer support", email: "pradex.financas@gmail.com", availableLanguage: ["pt-BR", "en"] },
 };
 const APP = {
@@ -129,7 +132,7 @@ ${body.trim()}
     <a href="/guia">Guia de uso</a>
     <a href="/sobre">Sobre</a>
     <a href="/privacidade">Privacidade</a>
-    <a href="/excluir-conta">Excluir conta</a><br />
+    <a href="/excluir-conta">Excluir conta</a>${redesPreenchidas().map(([rede, url]) => `\n    <a href="${url}" rel="me noopener">${ROTULO_REDE[rede]}</a>`).join("")}<br />
     Pradex Finanças — app de organização e controle de gastos pessoais. pradex.com.br
   </footer>
 </main>
@@ -183,7 +186,7 @@ const precos = page({
       <p class="linha">Para enxergar o quadro completo</p>
       <ul>
         <li>Tudo do Essencial</li>
-        <li>Módulo de perfil, rendas e objetivos, com diagnóstico do orçamento</li>
+        <li>Projeções do seu dinheiro: perfil, rendas e objetivos, com diagnóstico do orçamento</li>
         <li>Relatórios (em breve, no mesmo plano)</li>
       </ul>
     </section>

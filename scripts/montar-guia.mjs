@@ -31,8 +31,9 @@ html = html.replace("<title>Manual do Pradex</title>", `<title>Como usar o Prade
 
 // 3. Rodapé: no site, as outras páginas existem e devem ser alcançáveis daqui.
 html = html.replace(
-  /(Feito por Lucas D'Angelo Pradella[\s\S]*?rentabilidade\.)/,
-  `$1<br /><br />
+  /Feito por Lucas D'Angelo Pradella[\s\S]*?rentabilidade\./,
+  `Feito por Lucas D'Angelo Pradella.
+  O Pradex é um app de organização e controle de gastos: não movimenta dinheiro e não acessa conta bancária.<br /><br />
   <a href="/">Início</a> ·
   <a href="/precos">Preços</a> ·
   <a href="/controle-de-gastos-pelo-whatsapp">Controle de gastos pelo WhatsApp</a> ·
@@ -41,6 +42,16 @@ html = html.replace(
   <a href="/privacidade">Privacidade</a> ·
   <a href="/excluir-conta">Excluir conta</a>`,
 );
+
+// 3b. Posicionamento público (decisão do Lucas, 04/10/2026): o site não liga o Pradex
+//     ao emprego dele (assessoria de investimentos) e chama o módulo de planejamento de
+//     "projeções". O manual do vault ainda usa os termos antigos; a troca acontece aqui.
+html = html
+  .replace("<li>Planejamento Financeiro completo</li>", "<li>Projeções do seu dinheiro</li>")
+  .replace(/(<div class="nome">Assistente<\/div>[\s\S]*?)<li>Relatórios<\/li>/, "$1<li>Relatórios (em breve)</li>");
+if (/nobel|assessor de investimentos/i.test(html)) {
+  throw new Error("guia.html ainda cita Nobel/assessor — ajuste o manual no vault ou este script.");
+}
 
 // 4. Comentários HTML fora. Eles iam junto pro site público e qualquer um lia as notas
 //    internas no "ver código-fonte" (inclusive crawler e IA de busca). A regra de

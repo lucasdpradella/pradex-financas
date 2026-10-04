@@ -11,7 +11,7 @@ export default defineConfig({
       manifest: {
         name: 'Pradex Finanças',
         short_name: 'Pradex',
-        description: 'Seu planejamento financeiro inteligente',
+        description: 'Organize e controle seus gastos, pelo app ou pelo WhatsApp',
         lang: 'pt-BR',
         start_url: '/',
         scope: '/',
