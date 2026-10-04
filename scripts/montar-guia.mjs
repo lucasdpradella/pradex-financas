@@ -34,21 +34,18 @@ html = html.replace(
   /(Feito por Lucas D'Angelo Pradella[\s\S]*?rentabilidade\.)/,
   `$1<br /><br />
   <a href="/">Início</a> ·
+  <a href="/precos">Preços</a> ·
+  <a href="/controle-de-gastos-pelo-whatsapp">Controle de gastos pelo WhatsApp</a> ·
+  <a href="/perguntas-frequentes">Perguntas frequentes</a> ·
   <a href="/sobre">Sobre</a> ·
   <a href="/privacidade">Privacidade</a> ·
   <a href="/excluir-conta">Excluir conta</a>`,
 );
 
-// 4. Aviso pra quem for editar: a partir daqui existem DUAS cópias, e elas divergem
-//    no dia em que alguém mexer numa só.
-html = html.replace(
-  "  MANUAL DO PRADEX — v2, 18/09/2026.",
-  `  MANUAL DO PRADEX — v2, 18/09/2026. ESTA É A CÓPIA PUBLICADA (pradex.com.br/guia).
-
-  ⚠️ A FONTE é Chave Mestre/Projetos/PRADEX/manual/index.html. Editar aqui e não lá
-  faz as duas divergirem — e é a de lá que alguém vai abrir da próxima vez. Mexa na
-  fonte e regere esta com scripts/montar-guia.mjs.`,
-);
+// 4. Comentários HTML fora. Eles iam junto pro site público e qualquer um lia as notas
+//    internas no "ver código-fonte" (inclusive crawler e IA de busca). A regra de
+//    "a fonte é o vault, regere com este script" agora vive só aqui.
+html = html.replace(/\n?[ \t]*<!--[\s\S]*?-->/g, "");
 
 fs.writeFileSync(DESTINO, html, "utf8");
 console.log(`guia.html gerado: ${(html.length / 1024).toFixed(0)} KB`);

@@ -196,6 +196,7 @@ export default function Landing({ children, onComecar, onEscolherPlano }) {
           <nav className="pdx-lp__nav" aria-label="Seções">
             <a href="#como-funciona" style={{ fontSize: "0.88rem", color: C.medio, textDecoration: "none" }}>Como funciona</a>
             <a href="#planos" style={{ fontSize: "0.88rem", color: C.medio, textDecoration: "none" }}>Planos</a>
+            <a href="/perguntas-frequentes" style={{ fontSize: "0.88rem", color: C.medio, textDecoration: "none" }}>Dúvidas</a>
           </nav>
 
           {/* "Entrar" abre o modo LOGIN — e "Começar grátis", lá embaixo, abre o modo
@@ -369,6 +370,9 @@ export default function Landing({ children, onComecar, onEscolherPlano }) {
             Feito por Lucas D'Angelo Pradella, assessor de investimentos na Nobel Capital.
             O Pradex é um app de organização financeira: não faz recomendação de investimento nem promete rentabilidade.
           </p>
+          <a href="/precos" style={{ color: C.medio, marginRight: "1rem" }}>Preços</a>
+          <a href="/controle-de-gastos-pelo-whatsapp" style={{ color: C.medio, marginRight: "1rem" }}>Controle de gastos pelo WhatsApp</a>
+          <a href="/perguntas-frequentes" style={{ color: C.medio, marginRight: "1rem" }}>Perguntas frequentes</a>
           <a href="/sobre" style={{ color: C.medio, marginRight: "1rem" }}>Sobre</a>
           <a href="/privacidade" style={{ color: C.medio, marginRight: "1rem" }}>Privacidade</a>
           <a href="/excluir-conta" style={{ color: C.medio }}>Excluir conta</a>
