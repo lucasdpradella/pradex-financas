@@ -290,6 +290,17 @@ describe("home do mês: fatura do cartão, débito e receitas (data da compra)",
     expect(f.pagamentoFatura).toBe(800);
   });
 
+  it("parcela datada na compra continua no mês da data gravada (visão calendário)", () => {
+    // O ciclo do banco mora em faturas.js. Aqui outubro não "puxa" a 2/2 de agosto.
+    const dados = [
+      l({ data_lancamento: "2026-08-19", valor: 923, forma_pagamento: "Crédito", cartao_id: 1, descricao: "Vortech 2/2" }),
+    ];
+    const agosto = calcularFechamento(dados, 2026, 7, { hoje: HOJE_OUT });
+    const outubro = calcularFechamento(dados, 2026, 9, { hoje: HOJE_OUT });
+    expect(agosto.cartao).toBe(923);
+    expect(outubro.cartao).toBe(0);
+  });
+
   it("parcela futura cai no mês dela, não no mês da compra", () => {
     const dados = [
       out({ valor: 100, forma_pagamento: "Crédito", cartao_id: 1, parcela_atual: 1, total_parcelas: 3 }),

@@ -191,7 +191,9 @@ export function calcularFechamento(lancamentos, ano, mes, { hoje = new Date(), n
     // (débito, PIX, dinheiro, vazio) fica no chip Débito.
     debito: soma(gastos.filter((l) => !ehCredito(l.forma_pagamento))),
     cartao: soma(gastos.filter((l) => ehCredito(l.forma_pagamento))),
-    // Fatura do cartão "por data da compra": uma linha por cartao_id.
+    // Fatura do cartão "por data da compra": uma linha por cartao_id, pela
+    // data_lancamento gravada. Parcela não muda de mês aqui — o ciclo em que o
+    // banco cobra mora em faturas.js (listarFaturas / cicloDaParcela).
     cartaoPorCartao: agruparPorCartao(gastos.filter((l) => ehCredito(l.forma_pagamento))),
 
     evitavel: soma(gastos.filter((l) => l.poderia_ter_evitado)),

@@ -347,6 +347,28 @@ describe("pagamento de fatura exige intenção explícita na fala", () => {
     expect(inferirCategoriaGasto("padaria", semAlimentacao)).toBe("Outros");
   });
 
+  it("em 10x preenche parcelado e o cartão mesmo se o modelo esquecer", () => {
+    const [acao] = prepararAcoes(
+      [{ tipo: "criar", dados: { descricao: "celular", valor: 3000, tipo: "gasto", categoria: "Outros" } }],
+      "comprei celular 3000 em 10x no XP",
+      cartoes,
+    );
+    expect(acao.dados.parcelado).toBe(true);
+    expect(acao.dados.total_parcelas).toBe(10);
+    expect(acao.dados.forma_pagamento).toBe("Crédito");
+    expect(acao.dados.cartao_id).toBe(2);
+  });
+
+  it("no débito, 10x não vira parcela de cartão", () => {
+    const [acao] = prepararAcoes(
+      [{ tipo: "criar", dados: { descricao: "celular", valor: 3000, tipo: "gasto", categoria: "Outros", forma_pagamento: "Débito" } }],
+      "celular 3000 em 10x no débito",
+      cartoes,
+    );
+    expect(acao.dados.parcelado).toBeUndefined();
+    expect(acao.dados.forma_pagamento).toBe("Débito");
+  });
+
   it("aporte de meta com abate_saldo=false fica intacto", () => {
     const [meta] = prepararAcoes(
       [{ tipo: "criar", dados: { descricao: "aporte", valor: 100, tipo: "gasto", categoria: "Meta", forma_pagamento: "PIX", meta_id: 9, abate_saldo: false } }],

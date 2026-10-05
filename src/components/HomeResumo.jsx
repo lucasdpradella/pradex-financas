@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { faturaPorDataDaCompra } from "../lib/faturas";
+import { faturaPorDataDaCompra, listarFaturas, parcelasQueAindaVem } from "../lib/faturas";
 import { t } from "../lib/i18n";
 
 // Topo da home (out/2026): Fatura do cartão, Débito do mês e Receitas do mês do mês
@@ -46,6 +46,10 @@ export default function HomeResumo({
   variant = "mobile",
   fluxo,
   cartoes = [],
+  lancamentos = null,
+  ano = null,
+  mes = null,
+  hoje = new Date(),
   formatBRL,
   idioma = "pt-BR",
   normalizar = (x) => x,
@@ -61,6 +65,12 @@ export default function HomeResumo({
   const linhas = faturaPorDataDaCompra(fluxo?.cartaoPorCartao, cartoes, { normalizar });
   const totalFatura = Number(fluxo?.cartao || 0);
   const pagamentoFatura = Number(fluxo?.pagamentoFatura || 0);
+  const faturasCiclo = pelaDataDoFechamento && ano != null && mes != null
+    ? listarFaturas(lancamentos || [], cartoes, ano, mes, { hoje, normalizar, idioma })
+    : [];
+  const futuras = lancamentos
+    ? parcelasQueAindaVem(lancamentos, cartoes, { hoje, idioma })
+    : { itens: [], alem: 0 };
 
   const card = {
     background: c.card,
@@ -105,19 +115,73 @@ export default function HomeResumo({
     </div>
   );
 
-  // Placeholder da segunda face: estrutura apenas, desligada por flag.
+  const curto = (iso) => {
+    const pedacos = String(iso || "").split("-");
+    if (pedacos.length < 3) return "";
+    return `${pedacos[2]}/${pedacos[1]}`;
+  };
+  const faceFechamento = (
+    <div key="fechamento" data-face="fechamento" style={{ flex: "0 0 100%", scrollSnapAlign: "start", minWidth: 0 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.75rem" }}>
+        <div style={{ minWidth: 0 }}>
+          <p style={rotulo}>{s("fatura_cartao")} · {s("face_fechamento")}</p>
+          <p style={{ ...apoio, margin: 0 }}>{s("quando_paga")}</p>
+        </div>
+      </div>
+      {faturasCiclo.length === 0 ? (
+        <p style={{ margin: "0.7rem 0 0", fontSize: "0.82rem", color: c.medio }}>{s("faturas_vazias")}</p>
+      ) : (
+        <div style={{ marginTop: "0.35rem" }}>
+          {faturasCiclo.map((l, i) => (
+            <div key={l.cartaoId ?? i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.75rem", padding: "0.65rem 0", borderBottom: i === faturasCiclo.length - 1 ? "none" : `1px solid ${c.borda}` }}>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 500, color: c.texto }}>{l.label}</p>
+                <p style={{ margin: "0.12rem 0 0", fontSize: "0.7rem", color: desktop ? c.medio : c.fraco }}>
+                  {curto(l.inicio)}–{curto(l.fim)}{l.vencimento ? ` · ${l.vencimento}` : ""}
+                  {l.projetado > 0 ? ` · ${s("parcelas_previstas_nota")}` : ""}
+                </p>
+              </div>
+              <p style={{ margin: 0, fontWeight: 700, color: desktop ? c.texto : c.fatura, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{dinheiro(l.valor)}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   const faces = [{ id: "compra", label: s("face_compra"), node: faceCompra }];
   if (pelaDataDoFechamento) {
-    faces.push({
-      id: "fechamento",
-      label: s("face_fechamento"),
-      node: (
-        <div key="fechamento" data-face="fechamento" style={{ flex: "0 0 100%", scrollSnapAlign: "start", minWidth: 0 }}>
-          <p style={rotulo}>{s("fatura_cartao")} · {s("face_fechamento")}</p>
-        </div>
-      ),
-    });
+    faces.push({ id: "fechamento", label: s("face_fechamento"), node: faceFechamento });
   }
+
+  const gruposFuturos = [];
+  for (const item of futuras.itens) {
+    const ultimo = gruposFuturos[gruposFuturos.length - 1];
+    if (!ultimo || ultimo.fatura !== item.fatura) gruposFuturos.push({ fatura: item.fatura, itens: [item] });
+    else ultimo.itens.push(item);
+  }
+  const blocoParcelas = futuras.itens.length === 0 ? null : (
+    <section style={{ ...card, marginTop: desktop ? "1rem" : "0.75rem" }} aria-label={s("parcelas_futuras")}>
+      <p style={rotulo}>{s("parcelas_futuras")}</p>
+      {gruposFuturos.map((g) => (
+        <div key={g.fatura} style={{ marginTop: "0.55rem" }}>
+          <p style={{ margin: "0 0 0.15rem", fontSize: "0.72rem", fontWeight: 600, color: desktop ? c.medio : c.fraco }}>{g.fatura}</p>
+          {g.itens.map((item) => (
+            <div key={item.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.75rem", padding: "0.4rem 0" }}>
+              <p style={{ margin: 0, minWidth: 0, fontSize: "0.86rem", color: c.texto, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {normalizar(item.descricao) || item.descricao}
+                <span style={{ marginLeft: "6px", fontSize: "0.7rem", color: c.medio, background: c.fundo, padding: "1px 6px", borderRadius: "4px" }}>{item.rotulo}</span>
+              </p>
+              <p style={{ margin: 0, fontWeight: 700, color: desktop ? c.texto : c.fatura, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{dinheiro(item.valor)}</p>
+            </div>
+          ))}
+        </div>
+      ))}
+      {futuras.alem > 0 && (
+        <p style={{ margin: "0.45rem 0 0", fontSize: "0.72rem", color: c.medio }}>{s("parcelas_futuras_mais")} {futuras.alem}</p>
+      )}
+    </section>
+  );
   const variasFaces = faces.length > 1;
 
   const irPara = (i) => {
@@ -180,10 +244,13 @@ export default function HomeResumo({
 
   if (desktop) {
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr)", gap: "1rem", alignItems: "stretch" }}>
-        {cardFatura}
-        {cardDebito}
-        {cardReceitas}
+      <div>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr)", gap: "1rem", alignItems: "stretch" }}>
+          {cardFatura}
+          {cardDebito}
+          {cardReceitas}
+        </div>
+        {blocoParcelas}
       </div>
     );
   }
@@ -196,6 +263,7 @@ export default function HomeResumo({
         {cardReceitas}
       </div>
       {notaPagamento}
+      {blocoParcelas}
     </div>
   );
 }

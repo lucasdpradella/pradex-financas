@@ -67,6 +67,43 @@ describe("HomeResumo — fatura do cartão, débito e receitas", () => {
     expect(desktop).toContain("Por data da compra");
   });
 
+  it("mostra parcelas que ainda vêm no formato 5/6x, sem mexer no total da fatura do mês", () => {
+    const lancamentos = [
+      { id: 1, tipo: "gasto", valor: 80, forma_pagamento: "Crédito", cartao_id: 1, data_lancamento: "2026-08-19", parcela_atual: 1, total_parcelas: 6, descricao: "Curso", meta_id: null },
+    ];
+    const html = render({
+      variant: "mobile",
+      fluxo,
+      lancamentos,
+      ano: 2026,
+      mes: 9,
+      hoje: new Date(2026, 9, 5),
+    });
+    expect(html).toContain("Parcelas que ainda vêm");
+    expect(html).toContain("5/6x");
+    expect(html).toContain("Curso");
+    expect(html).toContain("1.876,54");
+  });
+
+  it("pelo fechamento, a 2/2 de 19/08 entra na fatura que vence em outubro", () => {
+    const lancamentos = [
+      { id: 1, tipo: "gasto", valor: 923, forma_pagamento: "Crédito", cartao_id: 1, data_lancamento: "2026-08-19", descricao: "Vortech 2/2", meta_id: null },
+    ];
+    const html = render({
+      variant: "mobile",
+      fluxo,
+      cartoes: [{ id: 1, nome: "XP", dia_fechamento: 1, dia_vencimento: 12 }],
+      lancamentos,
+      ano: 2026,
+      mes: 8,
+      hoje: new Date(2026, 9, 5),
+      pelaDataDoFechamento: true,
+    });
+    expect(html).toContain("Quando você paga");
+    expect(html).toContain("02/09–01/10");
+    expect(html).toContain("923,00");
+  });
+
   it("mês sem crédito mostra o vazio da fatura", () => {
     const vazio = calcularFechamento([], 2026, 9, { hoje: new Date(2026, 9, 1) });
     const html = render({ variant: "mobile", fluxo: vazio });

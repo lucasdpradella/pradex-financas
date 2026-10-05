@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cicloQueContem, listarFaturas, rotuloFatura, dataReferenciaDoMes } from "../src/lib/faturas";
+import { cicloQueContem, cicloDaParcela, listarFaturas, rotuloFatura, dataReferenciaDoMes } from "../src/lib/faturas";
 import { completarLancamento, ehCredito, normalizarFormaPagamento, parseValorConta, ehPagamentoFatura } from "../src/lib/formaPagamento";
 
 const HOJE = new Date(2026, 8, 24); // 24/set/2026
@@ -126,6 +126,32 @@ describe("listarFaturas", () => {
     const xp = linhas.find((l) => l.cartaoId === 2);
     expect(xp.valor).toBe(0);
     expect(xp.pago).toBe(4820);
+  });
+
+  it("parcela 2/2 comprada em 19/08, cartão que fecha dia 1, cai na fatura que vence dia 12/10", () => {
+    // Extrato real do XP: ciclo 02/09–01/10, vencimento 12/10. A linha está datada
+    // na compra (19/08), com o índice só no texto — e mesmo assim entra nesta fatura.
+    const cartoes = [{ id: 7, nome: "XP", dia_fechamento: 1, dia_vencimento: 12 }];
+    const lancamentos = [
+      {
+        id: 1, tipo: "gasto", valor: 923, forma_pagamento: "Crédito", cartao_id: 7,
+        data_lancamento: "2026-08-19", descricao: "Vortech 2/2", meta_id: null,
+      },
+    ];
+    const ciclo = cicloDaParcela("2026-08-19", 2, 1, 12);
+    expect(ciclo.inicio).toBe("2026-09-02");
+    expect(ciclo.fim).toBe("2026-10-01");
+    expect(ciclo.atePagamento).toBe("2026-10-12");
+    expect(ciclo.mesVenc).toBe(9);
+
+    const hoje = new Date(2026, 9, 5);
+    const linhas = listarFaturas(lancamentos, cartoes, 2026, 8, { hoje });
+    expect(linhas).toHaveLength(1);
+    expect(linhas[0].label).toBe("Fatura outubro · Cartão XP");
+    expect(linhas[0].valor).toBe(923);
+    expect(linhas[0].inicio).toBe("2026-09-02");
+    expect(linhas[0].fim).toBe("2026-10-01");
+    expect(linhas[0].atePagamento).toBe("2026-10-12");
   });
 
   it("a referência do mês corrente é hoje", () => {

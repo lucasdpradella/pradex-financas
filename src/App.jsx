@@ -29,7 +29,8 @@ import MetasCaixinhas from "./components/MetasCaixinhas";
 import RankingMetas from "./components/RankingMetas";
 import { montarLancamentoAporte } from "./lib/metas";
 import { calcularFechamento } from "./lib/fechamento";
-import { rotuloMes } from "./lib/faturas";
+import { dataDaParcelaNoCiclo, rotuloMes } from "./lib/faturas";
+import { rotuloParcela } from "./lib/parcelaDescricao";
 import { completarLancamento, ehCredito, ehPagamentoFatura } from "./lib/formaPagamento";
 import HomeResumo from "./components/HomeResumo";
 import LivroSettings from "./components/LivroSettings";
@@ -1380,15 +1381,14 @@ export default function PradexFinancas() {
         const parcelaAtual = parseInt(form.parcela_atual) || 1;
         const valorParcela = valor;
         const grupoId = generateUUID();
-        const dataBase = new Date(form.data_lancamento + "T12:00:00");
         if (parcelaAtual < 1 || parcelaAtual > nParcelas) { setErro("A parcela atual precisa estar entre 1 e o total de parcelas."); setSaving(false); return; }
+        const cartaoParcela = cartoes.find((c) => String(c.id) === String(form.cartao_id));
         for (let i = parcelaAtual; i <= nParcelas; i++) {
-          const dataParcela = new Date(dataBase);
-          dataParcela.setMonth(dataParcela.getMonth() + (i - parcelaAtual));
+          const dataLanc = dataDaParcelaNoCiclo(form.data_lancamento, i - parcelaAtual + 1, cartaoParcela?.dia_fechamento, cartaoParcela?.dia_vencimento);
           await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
             method: "POST",
             headers: { ...api(session?.token), "Prefer": "return=representation" },
-            body: JSON.stringify({ descricao: montarDescricaoParcela(form.descricao, i, nParcelas), valor: Math.round(valorParcela*100)/100, tipo, categoria: form.categoria, data_lancamento: dataParcela.toISOString().split("T")[0], user_id: session.user.id, criado_por: session.user.id, ...(livro?.id ? { livro_id: livro.id } : {}), forma_pagamento: "Crédito", cartao_id: form.cartao_id ? parseInt(form.cartao_id) : null, parcela_atual: i, total_parcelas: nParcelas, parcela_grupo_id: grupoId, poderia_ter_evitado: false }),
+            body: JSON.stringify({ descricao: montarDescricaoParcela(form.descricao, i, nParcelas), valor: Math.round(valorParcela*100)/100, tipo, categoria: form.categoria, data_lancamento: dataLanc, user_id: session.user.id, criado_por: session.user.id, ...(livro?.id ? { livro_id: livro.id } : {}), forma_pagamento: "Crédito", cartao_id: form.cartao_id ? parseInt(form.cartao_id) : null, parcela_atual: i, total_parcelas: nParcelas, parcela_grupo_id: grupoId, poderia_ter_evitado: false }),
           });
         }
         await fetchLancamentos();
@@ -1620,13 +1620,12 @@ export default function PradexFinancas() {
         });
         const dataAtual = await resAtual.json();
         if (Array.isArray(dataAtual) && dataAtual[0]) {
-          const dataBase = new Date(editando.data_lancamento + "T12:00:00");
+          const cartaoParcela = cartoes.find((c) => String(c.id) === String(editando.cartao_id));
           for (let i = parcelaAtual + 1; i <= totalParcelas; i++) {
-            const dataParcela = new Date(dataBase);
-            dataParcela.setMonth(dataParcela.getMonth() + (i - parcelaAtual));
+            const dataLanc = dataDaParcelaNoCiclo(editando.data_lancamento, i - parcelaAtual + 1, cartaoParcela?.dia_fechamento, cartaoParcela?.dia_vencimento);
             await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
               method: "POST", headers: { ...api(session?.token), "Prefer": "return=representation" },
-              body: JSON.stringify({ descricao: montarDescricaoParcela(descricaoBase, i, totalParcelas), valor: valorParcela, tipo: editando.tipo, categoria: editando.categoria, data_lancamento: dataParcela.toISOString().split("T")[0], user_id: session.user.id, criado_por: session.user.id, ...(livro?.id ? { livro_id: livro.id } : {}), forma_pagamento: "Crédito", cartao_id: editando.cartao_id ? parseInt(editando.cartao_id) : null, poderia_ter_evitado: editando.poderia_ter_evitado, recorrente: false, recorrente_grupo_id: null, parcela_atual: i, total_parcelas: totalParcelas, parcela_grupo_id: grupoParcelaId }),
+              body: JSON.stringify({ descricao: montarDescricaoParcela(descricaoBase, i, totalParcelas), valor: valorParcela, tipo: editando.tipo, categoria: editando.categoria, data_lancamento: dataLanc, user_id: session.user.id, criado_por: session.user.id, ...(livro?.id ? { livro_id: livro.id } : {}), forma_pagamento: "Crédito", cartao_id: editando.cartao_id ? parseInt(editando.cartao_id) : null, poderia_ter_evitado: editando.poderia_ter_evitado, recorrente: false, recorrente_grupo_id: null, parcela_atual: i, total_parcelas: totalParcelas, parcela_grupo_id: grupoParcelaId }),
             });
           }
           await fetchLancamentos();
@@ -1770,7 +1769,7 @@ export default function PradexFinancas() {
     if (filtroLancamentos === "todos") return true;
     if (filtroLancamentos === "debito") return lancamento.tipo === "gasto" && !ehPagamentoFatura(lancamento) && !ehCredito(lancamento.forma_pagamento);
     if (filtroLancamentos === "credito") return lancamento.tipo === "gasto" && !ehPagamentoFatura(lancamento) && ehCredito(lancamento.forma_pagamento);
-    if (filtroLancamentos === "parceladas") return lancamento.tipo === "gasto" && ehCredito(lancamento.forma_pagamento) && Number(lancamento.total_parcelas) >= 2;
+    if (filtroLancamentos === "parceladas") return lancamento.tipo === "gasto" && ehCredito(lancamento.forma_pagamento) && (Number(lancamento.total_parcelas) >= 2 || Boolean(rotuloParcela(lancamento)));
     if (filtroLancamentos.startsWith("cartao-")) {
       const cartaoId = parseInt(filtroLancamentos.replace("cartao-", ""), 10);
       return lancamento.tipo === "gasto" && !ehPagamentoFatura(lancamento) && ehCredito(lancamento.forma_pagamento) && Number(lancamento.cartao_id) === cartaoId;
@@ -2635,6 +2634,9 @@ export default function PradexFinancas() {
             variant="mobile"
             fluxo={fluxoHome}
             cartoes={cartoes}
+            lancamentos={lancamentos}
+            ano={mesDashboard.ano}
+            mes={mesDashboard.mes}
             formatBRL={formatBRL}
             idioma={idiomaLivro}
             normalizar={normalizeText}
@@ -2716,7 +2718,7 @@ export default function PradexFinancas() {
                         {l.recorrente && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#2FBF8A", background: "#2FBF8A15" }}>{tx("badge_recorrente")}</span>}
                         {normalizeText(l.descricao)}
                         {ehPagamentoFatura(l) && <span style={{ marginLeft: "6px", fontSize: "0.62rem", color: "#8B93A1", background: "#0C0E14", border: "1px solid #1E2330", padding: "1px 6px", borderRadius: "999px" }}>{tx("nao_e_gasto")}</span>}
-                        {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.7rem", color: "#5C6570", background: "#1E2330", padding: "1px 6px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
+                        {rotuloParcela(l) && <span style={{ marginLeft: "6px", fontSize: "0.7rem", color: "#5C6570", background: "#1E2330", padding: "1px 6px", borderRadius: "4px" }}>{rotuloParcela(l)}</span>}
                       </p>
                       <p style={{ margin: 0, fontSize: "0.7rem", color: "#5C6570", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento, tx("nao_informado"))} · {formatData(l.data_lancamento)}{autorDe(l.criado_por || l.user_id) ? ` · ${autorDe(l.criado_por || l.user_id)}` : ""}</p>
                     </div>
@@ -2908,7 +2910,7 @@ export default function PradexFinancas() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", fontWeight: 500, color: "#F1F2F4", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.25 }}>
                       {normalizeText(l.descricao)}
-                      {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#6366F1", background: "#6366F115", padding: "1px 5px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
+                      {rotuloParcela(l) && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#6366F1", background: "#6366F115", padding: "1px 5px", borderRadius: "4px" }}>{rotuloParcela(l)}</span>}
                       {l._totalMeses && l._totalMeses > 1 && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#2FBF8A", background: "#2FBF8A15", padding: "1px 6px", borderRadius: "999px" }}>{l._totalMeses} meses</span>}
                     </p>
                     <p style={{ margin: 0, fontSize: "0.72rem", color: "#5C6570", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento, tx("nao_informado"))} · {formatData(l.data_lancamento)}{autorDe(l.criado_por || l.user_id) ? ` · ${autorDe(l.criado_por || l.user_id)}` : ""}</p>
@@ -3020,7 +3022,7 @@ export default function PradexFinancas() {
                           {l.poderia_ter_evitado && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#E8943A", background: "#E8943A15" }}>{tx("badge_evitavel")}</span>}
                           {l.recorrente && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#2FBF8A", background: "#2FBF8A15" }}>{tx("badge_recorrente")}</span>}
                           {normalizeText(l.descricao)}
-                          {l.total_parcelas && <span style={{ marginLeft: "5px", fontSize: "0.65rem", color: "#6366F1", background: "#6366F115", padding: "1px 4px", borderRadius: "3px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
+                          {rotuloParcela(l) && <span style={{ marginLeft: "5px", fontSize: "0.65rem", color: "#6366F1", background: "#6366F115", padding: "1px 4px", borderRadius: "3px" }}>{rotuloParcela(l)}</span>}
                         </p>
                         <p style={{ margin: 0, fontSize: "0.7rem", color: "#5C6570", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento, tx("nao_informado"))} · {formatData(l.data_lancamento)}{autorDe(l.criado_por || l.user_id) ? ` · ${autorDe(l.criado_por || l.user_id)}` : ""}</p>
                       </div>
