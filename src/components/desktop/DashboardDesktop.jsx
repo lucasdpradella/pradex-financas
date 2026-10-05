@@ -136,6 +136,9 @@ export default function DashboardDesktop({
         variant="desktop"
         fluxo={dados}
         cartoes={cartoes}
+        lancamentos={lancamentos}
+        ano={ano}
+        mes={mes}
         formatBRL={formatBRL}
         idioma={idioma}
         normalizar={normalizeText}

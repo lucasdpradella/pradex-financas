@@ -151,6 +151,53 @@ const RE_DEBITO_NA_FALA = /\bdebito\b/;
 const RE_PIX_NA_FALA = /\bpix\b/;
 const RE_DINHEIRO_NA_FALA = /\bdinheiro\b|\bespecie\b/;
 
+const RE_PARCELA_DE = /\bparcela\s+(\d{1,2})\s+de\s+(\d{1,2})\b/i;
+const RE_VEZES = /\bem\s+(\d{1,2})\s+vezes\b/i;
+const RE_NX = /(?:^|\s)(\d{1,2})\s*x\b/i;
+const FORMAS_A_VISTA = new Set(["Débito", "PIX", "Dinheiro", "PIX/Débito", "Saldo da conta"]);
+
+/**
+ * Garante parcelado + total_parcelas antes do RPC. O banco (agente_aplicar_acoes)
+ * é quem cria uma linha por parcela, com parcela_atual, total_parcelas e
+ * parcela_grupo_id. Se o modelo esquecer o campo, "em 10x" / "em 10 vezes" /
+ * "parcela 2 de 6" preenchem. Débito, PIX e dinheiro não viram parcelado.
+ */
+function totalParcelasNoTexto(texto: string): number | null {
+  const de = texto.match(RE_PARCELA_DE);
+  if (de) {
+    const n = Number(de[1]);
+    const m = Number(de[2]);
+    if (n >= 1 && m >= 2 && m <= 48 && n <= m) return m;
+  }
+  const vezes = texto.match(RE_VEZES);
+  const nx = texto.match(RE_NX);
+  const bruto = vezes ? Number(vezes[1]) : nx ? Number(nx[1]) : null;
+  if (bruto != null && bruto >= 2 && bruto <= 48) return bruto;
+  return null;
+}
+
+export function completarParcelamento(dados: any, texto: unknown): any {
+  const next = { ...(dados || {}) };
+  const corpus = String(texto || "");
+  // "no débito" / "no pix" na fala não é compra parcelada no cartão.
+  if (/\b(debito|pix|dinheiro|especie)\b/.test(semAcento(corpus))) return next;
+
+  const totalInformado = Number(next.total_parcelas);
+  const doCampo = Number.isInteger(totalInformado) && totalInformado >= 2 && totalInformado <= 48
+    ? totalInformado
+    : null;
+  const doTexto = totalParcelasNoTexto(corpus);
+  const total = doCampo ?? doTexto;
+  if (total == null) return next;
+  // Total que o modelo inventou em débito/PIX, sem "10x" na fala, não vira parcela.
+  if (doTexto == null && FORMAS_A_VISTA.has(next.forma_pagamento)) return next;
+
+  next.parcelado = true;
+  next.total_parcelas = total;
+  if (!next.forma_pagamento || FORMAS_A_VISTA.has(next.forma_pagamento)) next.forma_pagamento = "Crédito";
+  return next;
+}
+
 /**
  * O que o cliente disse que foi a forma — não o que o modelo chutou.
  * Crédito ganha se a fala citar crédito e também débito/PIX.
@@ -238,6 +285,18 @@ export function prepararAcao(
       }
     } else if (next.cartao_id == null && mencionado) {
       next.cartao_id = mencionado.id;
+    }
+
+    const falaParcela = acoesNaMensagem === 1
+      ? `${next.descricao || ""} ${textoUsuario || ""}`
+      : `${next.descricao || ""}`;
+    Object.assign(next, completarParcelamento(next, falaParcela));
+    if (next.forma_pagamento === "Crédito" && next.cartao_id == null) {
+      const peloTexto = acharCartaoNoTexto(falaParcela, cartoes);
+      if (peloTexto) next.cartao_id = peloTexto.id;
+      else if ((cartoes?.length === 1) && !citaCartaoSemDono(falaParcela, cartoes)) {
+        next.cartao_id = cartoes[0].id;
+      }
     }
   }
 
