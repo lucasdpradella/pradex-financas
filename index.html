@@ -5,14 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Pradex Finanças — organização financeira com conta e agente no WhatsApp</title>
 
-    <!-- Até 14/09/2026 esta página tinha SÓ o <title>. Sem description, sem Open
-         Graph, sem nada. O app vive atrás do login e crawler não faz login, então a
-         IA de busca do Google não tinha o que ler: descreveu o Pradex como "projeto
-         de portfólio" que guarda dados no localStorage e recomendou não inserir
-         informação real. Errado em tudo que dá pra verificar — mas era o único
-         palpite possível com zero material.
-         Estas tags e a /sobre existem pra dar a ela o que citar. -->
-    <meta name="description" content="Registre gastos pelo app ou pelo WhatsApp e acompanhe para onde o dinheiro vai. Seus lançamentos ficam na sua conta, em servidor — não no navegador. Feito por Lucas D'Angelo Pradella, Nobel Capital." />
+    <meta name="description" content="Registre gastos pelo app ou pelo WhatsApp e acompanhe para onde o dinheiro vai. Seus lançamentos ficam na sua conta, em servidor — não no navegador." />
     <link rel="canonical" href="https://pradex.com.br/" />
 
     <meta property="og:type" content="website" />
@@ -29,10 +22,6 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Pradex" />
 
-    <!-- O app inteiro pede 'DM Sans' (App.jsx e os componentes desktop), mas a fonte
-         nunca era carregada: sem @font-face, sem pacote, sem link. Todo texto caía
-         no fallback 'Helvetica Neue' — que não existe em Windows nem Android — e de
-         lá em Arial/Roboto. Os pesos são os que o código usa: 400/500/600/700. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -41,9 +30,6 @@
     />
 
     <style>
-      /* O <body> não tinha estilo nenhum: margem padrão do user-agent e fonte
-         herdada do navegador. A raiz do React define a sua própria fonte, mas o
-         fundo do body aparecia branco por baixo em overscroll no iOS. */
       html, body { background: #0C0E14; }
       body {
         margin: 0;
@@ -51,21 +37,12 @@
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
       }
-      /* Acima do breakpoint do shell desktop (1024px) o app é claro — um body
-         escuro piscaria antes do React montar. Mesmo valor de desktopTheme.mainBg. */
       @media (min-width: 1024px) {
         html, body { background: #F1F3F9; }
       }
     </style>
   </head>
   <body>
-    <!-- CONTEUDO PRA QUEM NAO EXECUTA JAVASCRIPT.
-         O app e renderizado no navegador, entao um crawler ve #root vazio e nao tem
-         o que indexar — foi assim que a IA do Google acabou descrevendo o Pradex a
-         partir de uma pagina de topicos do GitHub.
-         Isto aqui e substituido pelo React no instante em que ele monta, entao
-         usuario nenhum ve esta versao; robo ve. Mantenha em sincronia com o texto de
-         components/Landing.jsx quando a promessa mudar. -->
     <div id="root">
       <main style="max-width:760px;margin:0 auto;padding:2rem 1.25rem;font-family:'DM Sans',system-ui,sans-serif;color:#F1F2F4">
         <p style="font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:#8B93A1">Pradex Finanças</p>
@@ -91,10 +68,9 @@
           plano Essencial, R$ 29,90 por mês.
         </p>
         <p style="color:#8B93A1;font-size:.85rem">
-          Feito por Lucas D'Angelo Pradella, assessor de investimentos na Nobel Capital.
-          App de organização financeira — não faz recomendação de investimento nem promete rentabilidade.
+          Feito por Lucas D'Angelo Pradella. O Pradex é um app de organização e controle de gastos: não movimenta dinheiro e não acessa conta bancária.
         </p>
-        <p><a href="/sobre" style="color:#6366F1">Sobre o Pradex</a> · <a href="/privacidade" style="color:#6366F1">Privacidade</a></p>
+        <p><a href="/precos" style="color:#6366F1">Preços</a> · <a href="/controle-de-gastos-pelo-whatsapp" style="color:#6366F1">Controle de gastos pelo WhatsApp</a> · <a href="/perguntas-frequentes" style="color:#6366F1">Perguntas frequentes</a> · <a href="/sobre" style="color:#6366F1">Sobre o Pradex</a> · <a href="/privacidade" style="color:#6366F1">Privacidade</a></p>
       </main>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>

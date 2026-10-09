@@ -115,7 +115,7 @@ function Modal({ item, onClose, onSaved, userId, token }) {
               style={st.input}
               value={form.instituicao}
               onChange={(e) => set("instituicao", e.target.value)}
-              placeholder="Ex: XP, Nubank, Itaú..."
+              placeholder="Ex: Nubank, Itaú, Inter..."
             />
           </div>
 
