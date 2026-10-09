@@ -108,6 +108,8 @@ describe("páginas públicas estáticas", () => {
       "index.html",
       "public/sobre.html",
       "public/guia.html",
+      "public/privacidade.html",
+      "public/excluir-conta.html",
       "src/components/Landing.jsx",
       ...Object.values(PAGINAS),
     ];
@@ -125,6 +127,51 @@ describe("páginas públicas estáticas", () => {
       const texto = JSON.stringify(blocos);
       expect(texto).not.toMatch(/worksFor|jobTitle/);
     });
+  });
+
+  // O CTA da Nobel em Relatórios e o "planejamento financeiro" dos documentos legais
+  // saíram antes do merge. Comentário de JS some no build; o que o teste varre em
+  // src/ é o que entra no bundle.
+  const semComentarioJs = (src) =>
+    src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\/.*$/gm, "");
+
+  const arquivosSrc = () => {
+    const out = [];
+    const walk = (dir) => {
+      for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, ent.name);
+        if (ent.isDirectory()) walk(p);
+        else if (/\.(js|jsx)$/.test(ent.name)) out.push(path.relative(raiz, p));
+      }
+    };
+    walk(path.join(raiz, "src"));
+    return out;
+  };
+
+  describe("Relatórios e páginas legais sem Nobel, XP, assessor ou planejamento financeiro", () => {
+    const MARCA = [/nobel/i, /\bXP\b/, /assessor/i];
+
+    it("RelatoriosDesktop.jsx não cita Nobel, XP nem assessor", () => {
+      const src = ler("src/components/desktop/RelatoriosDesktop.jsx");
+      for (const re of MARCA) expect(src).not.toMatch(re);
+      expect(src).not.toMatch(/5511966298633/);
+      expect(src).not.toMatch(/wa\.me/);
+    });
+
+    for (const arq of arquivosSrc()) {
+      it(`${arq} (fonte do bundle) não cita Nobel, XP nem assessor`, () => {
+        const src = semComentarioJs(ler(arq));
+        for (const re of MARCA) expect(src).not.toMatch(re);
+      });
+    }
+
+    it.each(["public/privacidade.html", "public/excluir-conta.html"])(
+      "%s não diz planejamento financeiro",
+      (arq) => {
+        expect(ler(arq)).not.toMatch(/planejamento financeiro/i);
+        expect(ler(arq)).not.toMatch(/planejamento de aposentadoria/i);
+      },
+    );
   });
 
   it("sameAs do Organization vem de lib/redes.js (sem handle inventado)", () => {

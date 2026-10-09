@@ -962,7 +962,7 @@ export default function PradexFinancas() {
 
   // Entrar no ranking é escolher um apelido — e é o único jeito de entrar.
   // `apelido = null` é o estado de todo mundo, então ninguém aparece sem ter pedido.
-  // Nunca reusa `fp_perfil.nome`: aquele é o nome real, do Planejamento Financeiro.
+  // Nunca reusa `fp_perfil.nome`: aquele é o nome real, do cadastro de projeções.
   const salvarApelido = async (apelido) => {
     if (!session?.token) return { erro: "Sessão expirada." };
     const limpo = String(apelido || "").trim().slice(0, 24);
@@ -2184,7 +2184,7 @@ export default function PradexFinancas() {
       <div className="pdx-hide-desktop" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
         <div>
           <p style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "#5C6570", textTransform: "uppercase", margin: "0 0 0.25rem" }}>
-            Pradex Finanças {userRole === "super_admin" ? "· Admin" : userRole === "assessor" ? "· Assessor" : ""}
+            Pradex Finanças {userRole === "super_admin" ? "· Admin" : ""}
           </p>
           <h1 style={{ margin: 0, fontSize: "1.6rem", fontWeight: 600, color: "#F1F2F4", letterSpacing: "-0.03em", display: "flex", alignItems: "center", gap: "0.35rem" }}>
             {tela === "dashboard" && (
@@ -3123,7 +3123,7 @@ export default function PradexFinancas() {
       {/* FP — sem Assistente, a tela existe e explica o que falta em vez de sumir */}
       {tela === "fp" && !podeFp && (
         <div>
-          <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Planejamento Financeiro</p>
+          <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Projeções do seu dinheiro</p>
           {/* Previa borrada ANTES do CTA: a curva da a curiosidade que a tela
               vazia nao dava. O desenho e inventado — nenhum dado do usuario e
               buscado aqui (ver PreviaBorrada.jsx). */}
@@ -3143,7 +3143,7 @@ export default function PradexFinancas() {
                Rendas clara).
                Definindo aqui, os 31 usos passam a acompanhar o canvas de graca. O que
                ainda tem hex fixo migra pra var() aos poucos. */}
-          <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Planejamento Financeiro</p>
+          <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Projeções do seu dinheiro</p>
 
           {/* Subabas */}
           <div style={{ display: "flex", background: "var(--surface2, #0C0E14)", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", gap: "2px", border: "1px solid var(--border, #1E2330)" }}>

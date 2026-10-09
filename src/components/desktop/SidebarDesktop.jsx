@@ -85,7 +85,7 @@ function iniciais(email) {
 }
 
 export default function SidebarDesktop({ tela, setTela, userEmail, userRole, onLogout, onTrocarSenha, plano = "none", idioma = "pt-BR" }) {
-  const roleLabel = userRole === "super_admin" ? "Admin" : userRole === "assessor" ? "Assessor" : "Usuário";
+  const roleLabel = userRole === "super_admin" ? "Admin" : "Usuário";
   // Item pago continua na lista sem o plano — vai com cadeado e leva pro CTA. Sumir
   // sem contexto era exatamente o que o paywall veio corrigir.
   return (

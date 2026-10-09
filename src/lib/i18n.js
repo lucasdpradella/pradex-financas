@@ -49,7 +49,7 @@ const DICT = {
     contas_vazias: "Nenhuma conta cadastrada. O disponível é a soma do que você informar.",
     informar: "informar",
     disponivel: "Disponível",
-    ph_conta: "Ex.: XP Conta digital",
+    ph_conta: "Ex.: Conta corrente",
     ph_saldo: "Saldo",
     salvando: "Salvando...",
     salvar: "Salvar",

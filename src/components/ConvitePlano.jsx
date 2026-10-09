@@ -19,7 +19,7 @@ const ROTULO = { essencial: "Essencial", assistente: "Assistente" };
 
 const DESCRICAO = {
   essencial: "Lançamentos pelo WhatsApp e teto por categoria, liberados na hora.",
-  assistente: "Tudo do Essencial mais o Planejamento Financeiro completo.",
+  assistente: "Tudo do Essencial mais as projeções do seu dinheiro.",
 };
 
 export default function ConvitePlano({ planoConvite, plano, email, isDesktop = false, onFechar }) {

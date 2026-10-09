@@ -13,13 +13,6 @@ import { calcularDisciplina } from "../../lib/disciplina";
 
 const BAR_COLORS = ["#4F46E5", "#0891B2", "#7C3AED", "#DB2777", "#EA580C"];
 
-// WhatsApp da assessoria (site pessoal), NÃO o número do agente Pradex — mandar um
-// lead de planejamento pro bot de lançar gasto seria o pior destino possível.
-const WHATSAPP_NOBEL = "5511966298633";
-const MSG_NOBEL = encodeURIComponent(
-  "Oi! Uso o Pradex e queria falar sobre planejamento financeiro completo (proteção, previdência, imóvel)."
-);
-
 const CSS = `
 .pdx-rel { display: flex; flex-direction: column; gap: 1rem; font-family: 'DM Sans', 'Helvetica Neue', sans-serif; }
 .pdx-rel__head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
@@ -79,11 +72,6 @@ const CSS = `
 .pdx-rchart text { font-family: inherit; font-size: 13px; fill: ${t.textSecondary}; }
 .pdx-rtend__head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 0.6rem; }
 .pdx-rtend__head .pdx-rpanel__title { margin: 0; }
- background: ${t.surface}; border: 1px solid ${t.surfaceBorder}; border-radius: 12px; padding: 1.25rem 1.35rem; display: flex; align-items: center; justify-content: space-between; gap: 1.25rem; flex-wrap: wrap; }
-.pdx-rnobel h3 { margin: 0 0 0.3rem; font-size: 0.95rem; font-weight: 700; color: ${t.textPrimary}; }
-.pdx-rnobel p { margin: 0; font-size: 0.85rem; color: ${t.textSecondary}; max-width: 620px; }
-.pdx-rnobel a { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.6rem 1.1rem; border-radius: 9px; background: ${t.accent}; color: #fff; font-size: 0.87rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
-.pdx-rnobel a:hover { background: ${t.accentHover}; }
 
 /* ---------- IMPRESSÃO ---------- */
 /* O relatório mora dentro do shell; na impressão o shell inteiro sai de cena. */
@@ -94,9 +82,8 @@ const CSS = `
   .pradex-shell { padding-left: 0 !important; }
   .pdx-content { max-width: none !important; padding: 0 !important; }
   .pdx-rel { gap: 12px; }
-  .pdx-rcard, .pdx-rpanel, .pdx-rnobel, .pdx-rfrase { border-color: #D8DCE8 !important; box-shadow: none !important; break-inside: avoid; }
+  .pdx-rcard, .pdx-rpanel, .pdx-rfrase { border-color: #D8DCE8 !important; box-shadow: none !important; break-inside: avoid; }
   .pdx-rel-panels { grid-template-columns: 1fr 1fr !important; }
-  .pdx-rnobel { break-inside: avoid; }
   .pdx-rel__head { border-bottom: 1px solid #D8DCE8; padding-bottom: 8px; }
 }
 `;
@@ -290,21 +277,6 @@ export default function RelatoriosDesktop({ lancamentos, ano, mes, normalizeText
           Cada mês conta pela data do lançamento. Pagamento de fatura e caixinhas de meta ficam
           de fora: a compra no crédito já é o gasto.
         </p>
-      </div>
-
-      {/* 6. CTA Nobel */}
-      <div className="pdx-rnobel">
-        <div>
-          <h3>Organizar é o começo. Planejar é o passo seguinte.</h3>
-          <p>
-            O Pradex mostra pra onde o seu dinheiro foi. Proteção da família, previdência e compra
-            de imóvel entram num planejamento financeiro completo — que é o trabalho que eu e a
-            equipe da Nobel fazemos com cliente, fora do app.
-          </p>
-        </div>
-        <a href={`https://wa.me/${WHATSAPP_NOBEL}?text=${MSG_NOBEL}`} target="_blank" rel="noopener noreferrer">
-          Falar sobre planejamento
-        </a>
       </div>
     </div>
   );

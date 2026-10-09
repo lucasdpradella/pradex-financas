@@ -119,13 +119,13 @@ describe("conteudoUpgrade", () => {
 
   it("o título acompanha o contexto de onde a pessoa bateu no bloqueio", () => {
     expect(conteudoUpgrade("none", "whatsapp").titulo).toMatch(/WhatsApp/);
-    expect(conteudoUpgrade("none", "fp").titulo).toMatch(/Planejamento Financeiro/);
+    expect(conteudoUpgrade("none", "fp").titulo).toMatch(/Projeções do seu dinheiro/);
   });
 
   // Relatórios ainda não existe: a copy lidera pelo FP e cita Relatórios como o que vem.
   it("Relatórios não é vendido como pronto", () => {
     const r = conteudoUpgrade("essencial", "relatorios");
-    expect(r.titulo).toMatch(/Planejamento Financeiro/);
+    expect(r.titulo).toMatch(/Projeções do seu dinheiro/);
     expect(r.descricao).toMatch(/em breve/);
     expect(r.href).toBe(CHECKOUT.assistente);
   });
