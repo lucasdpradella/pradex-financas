@@ -11,7 +11,7 @@
 // `start_url: "/"` do PWA continua valendo e nenhuma instalação existente quebra —
 // que era o preço de mover o app pra /app.
 //
-// PÚBLICO: todo mundo, sem focar em cliente Nobel. Palavras do PRADELLA: "se vierem
+// PÚBLICO: todo mundo, sem focar em cliente de assessoria. Palavras do PRADELLA: "se vierem
 // é lucro e fica fácil mostrar e explicar, já o contrário não".
 //
 // ===== REDESENHO DE 2026-09-16 =====
@@ -43,6 +43,7 @@ import React from "react";
 import MascotePradex from "./MascotePradex";
 import HeroMockup from "./HeroMockup";
 import { PRECO } from "../lib/plano";
+import { redesPreenchidas, ROTULO_REDE } from "../lib/redes";
 
 const C = {
   bg: "#0C0E14", surface: "#151821", surface2: "#1E2330", borda: "#2C3344",
@@ -100,8 +101,8 @@ const PLANOS = [
     nome: "Assistente",
     preco: PRECO.assistente,
     sufixo: "/mês",
-    linha: "Planeje seus próximos passos",
-    itens: ["Tudo do Essencial", "Planejamento financeiro", "Relatórios"],
+    linha: "Veja para onde seu dinheiro vai",
+    itens: ["Tudo do Essencial", "Projeções do seu dinheiro", "Relatórios (em breve)"],
     cta: "Quero o Assistente",
     icone: "grafico",
   },
@@ -196,6 +197,7 @@ export default function Landing({ children, onComecar, onEscolherPlano }) {
           <nav className="pdx-lp__nav" aria-label="Seções">
             <a href="#como-funciona" style={{ fontSize: "0.88rem", color: C.medio, textDecoration: "none" }}>Como funciona</a>
             <a href="#planos" style={{ fontSize: "0.88rem", color: C.medio, textDecoration: "none" }}>Planos</a>
+            <a href="/perguntas-frequentes" style={{ fontSize: "0.88rem", color: C.medio, textDecoration: "none" }}>Dúvidas</a>
           </nav>
 
           {/* "Entrar" abre o modo LOGIN — e "Começar grátis", lá embaixo, abre o modo
@@ -353,7 +355,7 @@ export default function Landing({ children, onComecar, onEscolherPlano }) {
             <dd style={{ margin: 0, fontSize: "0.86rem", lineHeight: 1.55, color: C.medio }}>
               Registrar, organizar e acompanhar é grátis, sem limite de lançamento e sem prazo.
               O agente do WhatsApp e o teto por categoria fazem parte do Essencial, {PRECO.essencial} por mês, cancela quando quiser.
-              O Planejamento Financeiro e os Relatórios são do Assistente, {PRECO.assistente} por mês.
+              As projeções do seu dinheiro são do Assistente, {PRECO.assistente} por mês; os Relatórios entram em breve no mesmo plano.
             </dd>
           </div>
         </dl>
@@ -366,12 +368,18 @@ export default function Landing({ children, onComecar, onEscolherPlano }) {
 
         <footer style={{ marginTop: "2.5rem", paddingTop: "1.25rem", borderTop: `1px solid ${C.surface2}`, fontSize: "0.78rem", color: C.fraco, lineHeight: 1.6 }}>
           <p style={{ margin: "0 0 0.5rem" }}>
-            Feito por Lucas D'Angelo Pradella, assessor de investimentos na Nobel Capital.
-            O Pradex é um app de organização financeira: não faz recomendação de investimento nem promete rentabilidade.
+            Feito por Lucas D'Angelo Pradella. O Pradex é um app de organização e controle de gastos: não movimenta dinheiro e não acessa conta bancária.
           </p>
+          <a href="/precos" style={{ color: C.medio, marginRight: "1rem" }}>Preços</a>
+          <a href="/controle-de-gastos-pelo-whatsapp" style={{ color: C.medio, marginRight: "1rem" }}>Controle de gastos pelo WhatsApp</a>
+          <a href="/perguntas-frequentes" style={{ color: C.medio, marginRight: "1rem" }}>Perguntas frequentes</a>
           <a href="/sobre" style={{ color: C.medio, marginRight: "1rem" }}>Sobre</a>
           <a href="/privacidade" style={{ color: C.medio, marginRight: "1rem" }}>Privacidade</a>
           <a href="/excluir-conta" style={{ color: C.medio }}>Excluir conta</a>
+          {/* Instagram/TikTok: aparecem sozinhos quando lib/redes.js for preenchido. */}
+          {redesPreenchidas().map(([rede, url]) => (
+            <a key={rede} href={url} rel="me noopener" target="_blank" style={{ color: C.medio, marginLeft: "1rem" }}>{ROTULO_REDE[rede]}</a>
+          ))}
         </footer>
       </div>
     </div>

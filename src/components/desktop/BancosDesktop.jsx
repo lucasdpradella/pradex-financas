@@ -10,8 +10,7 @@ import { desktopTheme as t } from "./theme";
 // O gasto do mês vem dos lançamentos já em memória.
 
 // Lista semi-fechada (decisão do Lucas, 29/08): os mais buscados com código COMPE,
-// mais "Outro" digitável. Os 8 primeiros são os do print da jornada Nobel; XP e BTG
-// entraram porque é o perfil de quem usa o Diagnóstico FP.
+// mais "Outro" digitável.
 const BANCOS_COMUNS = [
   { codigo: "001", nome: "Banco do Brasil" },
   { codigo: "237", nome: "Bradesco" },
@@ -21,7 +20,6 @@ const BANCOS_COMUNS = [
   { codigo: "260", nome: "Nubank" },
   { codigo: "077", nome: "Banco Inter" },
   { codigo: "336", nome: "Banco C6" },
-  { codigo: "102", nome: "XP Investimentos" },
   { codigo: "208", nome: "BTG Pactual" },
 ];
 

@@ -1,5 +1,10 @@
 {
   "cleanUrls": true,
+  "rewrites": [
+    { "source": "/precos", "destination": "/precos.html" },
+    { "source": "/perguntas-frequentes", "destination": "/perguntas-frequentes.html" },
+    { "source": "/controle-de-gastos-pelo-whatsapp", "destination": "/controle-de-gastos-pelo-whatsapp.html" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

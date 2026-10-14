@@ -10,7 +10,6 @@ import {
   normalizeText,
   limparDescricaoParcela,
   montarDescricaoParcela,
-  getMonthKey,
   agruparPorParcelaGrupo,
   agruparLancamentos,
 } from "./lib/lancamentos";
@@ -30,7 +29,8 @@ import MetasCaixinhas from "./components/MetasCaixinhas";
 import RankingMetas from "./components/RankingMetas";
 import { montarLancamentoAporte } from "./lib/metas";
 import { calcularFechamento } from "./lib/fechamento";
-import { listarFaturas, rotuloMes } from "./lib/faturas";
+import { dataDaParcelaNoCiclo, rotuloMes } from "./lib/faturas";
+import { rotuloParcela } from "./lib/parcelaDescricao";
 import { completarLancamento, ehCredito, ehPagamentoFatura } from "./lib/formaPagamento";
 import HomeResumo from "./components/HomeResumo";
 import LivroSettings from "./components/LivroSettings";
@@ -963,7 +963,7 @@ export default function PradexFinancas() {
 
   // Entrar no ranking é escolher um apelido — e é o único jeito de entrar.
   // `apelido = null` é o estado de todo mundo, então ninguém aparece sem ter pedido.
-  // Nunca reusa `fp_perfil.nome`: aquele é o nome real, do Planejamento Financeiro.
+  // Nunca reusa `fp_perfil.nome`: aquele é o nome real, do cadastro de projeções.
   const salvarApelido = async (apelido) => {
     if (!session?.token) return { erro: "Sessão expirada." };
     const limpo = String(apelido || "").trim().slice(0, 24);
@@ -1011,6 +1011,50 @@ export default function PradexFinancas() {
       setErroMeta("Falha de rede. Tenta de novo.");
     } finally { setSalvandoMeta(false); }
   };
+
+  // Editar / excluir (= arquivar) caixinha (out/2026). Antes só existia criar, aportar e
+  // trocar a dificuldade: quem criava uma meta errada ficava preso com ela.
+  //
+  // `return=representation` em vez de minimal: com RLS, um PATCH/DELETE que não acha
+  // linha volta 200/204 vazio. Sem conferir o que voltou, a tela diria "pronto" sem
+  // nada ter mudado.
+  const editarMeta = async (meta, dados) => {
+    if (!session?.token || !meta?.id) return false;
+    setSalvandoMeta(true);
+    setErroMeta("");
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/metas?id=eq.${meta.id}`, {
+        method: "PATCH",
+        headers: { ...api(session.token), Prefer: "return=representation" },
+        body: JSON.stringify(dados),
+      });
+      const corpo = await res.json().catch(() => null);
+      if (!res.ok) {
+        // 23505 = índice único de nome entre as ativas (metas_user_nome_ativa_idx).
+        setErroMeta(corpo?.code === "23505"
+          ? `Você já tem uma caixinha chamada "${dados?.nome}".`
+          : `Não consegui salvar a caixinha. ${String(corpo?.message || "").slice(0, 120)}`);
+        return false;
+      }
+      if (!Array.isArray(corpo) || corpo.length === 0) {
+        setErroMeta("Não consegui salvar: a caixinha não foi encontrada (ou você não tem permissão).");
+        return false;
+      }
+      await fetchMetas();
+      return true;
+    } catch (e) {
+      setErroMeta("Falha de rede. Tenta de novo.");
+      return false;
+    } finally { setSalvandoMeta(false); }
+  };
+
+  // "Excluir caixinha" na tela = ARQUIVAR aqui (decisão do Lucas, 03/10: arquivar vs
+  // excluir confundia). A caixinha some da lista pra sempre e libera o nome (o índice
+  // único só vale entre as ativas), mas os aportes, o histórico e os pontos ficam — os
+  // números do mês não mudam. Não há exclusão de verdade pelo app de propósito: apagar
+  // a meta esbarraria na FK `on delete set null` + `lancamentos_abate_saldo_so_em_aporte`
+  // (aporte com abate_saldo = false não pode ficar sem meta) e apagaria dinheiro real.
+  const arquivarMeta = (meta) => editarMeta(meta, { arquivada: true });
 
   const aportarNaMeta = async ({ meta, valor, data, forma, resgate, abateSaldo = true }) => {
     if (!session?.token) return;
@@ -1337,15 +1381,14 @@ export default function PradexFinancas() {
         const parcelaAtual = parseInt(form.parcela_atual) || 1;
         const valorParcela = valor;
         const grupoId = generateUUID();
-        const dataBase = new Date(form.data_lancamento + "T12:00:00");
         if (parcelaAtual < 1 || parcelaAtual > nParcelas) { setErro("A parcela atual precisa estar entre 1 e o total de parcelas."); setSaving(false); return; }
+        const cartaoParcela = cartoes.find((c) => String(c.id) === String(form.cartao_id));
         for (let i = parcelaAtual; i <= nParcelas; i++) {
-          const dataParcela = new Date(dataBase);
-          dataParcela.setMonth(dataParcela.getMonth() + (i - parcelaAtual));
+          const dataLanc = dataDaParcelaNoCiclo(form.data_lancamento, i - parcelaAtual + 1, cartaoParcela?.dia_fechamento, cartaoParcela?.dia_vencimento);
           await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
             method: "POST",
             headers: { ...api(session?.token), "Prefer": "return=representation" },
-            body: JSON.stringify({ descricao: montarDescricaoParcela(form.descricao, i, nParcelas), valor: Math.round(valorParcela*100)/100, tipo, categoria: form.categoria, data_lancamento: dataParcela.toISOString().split("T")[0], user_id: session.user.id, criado_por: session.user.id, ...(livro?.id ? { livro_id: livro.id } : {}), forma_pagamento: "Crédito", cartao_id: form.cartao_id ? parseInt(form.cartao_id) : null, parcela_atual: i, total_parcelas: nParcelas, parcela_grupo_id: grupoId, poderia_ter_evitado: false }),
+            body: JSON.stringify({ descricao: montarDescricaoParcela(form.descricao, i, nParcelas), valor: Math.round(valorParcela*100)/100, tipo, categoria: form.categoria, data_lancamento: dataLanc, user_id: session.user.id, criado_por: session.user.id, ...(livro?.id ? { livro_id: livro.id } : {}), forma_pagamento: "Crédito", cartao_id: form.cartao_id ? parseInt(form.cartao_id) : null, parcela_atual: i, total_parcelas: nParcelas, parcela_grupo_id: grupoId, poderia_ter_evitado: false }),
           });
         }
         await fetchLancamentos();
@@ -1577,13 +1620,12 @@ export default function PradexFinancas() {
         });
         const dataAtual = await resAtual.json();
         if (Array.isArray(dataAtual) && dataAtual[0]) {
-          const dataBase = new Date(editando.data_lancamento + "T12:00:00");
+          const cartaoParcela = cartoes.find((c) => String(c.id) === String(editando.cartao_id));
           for (let i = parcelaAtual + 1; i <= totalParcelas; i++) {
-            const dataParcela = new Date(dataBase);
-            dataParcela.setMonth(dataParcela.getMonth() + (i - parcelaAtual));
+            const dataLanc = dataDaParcelaNoCiclo(editando.data_lancamento, i - parcelaAtual + 1, cartaoParcela?.dia_fechamento, cartaoParcela?.dia_vencimento);
             await fetch(`${SUPABASE_URL}/rest/v1/Lancamentos`, {
               method: "POST", headers: { ...api(session?.token), "Prefer": "return=representation" },
-              body: JSON.stringify({ descricao: montarDescricaoParcela(descricaoBase, i, totalParcelas), valor: valorParcela, tipo: editando.tipo, categoria: editando.categoria, data_lancamento: dataParcela.toISOString().split("T")[0], user_id: session.user.id, criado_por: session.user.id, ...(livro?.id ? { livro_id: livro.id } : {}), forma_pagamento: "Crédito", cartao_id: editando.cartao_id ? parseInt(editando.cartao_id) : null, poderia_ter_evitado: editando.poderia_ter_evitado, recorrente: false, recorrente_grupo_id: null, parcela_atual: i, total_parcelas: totalParcelas, parcela_grupo_id: grupoParcelaId }),
+              body: JSON.stringify({ descricao: montarDescricaoParcela(descricaoBase, i, totalParcelas), valor: valorParcela, tipo: editando.tipo, categoria: editando.categoria, data_lancamento: dataLanc, user_id: session.user.id, criado_por: session.user.id, ...(livro?.id ? { livro_id: livro.id } : {}), forma_pagamento: "Crédito", cartao_id: editando.cartao_id ? parseInt(editando.cartao_id) : null, poderia_ter_evitado: editando.poderia_ter_evitado, recorrente: false, recorrente_grupo_id: null, parcela_atual: i, total_parcelas: totalParcelas, parcela_grupo_id: grupoParcelaId }),
             });
           }
           await fetchLancamentos();
@@ -1713,28 +1755,6 @@ export default function PradexFinancas() {
   const gastosDebito = gastos.filter(l => !ehCredito(l.forma_pagamento)).reduce((s, l) => s + Number(l.valor), 0);
   const gastosCredito = gastos.filter(l => ehCredito(l.forma_pagamento)).reduce((s, l) => s + Number(l.valor), 0);
   const fluxoHome = calcularFechamento(lancamentos, mesDashboard.ano, mesDashboard.mes, { normalizar: normalizeText });
-  const faturasHome = listarFaturas(lancamentos, cartoes, mesDashboard.ano, mesDashboard.mes, { normalizar: normalizeText, idioma: idiomaLivro });
-  // Compromissos ja assumidos pros proximos 3 meses.
-  //
-  // ANTES so contava parcela de CREDITO (forma_pagamento === "Credito" && total_parcelas).
-  // Recorrente ficava de fora: o PRADELLA viu "nenhuma parcela futura" no dashboard
-  // enquanto o Historico, rolando pra frente, mostrava a VIVO de R$330 em out/nov/dez.
-  //
-  // Os dois sao a mesma coisa do ponto de vista de quem planeja: dinheiro que JA esta
-  // comprometido. Entao o filtro passa a ser "gasto com data em mes futuro", o que
-  // pega parcela, recorrente e qualquer lancamento agendado.
-  const projecaoParcelas = Array.from({ length: 3 }, (_, offset) => {
-    const dataBase = new Date();
-    dataBase.setDate(1);
-    dataBase.setMonth(dataBase.getMonth() + offset + 1);
-    const monthKey = getMonthKey(dataBase);
-    const parcelasMes = lancamentos
-      .filter(l => l.tipo === "gasto" && l.data_lancamento?.startsWith(monthKey))
-      .sort((a, b) => Number(b.valor) - Number(a.valor));
-    const total = parcelasMes.reduce((s, l) => s + Number(l.valor), 0);
-    const comprasAtivas = new Set(parcelasMes.map(l => l.parcela_grupo_id || `${limparDescricaoParcela(l.descricao)}-${l.cartao_id || "sem-cartao"}`)).size;
-    return { key: monthKey, label: `${mesesCurtos[parseInt(monthKey.split("-")[1], 10) - 1]} ${monthKey.split("-")[0]}`, total, comprasAtivas, parcelas: parcelasMes.slice(0, 3) };
-  });
   const formatData = (d) => { if (!d) return ""; const [y, m, day] = d.split("-"); return `${day} ${mesesCurtos[parseInt(m)-1]}`; };
 
   const lancamentosAgrupados = agruparLancamentos(lancamentos);
@@ -1749,7 +1769,7 @@ export default function PradexFinancas() {
     if (filtroLancamentos === "todos") return true;
     if (filtroLancamentos === "debito") return lancamento.tipo === "gasto" && !ehPagamentoFatura(lancamento) && !ehCredito(lancamento.forma_pagamento);
     if (filtroLancamentos === "credito") return lancamento.tipo === "gasto" && !ehPagamentoFatura(lancamento) && ehCredito(lancamento.forma_pagamento);
-    if (filtroLancamentos === "parceladas") return lancamento.tipo === "gasto" && ehCredito(lancamento.forma_pagamento) && Number(lancamento.total_parcelas) >= 2;
+    if (filtroLancamentos === "parceladas") return lancamento.tipo === "gasto" && ehCredito(lancamento.forma_pagamento) && (Number(lancamento.total_parcelas) >= 2 || Boolean(rotuloParcela(lancamento)));
     if (filtroLancamentos.startsWith("cartao-")) {
       const cartaoId = parseInt(filtroLancamentos.replace("cartao-", ""), 10);
       return lancamento.tipo === "gasto" && !ehPagamentoFatura(lancamento) && ehCredito(lancamento.forma_pagamento) && Number(lancamento.cartao_id) === cartaoId;
@@ -2163,7 +2183,7 @@ export default function PradexFinancas() {
       <div className="pdx-hide-desktop" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
         <div>
           <p style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "#5C6570", textTransform: "uppercase", margin: "0 0 0.25rem" }}>
-            Pradex Finanças {userRole === "super_admin" ? "· Admin" : userRole === "assessor" ? "· Assessor" : ""}
+            Pradex Finanças {userRole === "super_admin" ? "· Admin" : ""}
           </p>
           <h1 style={{ margin: 0, fontSize: "1.6rem", fontWeight: 600, color: "#F1F2F4", letterSpacing: "-0.03em", display: "flex", alignItems: "center", gap: "0.35rem" }}>
             {tela === "dashboard" && (
@@ -2347,10 +2367,10 @@ export default function PradexFinancas() {
           rascunhos={rascunhos}
           onConfirmarRascunho={confirmarRascunho}
           onRejeitarRascunho={rejeitarRascunho}
-          bancos={bancos}
           cartoes={cartoes}
-          onSalvarSaldo={salvarSaldoBanco}
-          onCriarConta={criarBanco}
+          ultimos={lancamentos.slice(0, 5)}
+          onEditar={handleEdit}
+          formaLabel={(forma) => getFormaPagamentoLabel(forma, tx("nao_informado"))}
         />
         </>
       )}
@@ -2512,6 +2532,8 @@ export default function PradexFinancas() {
               onCriar={criarMeta}
               onAportar={aportarNaMeta}
               onMudarDificuldade={mudarDificuldade}
+              onEditar={editarMeta}
+              onArquivar={arquivarMeta}
               celebracao={celebracao}
               onFecharCelebracao={() => setCelebracao(null)}
             />
@@ -2611,12 +2633,13 @@ export default function PradexFinancas() {
           <HomeResumo
             variant="mobile"
             fluxo={fluxoHome}
-            faturas={faturasHome}
-            bancos={bancos}
+            cartoes={cartoes}
+            lancamentos={lancamentos}
+            ano={mesDashboard.ano}
+            mes={mesDashboard.mes}
             formatBRL={formatBRL}
             idioma={idiomaLivro}
-            onSalvarSaldo={salvarSaldoBanco}
-            onCriarConta={criarBanco}
+            normalizar={normalizeText}
           />
           <ConvitePlano planoConvite={planoConvite} plano={plano} email={session?.user?.email} isDesktop={isDesktop} onFechar={dispensarConvite} />
           {/* Card do agente: os TRES casos moram em CardAgente.jsx agora, porque
@@ -2631,7 +2654,7 @@ export default function PradexFinancas() {
             onIniciarTrial={iniciarTrial}
             carregando={iniciandoTrial}
           />
-          {lancamentos.length === 0 && bancos.length === 0 ? (
+          {lancamentos.length === 0 ? (
             <div style={{ textAlign: "center", padding: "1.5rem 0 2rem", color: "#5C6570" }}>
               <p style={{ fontSize: "0.95rem", color: "#8B93A1", margin: "0 0 0.4rem" }}>{tx("painel_vazio")}</p>
               <p style={{ fontSize: "0.82rem", color: "#8B93A1", margin: 0 }}>{tx("painel_vazio_hint")}</p>
@@ -2681,28 +2704,6 @@ export default function PradexFinancas() {
                     );
                   }) : <p style={{ margin: 0, fontSize: "0.85rem", color: "#5C6570" }}>{tx("sem_gastos")}</p>}
                 </div>
-                <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", border: "1px solid #1E2330" }}>
-                  <p style={{ margin: "0 0 1.25rem", fontSize: "0.75rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>{tx("proximos")}</p>
-                  {projecaoParcelas.some(m => m.total > 0) ? projecaoParcelas.map((mes) => (
-                    <div key={mes.key} style={{ padding: "0.85rem 0", borderBottom: "1px solid #1E2330" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.75rem", marginBottom: mes.parcelas.length > 0 ? "0.45rem" : 0 }}>
-                        <div>
-                          <p style={{ margin: "0 0 0.15rem", fontSize: "0.82rem", color: "#F1F2F4", fontWeight: 600 }}>{mes.label}</p>
-                          <p style={{ margin: 0, fontSize: "0.7rem", color: "#5C6570" }}>{mes.comprasAtivas > 0 ? `${mes.comprasAtivas} ${mes.comprasAtivas > 1 ? tx("parceladas") : tx("parcelada_uma")}` : tx("sem_parcelas")}</p>
-                        </div>
-                        <p style={{ margin: 0, fontSize: "0.88rem", fontWeight: 700, color: mes.total > 0 ? "#E06C65" : "#5C6570", whiteSpace: "nowrap" }}>{formatBRL(mes.total)}</p>
-                      </div>
-                      {mes.parcelas.map((parcela) => (
-                        <div key={parcela.id} style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", marginTop: "0.3rem" }}>
-                          <p style={{ margin: 0, fontSize: "0.72rem", color: "#8B93A1", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {limparDescricaoParcela(parcela.descricao)} {parcela.total_parcelas ? <span style={{ color: "#6366F1" }}>{parcela.parcela_atual}/{parcela.total_parcelas}x</span> : parcela.recorrente ? <span style={{ color: "#8B93A1" }}>{tx("recorrente_inline")}</span> : null}
-                          </p>
-                          <p style={{ margin: 0, fontSize: "0.72rem", color: "#8B93A1", whiteSpace: "nowrap" }}>{formatBRL(parcela.valor)}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )) : <p style={{ margin: 0, fontSize: "0.85rem", color: "#5C6570" }}>{tx("nada_comprometido")}</p>}
-                </div>
               </div>
               <div style={{ background: "#151821", borderRadius: "16px", padding: "1.5rem", border: "1px solid #1E2330", marginTop: "1rem" }}>
                 <p style={{ margin: "0 0 1rem", fontSize: "0.75rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>{tx("ultimos")}</p>
@@ -2716,11 +2717,12 @@ export default function PradexFinancas() {
                         {l.poderia_ter_evitado && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#E8943A", background: "#E8943A15" }}>{tx("badge_evitavel")}</span>}
                         {l.recorrente && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#2FBF8A", background: "#2FBF8A15" }}>{tx("badge_recorrente")}</span>}
                         {normalizeText(l.descricao)}
-                        {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.7rem", color: "#5C6570", background: "#1E2330", padding: "1px 6px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
+                        {ehPagamentoFatura(l) && <span style={{ marginLeft: "6px", fontSize: "0.62rem", color: "#8B93A1", background: "#0C0E14", border: "1px solid #1E2330", padding: "1px 6px", borderRadius: "999px" }}>{tx("nao_e_gasto")}</span>}
+                        {rotuloParcela(l) && <span style={{ marginLeft: "6px", fontSize: "0.7rem", color: "#5C6570", background: "#1E2330", padding: "1px 6px", borderRadius: "4px" }}>{rotuloParcela(l)}</span>}
                       </p>
                       <p style={{ margin: 0, fontSize: "0.7rem", color: "#5C6570", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento, tx("nao_informado"))} · {formatData(l.data_lancamento)}{autorDe(l.criado_por || l.user_id) ? ` · ${autorDe(l.criado_por || l.user_id)}` : ""}</p>
                     </div>
-                    <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: l.tipo === "receita" ? "#2FBF8A" : "#E06C65" }}>{l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
+                    <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: ehPagamentoFatura(l) ? "#8B93A1" : l.tipo === "receita" ? "#2FBF8A" : "#E06C65" }}>{ehPagamentoFatura(l) ? "" : l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor)}</p>
                   </div>
                 ))}
               </div>
@@ -2908,7 +2910,7 @@ export default function PradexFinancas() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ margin: "0 0 0.12rem", fontSize: "0.9rem", fontWeight: 500, color: "#F1F2F4", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.25 }}>
                       {normalizeText(l.descricao)}
-                      {l.total_parcelas && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#6366F1", background: "#6366F115", padding: "1px 5px", borderRadius: "4px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
+                      {rotuloParcela(l) && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#6366F1", background: "#6366F115", padding: "1px 5px", borderRadius: "4px" }}>{rotuloParcela(l)}</span>}
                       {l._totalMeses && l._totalMeses > 1 && <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "#2FBF8A", background: "#2FBF8A15", padding: "1px 6px", borderRadius: "999px" }}>{l._totalMeses} meses</span>}
                     </p>
                     <p style={{ margin: 0, fontSize: "0.72rem", color: "#5C6570", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento, tx("nao_informado"))} · {formatData(l.data_lancamento)}{autorDe(l.criado_por || l.user_id) ? ` · ${autorDe(l.criado_por || l.user_id)}` : ""}</p>
@@ -3020,7 +3022,7 @@ export default function PradexFinancas() {
                           {l.poderia_ter_evitado && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#E8943A", background: "#E8943A15" }}>{tx("badge_evitavel")}</span>}
                           {l.recorrente && <span style={{ ...badgeBaseStyle, marginRight: "6px", color: "#2FBF8A", background: "#2FBF8A15" }}>{tx("badge_recorrente")}</span>}
                           {normalizeText(l.descricao)}
-                          {l.total_parcelas && <span style={{ marginLeft: "5px", fontSize: "0.65rem", color: "#6366F1", background: "#6366F115", padding: "1px 4px", borderRadius: "3px" }}>{l.parcela_atual}/{l.total_parcelas}x</span>}
+                          {rotuloParcela(l) && <span style={{ marginLeft: "5px", fontSize: "0.65rem", color: "#6366F1", background: "#6366F115", padding: "1px 4px", borderRadius: "3px" }}>{rotuloParcela(l)}</span>}
                         </p>
                         <p style={{ margin: 0, fontSize: "0.7rem", color: "#5C6570", lineHeight: 1.25 }}>{normalizeText(l.categoria)} · {getFormaPagamentoLabel(l.forma_pagamento, tx("nao_informado"))} · {formatData(l.data_lancamento)}{autorDe(l.criado_por || l.user_id) ? ` · ${autorDe(l.criado_por || l.user_id)}` : ""}</p>
                       </div>
@@ -3123,7 +3125,7 @@ export default function PradexFinancas() {
       {/* FP — sem Assistente, a tela existe e explica o que falta em vez de sumir */}
       {tela === "fp" && !podeFp && (
         <div>
-          <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Planejamento Financeiro</p>
+          <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Projeções do seu dinheiro</p>
           {/* Previa borrada ANTES do CTA: a curva da a curiosidade que a tela
               vazia nao dava. O desenho e inventado — nenhum dado do usuario e
               buscado aqui (ver PreviaBorrada.jsx). */}
@@ -3143,7 +3145,7 @@ export default function PradexFinancas() {
                Rendas clara).
                Definindo aqui, os 31 usos passam a acompanhar o canvas de graca. O que
                ainda tem hex fixo migra pra var() aos poucos. */}
-          <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Planejamento Financeiro</p>
+          <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#8B93A1", textTransform: "uppercase", letterSpacing: "0.1em" }}>Projeções do seu dinheiro</p>
 
           {/* Subabas */}
           <div style={{ display: "flex", background: "var(--surface2, #0C0E14)", borderRadius: "10px", padding: "4px", marginBottom: "1.5rem", gap: "2px", border: "1px solid var(--border, #1E2330)" }}>

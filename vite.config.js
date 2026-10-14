@@ -11,7 +11,7 @@ export default defineConfig({
       manifest: {
         name: 'Pradex Finanças',
         short_name: 'Pradex',
-        description: 'Seu planejamento financeiro inteligente',
+        description: 'Organize e controle seus gastos, pelo app ou pelo WhatsApp',
         lang: 'pt-BR',
         start_url: '/',
         scope: '/',
@@ -29,10 +29,11 @@ export default defineConfig({
         // Precache só do shell (build assets). Nada do Supabase passa pelo cache:
         // dado financeiro é sempre network (cross-origin fica fora do SW por padrão).
         navigateFallback: '/index.html',
-        // /sobre entra junto das outras paginas estaticas: sem isso o service worker
+        // /sobre, /guia e as paginas de GEO (precos, perguntas-frequentes,
+        // controle-de-gastos-pelo-whatsapp) entram junto das outras paginas estaticas: sem isso o service worker
         // responde index.html (o app) no lugar do HTML publico, e a pagina que existe
         // justamente pra ser lida por crawler vira a tela de login.
-        navigateFallbackDenylist: [/^\/rest\//, /^\/functions\//, /^\/privacidade/, /^\/excluir-conta/, /^\/sobre/],
+        navigateFallbackDenylist: [/^\/rest\//, /^\/functions\//, /^\/privacidade/, /^\/excluir-conta/, /^\/sobre/, /^\/guia/, /^\/precos/, /^\/perguntas-frequentes/, /^\/controle-de-gastos-pelo-whatsapp/, /^\/robots\.txt/, /^\/sitemap\.xml/],
       },
     }),
   ],

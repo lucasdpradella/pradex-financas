@@ -17,7 +17,7 @@ import { CHECKOUT, PRECO, ROTULO, nivelPlano, checkoutComEmail } from "../lib/pl
 // alguém que só queria olhar é pior que não ter botão nenhum.
 const DESCRICAO = {
   essencial: "Lançamentos pelo WhatsApp e teto por categoria, liberados na hora.",
-  assistente: "Tudo do Essencial mais o Planejamento Financeiro completo.",
+  assistente: "Tudo do Essencial mais as projeções do seu dinheiro.",
   casal: "Tudo do Assistente para os dois, no mesmo livro — um paga, os dois usam.",
 };
 

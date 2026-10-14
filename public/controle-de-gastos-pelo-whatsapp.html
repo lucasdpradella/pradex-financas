@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Controle de gastos pelo WhatsApp — Pradex Finanças</title>
+  <meta name="description" content="Anote gastos mandando mensagem no WhatsApp: &quot;gastei 50 no almoço no crédito&quot;. O Pradex registra valor, categoria, cartão e fatura automaticamente, por texto ou áudio. Teste 14 dias grátis." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://pradex.com.br/controle-de-gastos-pelo-whatsapp" />
+  <meta name="theme-color" content="#0C0E14" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Pradex Finanças" />
+  <meta property="og:locale" content="pt_BR" />
+  <meta property="og:title" content="Controle de gastos pelo WhatsApp com o Pradex" />
+  <meta property="og:description" content="Anote gastos mandando mensagem no WhatsApp: &quot;gastei 50 no almoço no crédito&quot;. O Pradex registra valor, categoria, cartão e fatura automaticamente, por texto ou áudio. Teste 14 dias grátis." />
+  <meta property="og:url" content="https://pradex.com.br/controle-de-gastos-pelo-whatsapp" />
+  <meta property="og:image" content="https://pradex.com.br/icon-512.png" />
+  <meta name="twitter:card" content="summary" />
+
+  <link rel="icon" href="/icon-192.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" />
+
+  <style>
+    :root { color-scheme: dark; }
+    body { background: #0C0E14; color: #F1F2F4; font-family: 'DM Sans', 'Helvetica Neue', system-ui, sans-serif; margin: 0; padding: 1.5rem 1.25rem 3rem; -webkit-font-smoothing: antialiased; }
+    main { max-width: 760px; margin: 0 auto; }
+    .topo { max-width: 760px; margin: 0 auto 2.25rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+    .topo .logo { font-size: 1rem; font-weight: 700; letter-spacing: 0.04em; color: #F1F2F4; text-decoration: none; }
+    .topo nav a { font-size: 0.85rem; color: #8B93A1; text-decoration: none; margin-right: 1.1rem; }
+    .topo nav a:last-child { margin-right: 0; }
+    .topo nav a[aria-current="page"] { color: #F1F2F4; }
+    .marca { font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: #8B93A1; margin: 0 0 0.5rem; }
+    h1 { font-size: 1.85rem; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 0.75rem; line-height: 1.2; }
+    .lead { font-size: 1rem; color: #8B93A1; line-height: 1.6; margin: 0 0 2.25rem; }
+    h2 { font-size: 1.1rem; font-weight: 600; margin: 2.25rem 0 0.6rem; }
+    h3 { font-size: 0.98rem; font-weight: 600; margin: 1.6rem 0 0.4rem; }
+    p, li, td, th { font-size: 0.92rem; color: #C9CFDA; line-height: 1.65; }
+    ul { padding-left: 1.15rem; }
+    li { margin-bottom: 0.4rem; }
+    a { color: #6366F1; }
+    strong { color: #F1F2F4; }
+    .exemplo { display: inline-block; background: #151821; border: 1px solid #2C3344; border-radius: 10px 10px 10px 2px; padding: 0.35rem 0.75rem; margin: 0.2rem 0.35rem 0.2rem 0; font-size: 0.88rem; color: #F1F2F4; }
+    .caixa { border: 1px solid #2C3344; border-radius: 12px; padding: 0.4rem 1.1rem 0.8rem; background: #151821; margin: 1.25rem 0; }
+    .planos { display: grid; gap: 1rem; grid-template-columns: 1fr; margin: 1.5rem 0; }
+    @media (min-width: 720px) { .planos { grid-template-columns: repeat(3, 1fr); } }
+    .plano { background: #151821; border: 1px solid #1E2330; border-radius: 16px; padding: 1.25rem 1.2rem; }
+    .plano.destaque { border-color: #6366F1; box-shadow: 0 0 0 1px rgba(99,102,241,0.35), 0 18px 50px rgba(79,70,229,0.18); }
+    .plano h2 { margin: 0 0 0.3rem; font-size: 1.15rem; }
+    .plano .preco { font-size: 1.8rem; font-weight: 700; letter-spacing: -0.03em; color: #F1F2F4; margin: 0 0 0.25rem; }
+    .plano .preco small { font-size: 0.9rem; font-weight: 600; color: #8B93A1; }
+    .plano .linha { margin: 0 0 0.9rem; color: #8B93A1; font-size: 0.85rem; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid #1E2330; vertical-align: top; }
+    th { color: #8B93A1; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .cta { display: inline-block; margin-top: 1.5rem; background: #6366F1; color: #fff; text-decoration: none; font-weight: 700; padding: 0.85rem 1.5rem; border-radius: 10px; }
+    footer { margin-top: 3rem; padding-top: 1.25rem; border-top: 1px solid #1E2330; font-size: 0.8rem; color: #8B93A1; line-height: 1.9; }
+    footer a { margin-right: 1rem; color: #8B93A1; }
+  </style>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": "https://pradex.com.br/#organizacao",
+    "name": "Pradex Finanças",
+    "alternateName": "PRADEX",
+    "url": "https://pradex.com.br/",
+    "logo": "https://pradex.com.br/icon-512.png",
+    "email": "pradex.financas@gmail.com",
+    "sameAs": [],
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "contactType": "customer support",
+      "email": "pradex.financas@gmail.com",
+      "availableLanguage": [
+        "pt-BR",
+        "en"
+      ]
+    }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "@id": "https://pradex.com.br/#app",
+    "name": "Pradex Finanças",
+    "applicationCategory": "FinanceApplication",
+    "applicationSubCategory": "Controle de gastos e orçamento pessoal",
+    "operatingSystem": "Web, WhatsApp",
+    "inLanguage": "pt-BR",
+    "url": "https://pradex.com.br/",
+    "description": "App de organização e controle de gastos pessoais: registre gastos e receitas no app ou por mensagem no WhatsApp (texto ou áudio), acompanhe cartões, faturas, parcelas, teto por categoria e caixinhas de metas.",
+    "publisher": {
+      "@id": "https://pradex.com.br/#organizacao"
+    },
+    "offers": [
+      {
+        "@type": "Offer",
+        "name": "Free",
+        "price": "0",
+        "priceCurrency": "BRL",
+        "url": "https://pradex.com.br/precos"
+      },
+      {
+        "@type": "Offer",
+        "name": "Essencial",
+        "price": "29.90",
+        "priceCurrency": "BRL",
+        "url": "https://pradex.com.br/precos",
+        "priceSpecification": {
+          "@type": "UnitPriceSpecification",
+          "price": "29.90",
+          "priceCurrency": "BRL",
+          "unitCode": "MON",
+          "referenceQuantity": {
+            "@type": "QuantitativeValue",
+            "value": 1,
+            "unitCode": "MON"
+          }
+        }
+      },
+      {
+        "@type": "Offer",
+        "name": "Assistente",
+        "price": "79.90",
+        "priceCurrency": "BRL",
+        "url": "https://pradex.com.br/precos",
+        "priceSpecification": {
+          "@type": "UnitPriceSpecification",
+          "price": "79.90",
+          "priceCurrency": "BRL",
+          "unitCode": "MON",
+          "referenceQuantity": {
+            "@type": "QuantitativeValue",
+            "value": 1,
+            "unitCode": "MON"
+          }
+        }
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <header class="topo">
+    <a class="logo" href="/">PRADEX</a>
+    <nav aria-label="Páginas">
+      <a href="/precos">Preços</a>
+      <a href="/controle-de-gastos-pelo-whatsapp" aria-current="page">Pelo WhatsApp</a>
+      <a href="/perguntas-frequentes">Perguntas frequentes</a>
+    </nav>
+  </header>
+<main>
+<p class="marca">Pradex Finanças · Controle de gastos pelo WhatsApp</p>
+  <h1>Controle de gastos pelo WhatsApp: mandou a mensagem, está anotado.</h1>
+  <p class="lead">
+    O difícil de controlar gastos em planilha ou app é lembrar de abrir. Com o Pradex você anota o gasto
+    onde já conversa o dia inteiro: no WhatsApp. Uma mensagem, por texto ou áudio, e o
+    lançamento cai na sua conta já categorizado.
+  </p>
+
+  <h2>Exemplos de mensagens</h2>
+  <p>
+    <span class="exemplo">gastei 50 no almoço no crédito Nubank</span>
+    <span class="exemplo">mercado 230 no débito</span>
+    <span class="exemplo">uber 23 no pix</span>
+    <span class="exemplo">tênis 600 em 3x no cartão</span>
+    <span class="exemplo">recebi 1800 de salário</span>
+    <span class="exemplo">paguei a fatura do cartão</span>
+  </p>
+
+  <table>
+    <tr><th>Você manda</th><th>O Pradex registra</th></tr>
+    <tr><td>"gastei 50 no almoço no crédito Nubank"</td><td>Gasto de R$ 50, categoria Alimentação, crédito no cartão Nubank, na fatura certa conforme o dia de fechamento</td></tr>
+    <tr><td>"mercado 230 no débito"</td><td>Gasto de R$ 230 no débito, que sai do saldo do mês na hora</td></tr>
+    <tr><td>"recebi 1800 de salário"</td><td>Receita de R$ 1.800</td></tr>
+    <tr><td>"paguei a fatura do cartão"</td><td>Pagamento de fatura, que abate a fatura sem contar as compras de novo</td></tr>
+  </table>
+
+  <h2>Como funciona</h2>
+  <ul>
+    <li><strong>Crie a conta grátis</strong> em pradex.com.br e informe o seu WhatsApp. É por esse número que o agente reconhece você.</li>
+    <li><strong>Mande a mensagem</strong> para <a href="https://wa.me/5511924568633">wa.me/5511924568633</a>, escrita ou falada, do jeito que você falaria com alguém.</li>
+    <li><strong>O agente entende</strong> valor, categoria, forma de pagamento (crédito, débito, PIX ou dinheiro) e qual cartão. Se ficar em dúvida, pergunta antes de gravar.</li>
+    <li><strong>Aparece no app na mesma hora</strong>: é o mesmo lançamento, não uma cópia. Errou a categoria? Edite no app ou responda ao agente.</li>
+  </ul>
+
+  <h2>O que você acompanha no app</h2>
+  <ul>
+    <li><strong>Para onde o dinheiro foi</strong>, por categoria e por mês.</li>
+    <li><strong>Fatura de cada cartão</strong>, com as compras parceladas dos próximos meses já projetadas.</li>
+    <li><strong>Teto por categoria</strong>: você define o limite e vê quanto já usou antes do fim do mês.</li>
+    <li><strong>Caixinhas de metas</strong> para o que você quer juntar.</li>
+    <li><strong>Score de disciplina</strong>, que pontua o hábito de registrar e de cumprir o próprio teto, nunca o tamanho da renda.</li>
+  </ul>
+
+  <div class="caixa">
+    <h2 style="margin-top:0.8rem">Quanto custa</h2>
+    <p>
+      Registrar pelo app é grátis, sem limite de lançamentos. O registro pelo WhatsApp faz parte do plano
+      Essencial, R$ 29,90 por mês, e pode ser testado por 14 dias sem cartão e sem cobrança automática.
+      Veja <a href="/precos">todos os planos</a>.
+    </p>
+  </div>
+
+  <h2>Privacidade</h2>
+  <p>
+    O Pradex não se conecta ao seu banco e não pede senha de banco. Os lançamentos ficam na sua conta, com
+    acesso isolado por usuário, e as mensagens enviadas ao número do Pradex são usadas só para registrar os
+    seus lançamentos. Detalhes na <a href="/privacidade">Política de Privacidade</a>.
+  </p>
+
+  <p>Mais dúvidas em <a href="/perguntas-frequentes">perguntas frequentes</a> ou no <a href="/guia">guia de uso</a>.</p>
+  <a class="cta" href="/">Começar grátis</a>
+
+  <footer>
+    <a href="/">Início</a>
+    <a href="/precos">Preços</a>
+    <a href="/controle-de-gastos-pelo-whatsapp">Controle de gastos pelo WhatsApp</a>
+    <a href="/perguntas-frequentes">Perguntas frequentes</a>
+    <a href="/guia">Guia de uso</a>
+    <a href="/sobre">Sobre</a>
+    <a href="/privacidade">Privacidade</a>
+    <a href="/excluir-conta">Excluir conta</a><br />
+    Pradex Finanças — app de organização e controle de gastos pessoais. pradex.com.br
+  </footer>
+</main>
+</body>
+</html>

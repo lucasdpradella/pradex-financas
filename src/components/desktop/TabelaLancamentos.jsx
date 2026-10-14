@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { desktopTheme as t } from "./theme";
 import { t as tr } from "../../lib/i18n";
+import { rotuloParcela } from "../../lib/parcelaDescricao";
 
 // Tabela poderosa de lançamentos (Fase 1, desktop-only). Recebe dados + callbacks
 // do App.jsx (que centraliza o acesso ao banco). Regras:
@@ -258,7 +259,7 @@ export default function TabelaLancamentos({
               </thead>
               <tbody>
                 {linhas.map((l) => {
-                  const parcela = l.parcela_grupo_id && l.total_parcelas;
+                  const parcela = rotuloParcela(l);
                   const cor = l.tipo === "receita" ? t.receita : t.gasto;
                   const desc = limparDescricaoParcela(l.descricao || "");
                   return (
@@ -272,7 +273,7 @@ export default function TabelaLancamentos({
                         {renderCelula(l, "valor", (
                           <span className="pdx-val" style={{ color: cor }}>
                             {l.tipo === "receita" ? "+" : "-"}{formatBRL(l.valor).replace(new RegExp(String.fromCharCode(160), "g"), " ")}
-                            {parcela ? <small> ({l.parcela_atual}/{l.total_parcelas})</small> : null}
+                            {parcela ? <small> {parcela}</small> : null}
                           </span>
                         ))}
                       </td>

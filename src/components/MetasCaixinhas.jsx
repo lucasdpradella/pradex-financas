@@ -16,6 +16,7 @@ import React, { useMemo, useState } from "react";
 import {
   comProgresso, metasAtivas, limiteDeMetas, LIMITE_FREE, FORMAS_APORTE,
   DIFICULDADES, DIFICULDADE_PADRAO, dificuldadeDe, mensagemDoMarco, pontosDoMarco,
+  validarEdicaoMeta,
 } from "../lib/metas";
 import { CHECKOUT, PRECO, checkoutComEmail } from "../lib/plano";
 import { useFormatMoney, useSimboloMoeda } from "../lib/moeda";
@@ -32,6 +33,7 @@ const COR = {
   fraco: "var(--text-muted, #5C6570)",
   acento: "var(--accent, #6366F1)",
   ok: "#2FBF8A",
+  perigo: "var(--danger, #E06C65)",
 };
 
 const hoje = () => new Date().toISOString().split("T")[0];
@@ -64,6 +66,7 @@ export default function MetasCaixinhas({
   onCriar,
   onAportar,
   onArquivar,
+  onEditar,
   onMudarDificuldade,
 
 
@@ -84,6 +87,11 @@ export default function MetasCaixinhas({
   const [aporte, setAporte] = useState(aporteVazio());
   const [erro, setErro] = useState("");
   const [paywall, setPaywall] = useState(false);
+  // Edição da caixinha (out/2026). `editando` é o id; `edicao` o rascunho do form;
+  // `confirmandoExclusao` abre o aviso de exclusão dentro do mesmo painel.
+  const [editando, setEditando] = useState(null);
+  const [edicao, setEdicao] = useState(null);
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
 
   const ativas = useMemo(() => metasAtivas(metas), [metas]);
   const comDados = useMemo(
@@ -125,6 +133,47 @@ export default function MetasCaixinhas({
     });
     setNova({ nome: "", valor_alvo: "", aplicado_em: "", prazo: "", dificuldade: DIFICULDADE_PADRAO });
     setAbrindoForm(false);
+  }
+
+  function abrirEdicao(m) {
+    if (editando === m.id) { fecharEdicao(); return; }
+    setErro("");
+    setAporteDe(null);
+    setEditandoDif(null);
+    setConfirmandoExclusao(false);
+    setEditando(m.id);
+    setEdicao({
+      nome: m.nome || "",
+      valor_alvo: String(m.valor_alvo ?? "").replace(".", ","),
+      prazo: m.prazo || "",
+      aplicado_em: m.aplicado_em || "",
+    });
+  }
+
+  function fecharEdicao() {
+    setEditando(null);
+    setEdicao(null);
+    setConfirmandoExclusao(false);
+  }
+
+  async function salvarEdicao(meta) {
+    const { dados, erro: e } = validarEdicaoMeta({
+      nome: edicao?.nome,
+      valorAlvo: parseValor(edicao?.valor_alvo),
+      prazo: edicao?.prazo,
+      aplicadoEm: edicao?.aplicado_em,
+    }, meta, metas);
+    if (e) { setErro(e); return; }
+    setErro("");
+    const ok = await onEditar?.(meta, dados);
+    if (ok !== false) fecharEdicao();
+  }
+
+  // "Excluir caixinha" = arquivar (ver arquivarMeta no App).
+  async function arquivar(meta) {
+    setErro("");
+    const ok = await onArquivar?.(meta);
+    if (ok !== false) fecharEdicao();
   }
 
   function confirmarAporte(meta) {
@@ -208,7 +257,117 @@ export default function MetasCaixinhas({
                 {dificuldadeDe(m).label.toLowerCase()}
               </button>
               {m.aplicado_em ? ` · onde está: ${m.aplicado_em}` : ""}
+              {onEditar && (
+                <>
+                  {" · "}
+                  <button
+                    type="button"
+                    onClick={() => abrirEdicao(m)}
+                    aria-label={`Editar ou excluir ${m.nome}`}
+                    style={{ background: "transparent", border: "none", padding: 0, margin: 0, font: "inherit", color: COR.medio, cursor: "pointer", textDecoration: "underline dotted", textUnderlineOffset: "3px" }}
+                  >
+                    {editando === m.id ? "fechar edição" : "editar"}
+                  </button>
+                </>
+              )}
             </p>
+
+            {/* EDITAR / EXCLUIR (= arquivar) (out/2026). Até aqui uma caixinha criada
+                errada não tinha conserto: só dava pra trocar a dificuldade. Fica
+                atrás do link "editar" pelo mesmo motivo da dificuldade — é raro. */}
+            {editando === m.id && edicao && (
+              <div style={{ marginTop: "0.6rem", paddingTop: "0.6rem", borderTop: `1px solid ${COR.borda}`, display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <input
+                  placeholder="Nome da caixinha"
+                  value={edicao.nome}
+                  onChange={(e) => setEdicao((d) => ({ ...d, nome: e.target.value }))}
+                  aria-label="Nome da caixinha"
+                  style={inputBase}
+                />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+                  <input
+                    inputMode="decimal"
+                    placeholder={`Quanto quer juntar? ${simbolo}`}
+                    value={edicao.valor_alvo}
+                    onChange={(e) => setEdicao((d) => ({ ...d, valor_alvo: e.target.value }))}
+                    aria-label="Valor alvo"
+                    style={inputBase}
+                  />
+                  <input
+                    type="date"
+                    value={edicao.prazo}
+                    onChange={(e) => setEdicao((d) => ({ ...d, prazo: e.target.value }))}
+                    aria-label="Prazo"
+                    style={inputBase}
+                  />
+                </div>
+                <input
+                  placeholder="Onde está guardado (opcional)"
+                  value={edicao.aplicado_em}
+                  onChange={(e) => setEdicao((d) => ({ ...d, aplicado_em: e.target.value }))}
+                  aria-label="Onde está guardado"
+                  style={inputBase}
+                />
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button
+                    type="button"
+                    onClick={() => salvarEdicao(m)}
+                    disabled={salvando}
+                    className="pdx-tap"
+                    style={{ flex: 1, padding: "0.6rem", border: "none", borderRadius: "9px", background: COR.acento, color: "#fff", fontSize: "0.8rem", fontWeight: 700, cursor: salvando ? "not-allowed" : "pointer", opacity: salvando ? 0.7 : 1, fontFamily: "inherit" }}
+                  >
+                    {salvando ? "Salvando..." : "Salvar"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={fecharEdicao}
+                    className="pdx-tap"
+                    style={{ padding: "0.6rem 0.9rem", border: `1px solid ${COR.borda}`, borderRadius: "9px", background: "transparent", color: COR.medio, fontSize: "0.8rem", cursor: "pointer", fontFamily: "inherit" }}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+
+                {onArquivar && !confirmandoExclusao && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmandoExclusao(true)}
+                    style={{ alignSelf: "flex-start", background: "transparent", border: "none", padding: "0.2rem 0", font: "inherit", fontSize: "0.75rem", color: COR.perigo, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: "3px" }}
+                  >
+                    Excluir caixinha
+                  </button>
+                )}
+
+                {/* UMA ação só (decisão do Lucas, 03/10): "arquivar" vs "excluir"
+                    confundia. Pra quem usa é "excluir"; por baixo é arquivar — some da
+                    lista pra sempre, mas os registros e os pontos ficam. */}
+                {onArquivar && confirmandoExclusao && (
+                  <div role="alertdialog" aria-label={`Excluir ${m.nome}`} style={{ border: `1px solid ${COR.perigo}`, borderRadius: "10px", padding: "0.7rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                    <p style={{ margin: 0, fontSize: "0.78rem", color: COR.texto, lineHeight: 1.45 }}>
+                      Excluir a caixinha "{m.nome}"? Ela some da sua lista. Seus registros continuam no histórico.
+                    </p>
+                    <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        onClick={() => arquivar(m)}
+                        disabled={salvando}
+                        className="pdx-tap"
+                        style={{ padding: "0.5rem 0.8rem", border: "none", borderRadius: "8px", background: COR.perigo, color: "#fff", fontSize: "0.78rem", fontWeight: 700, cursor: salvando ? "not-allowed" : "pointer", opacity: salvando ? 0.7 : 1, fontFamily: "inherit" }}
+                      >
+                        Excluir caixinha
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmandoExclusao(false)}
+                        style={{ padding: "0.5rem 0.4rem", border: "none", background: "transparent", color: COR.medio, fontSize: "0.78rem", cursor: "pointer", fontFamily: "inherit" }}
+                      >
+                        Voltar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* TROCAR A DIFICULDADE DEPOIS (decisão do Lucas, 19/09): "a pessoa pode
                 mudar de ideia ou entender melhor com o tempo, sem crise — nesse caso
