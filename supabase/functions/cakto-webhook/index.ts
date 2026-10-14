@@ -19,6 +19,13 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import {
+  type Plano,
+  resolverPlanoDaOferta,
+  calcularPlanoAte,
+  decidirLiberacao,
+  revogacaoSeAplica,
+} from "./regras.ts";
 
 // ===== CONFIG =====
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -34,6 +41,12 @@ const CAKTO_OFFER_ASSISTENTE = Deno.env.get("CAKTO_OFFER_ASSISTENTE") ?? "";
 // upsell, oferta nova criada no painel), ainda dá pra resolver pelo produto.
 const CAKTO_PRODUCT_ESSENCIAL = Deno.env.get("CAKTO_PRODUCT_ESSENCIAL") ?? "";
 const CAKTO_PRODUCT_ASSISTENTE = Deno.env.get("CAKTO_PRODUCT_ASSISTENTE") ?? "";
+// Plano Casal (2026-09-25). As ofertas '344ridx' e '344ridx_1135957' já são
+// reconhecidas SEM secret (OFERTAS_CASAL_FIXAS em ./regras.ts). Estas duas variáveis
+// são OPCIONAIS, pra oferta/produto adicional do Casal (upsell, oferta nova):
+//   supabase secrets set CAKTO_OFFER_CASAL=<codigo> CAKTO_PRODUCT_CASAL=<id> --project-ref sjvuhqqsjboncwpboclv
+const CAKTO_OFFER_CASAL = Deno.env.get("CAKTO_OFFER_CASAL") ?? "";
+const CAKTO_PRODUCT_CASAL = Deno.env.get("CAKTO_PRODUCT_CASAL") ?? "";
 
 // Tolerância de replay na assinatura. A Cakto reentrega por até 30min, então a
 // janela precisa cobrir isso — o que barra é replay de payload antigo, não retry.
@@ -76,7 +89,7 @@ const URL_APP = "https://pradex.com.br";
 const URL_GUIA = "https://pradex.com.br/guia";
 const WA_AGENTE = "https://wa.me/5511924568633";
 
-const ROTULO_PLANO: Record<string, string> = { essencial: "Essencial", assistente: "Assistente" };
+const ROTULO_PLANO: Record<string, string> = { essencial: "Essencial", assistente: "Assistente", casal: "Casal" };
 
 // Mesmo helper de `trial-lembretes`. Duplicado de propósito: Edge Functions não
 // compartilham módulo entre si sem um pacote publicado, e copiar 15 linhas custa
@@ -115,7 +128,7 @@ const brl = (v: unknown) => {
 // Aviso pro Lucas. Curto e escaneável: ele vai ler isso no celular, provavelmente no
 // meio de outra coisa.
 function avisoVenda(tipo: "venda" | "sem_conta" | "cancelou", dados: {
-  plano: string; email: string; nome?: string; valor?: unknown; motivo?: string;
+  plano: string; email: string; nome?: string; valor?: unknown; motivo?: string; nota?: string;
 }): string {
   const rotulo = ROTULO_PLANO[dados.plano] ?? dados.plano;
   const quem = dados.nome ? `${dados.nome} (${dados.email})` : dados.email;
@@ -124,7 +137,7 @@ function avisoVenda(tipo: "venda" | "sem_conta" | "cancelou", dados: {
     return `💰 *Venda no Pradex*\n\n` +
       `*${rotulo}* — ${brl(dados.valor)}\n` +
       `${quem}\n\n` +
-      `Acesso liberado e kit de boas-vindas enviado.`;
+      (dados.nota ? dados.nota : `Acesso liberado e kit de boas-vindas enviado.`);
   }
   if (tipo === "sem_conta") {
     return `⚠️ *Pagou e NÃO liberou*\n\n` +
@@ -142,6 +155,17 @@ function avisoVenda(tipo: "venda" | "sem_conta" | "cancelou", dados: {
 function kitBoasVindas(nome: string, plano: string): string {
   const primeiroNome = String(nome || "").trim().split(/\s+/)[0] || "tudo certo";
   const base = `Oi, ${primeiroNome}! 👋 Seu *${ROTULO_PLANO[plano] ?? plano}* está ativo.\n\n`;
+
+  if (plano === "casal") {
+    return base +
+      `*O que você destravou (pra vocês dois):*\n` +
+      `• Tudo do Assistente: WhatsApp, teto por categoria, Planejamento Financeiro e Relatórios\n` +
+      `• Um livro só pro casal — os dois lançam e enxergam as mesmas contas\n\n` +
+      `*Comece por aqui:* me manda _"gastei 50 no mercado"_ nesta conversa. Eu registro e você confere no app.\n\n` +
+      `📘 Manual completo: ${URL_GUIA}\n` +
+      `📱 App: ${URL_APP}\n\n` +
+      `Qualquer dúvida é só responder aqui.`;
+  }
 
   if (plano === "assistente") {
     return base +
@@ -165,9 +189,6 @@ function kitBoasVindas(nome: string, plano: string): string {
     `Qualquer dúvida é só responder aqui.`;
 }
 
-const DIAS_PADRAO_CICLO = 31;
-
-type Plano = "essencial" | "assistente";
 
 // Eventos que liberam acesso. purchase_approved entra porque a primeira cobrança de
 // uma assinatura chega como compra aprovada (com o objeto subscription preenchido).
@@ -287,42 +308,24 @@ async function origemValida(
   return { ok: false, via: "nenhum", motivo: "sem header de assinatura e sem secret no corpo" };
 }
 
+// Mapa oferta → plano e cálculo de plano_ate moram em ./regras.ts (lógica pura,
+// testada no Vitest). Aqui só entra a configuração vinda dos secrets.
 function planoDaOferta(data: Record<string, any>): Plano | null {
-  const offerId = String(data?.offer?.id ?? "");
-  if (offerId && CAKTO_OFFER_ASSISTENTE && offerId === CAKTO_OFFER_ASSISTENTE) return "assistente";
-  if (offerId && CAKTO_OFFER_ESSENCIAL && offerId === CAKTO_OFFER_ESSENCIAL) return "essencial";
-
-  const productId = String(data?.product?.id ?? "");
-  if (productId && CAKTO_PRODUCT_ASSISTENTE && productId === CAKTO_PRODUCT_ASSISTENTE) return "assistente";
-  if (productId && CAKTO_PRODUCT_ESSENCIAL && productId === CAKTO_PRODUCT_ESSENCIAL) return "essencial";
-
-  return null;
+  return resolverPlanoDaOferta(data, {
+    offerEssencial: CAKTO_OFFER_ESSENCIAL, offerAssistente: CAKTO_OFFER_ASSISTENTE, offerCasal: CAKTO_OFFER_CASAL,
+    productEssencial: CAKTO_PRODUCT_ESSENCIAL, productAssistente: CAKTO_PRODUCT_ASSISTENTE, productCasal: CAKTO_PRODUCT_CASAL,
+  });
 }
 
-// plano_ate — ATENÇÃO: a doc da Cakto documenta que existe um objeto `subscription`
-// mas NÃO especifica os campos dele. Em vez de fixar um nome inventado, sonda os
-// candidatos plausíveis e, não achando, cai num ciclo padrão. O payload cru fica em
-// cakto_eventos.payload: depois do primeiro evento real dá pra fixar o campo certo.
-const CANDIDATOS_PROXIMA_COBRANCA = [
-  "nextChargeDate", "next_charge_date", "nextBillingDate", "next_billing_date",
-  "nextPayment", "next_payment", "currentPeriodEnd", "current_period_end",
-  "expiresAt", "expires_at", "renewsAt", "renews_at",
-];
-
-function calcularPlanoAte(data: Record<string, any>): { valor: string; origem: string } {
-  const sub = data?.subscription;
-  if (sub && typeof sub === "object") {
-    for (const chave of CANDIDATOS_PROXIMA_COBRANCA) {
-      const bruto = sub[chave];
-      if (!bruto) continue;
-      const d = new Date(bruto);
-      if (!isNaN(d.getTime())) return { valor: d.toISOString(), origem: `subscription.${chave}` };
-    }
-  }
-  const base = data?.paidAt ? new Date(data.paidAt) : new Date();
-  const partida = isNaN(base.getTime()) ? new Date() : base;
-  partida.setDate(partida.getDate() + DIAS_PADRAO_CICLO);
-  return { valor: partida.toISOString(), origem: `fallback_${DIAS_PADRAO_CICLO}d` };
+// Membros ativos do livro do usuário, fora ele. `livro_membros.user_id` é único
+// (uma pessoa, um livro), então há no máximo um livro.
+async function outrosMembrosDoLivro(supabase: SupabaseClient, userId: string): Promise<string[]> {
+  const { data: minha } = await supabase
+    .from("livro_membros").select("livro_id").eq("user_id", userId).eq("ativo", true).maybeSingle();
+  if (!minha?.livro_id) return [];
+  const { data: membros } = await supabase
+    .from("livro_membros").select("user_id").eq("livro_id", minha.livro_id).eq("ativo", true).neq("user_id", userId);
+  return (membros ?? []).map((m: { user_id: string }) => m.user_id);
 }
 
 // ===== MAIN HANDLER =====
@@ -368,13 +371,16 @@ Deno.serve(async (req: Request) => {
   // reentrega — e é isso que dá idempotência aos avisos de graça, sem tabela nova.
   // Sem essa checagem, a Cakto reentregando o mesmo evento (ela reentrega por até
   // 30min em falha de rede) mandaria o kit de boas-vindas duas, três vezes.
+  let idRegistrado: number | null = null;
   const registrar = async (resultado: string, detalhe: string, plano: string | null, userId: string | null): Promise<boolean> => {
     const { data: inseridas, error } = await supabase.from("cakto_eventos").upsert({
       event, event_id: eventId, resultado, detalhe,
       email: email || null, plano, user_id: userId, payload: envelope,
-    }, { onConflict: "event,event_id", ignoreDuplicates: true }).select("event_id");
+    }, { onConflict: "event,event_id", ignoreDuplicates: true }).select("id");
     if (error) { logErro(cid, "registro_evento_falhou", error.message); return false; }
-    return Array.isArray(inseridas) && inseridas.length > 0;
+    const nova = Array.isArray(inseridas) && inseridas.length > 0;
+    if (nova) idRegistrado = Number(inseridas[0].id);
+    return nova;
   };
 
   // Avisa o Lucas. Engole qualquer falha: o plano já está gravado a esta altura, e
@@ -389,6 +395,26 @@ Deno.serve(async (req: Request) => {
       logInfo(cid, "aviso_lucas", { ok: r.ok, detalhe: r.detalhe });
     } catch (e) {
       logErro(cid, "aviso_lucas_falhou", String(e));
+    }
+  };
+
+  // true se ESTE evento é o primeiro do pedido (mesmo data.id) com um destes
+  // resultados. Critério: o menor `cakto_eventos.id` vence. Comparar com "existe
+  // outro?" falharia na corrida — se os dois eventos gravassem antes de qualquer um
+  // conferir, cada um veria o outro e NINGUÉM avisaria. Com o menor id, exatamente
+  // um avisa. Em erro de leitura, prefere avisar em dobro a não avisar.
+  const primeiroDoPedido = async (resultados: string[]): Promise<boolean> => {
+    if (idRegistrado === null) return true;
+    try {
+      const { data: primeiro, error } = await supabase
+        .from("cakto_eventos").select("id")
+        .eq("event_id", eventId).in("resultado", resultados)
+        .order("id", { ascending: true }).limit(1).maybeSingle();
+      if (error) { logErro(cid, "dedupe_pedido_falhou", error.message); return true; }
+      return !primeiro || Number(primeiro.id) === idRegistrado;
+    } catch (e) {
+      logErro(cid, "dedupe_pedido_falhou", String(e));
+      return true;
     }
   };
 
@@ -452,13 +478,22 @@ Deno.serve(async (req: Request) => {
 
     if (!userId) {
       // Brief item 4: comprou e não tem conta. Fila pro Lucas amarrar, sem falhar.
+      let detalhePendencia = "";
       if (libera) {
-        await supabase.from("pendencias_assinatura").insert({ email, plano, event, event_id: eventId, motivo: "sem_auth_user" });
+        // O insert pode falhar (ex.: check constraint de plano sem a migration do
+        // Casal). Antes o erro era engolido e a pendência sumia sem rastro — agora vai
+        // pro log e pro detalhe do evento.
+        const { error: erroPend } = await supabase.from("pendencias_assinatura")
+          .insert({ email, plano, event, event_id: eventId, motivo: "sem_auth_user" });
+        if (erroPend) {
+          logErro(cid, "pendencia_insert_falhou", erroPend.message);
+          detalhePendencia = ` | ATENCAO: pendencia NAO gravada: ${erroPend.message}`;
+        }
       }
-      const novo = await registrar("sem_conta", "e-mail da compra nao tem conta no app", plano, null);
+      const novo = await registrar("sem_conta", `e-mail da compra nao tem conta no app${detalhePendencia}`, plano, null);
       logInfo(cid, "sem_conta", { email, plano, libera });
       // Este é o aviso MAIS urgente dos três: alguém pagou e está sem acesso agora.
-      if (libera && novo) {
+      if (libera && novo && await primeiroDoPedido(["sem_conta"])) {
         await avisarLucas(avisoVenda("sem_conta", {
           plano, email, nome: data?.customer?.name, valor: data?.amount,
           motivo: "o e-mail da compra não tem conta no app",
@@ -472,12 +507,12 @@ Deno.serve(async (req: Request) => {
       // um purchase_refused de Essencial derrubaria o Assistente ativo de quem só
       // tentou comprar outra coisa.
       const { data: perfil } = await supabase
-        .from("fp_perfil").select("plano").eq("user_id", userId).maybeSingle();
+        .from("fp_perfil").select("plano, plano_ate").eq("user_id", userId).maybeSingle();
       if (!perfil) {
         await registrar("sem_conta", "auth.users existe mas nao ha fp_perfil", plano, userId);
         return new Response("ok", { status: 200 });
       }
-      if (perfil.plano !== plano) {
+      if (!revogacaoSeAplica(perfil.plano, plano)) {
         await registrar("ignorado", `revogacao ignorada: plano atual '${perfil.plano}' nao veio desta oferta ('${plano}')`, plano, userId);
         logInfo(cid, "revogacao_fora_de_escopo", { atual: perfil.plano, oferta: plano });
         return new Response("ok", { status: 200 });
@@ -490,32 +525,60 @@ Deno.serve(async (req: Request) => {
         logErro(cid, "revogacao_falhou", error.message);
         return new Response("ok", { status: 200 });
       }
-      const novoRevog = await registrar("revogado", `${event} -> plano none`, plano, userId);
+      // Casal: derruba junto o parceiro que recebeu o plano POR PROPAGAÇÃO. Critério:
+      // plano 'casal' com o MESMO plano_ate do pagador (é o que a propagação grava).
+      // Quem tem Casal próprio, com outra data, não é tocado.
+      let detalheCasal = "";
+      if (plano === "casal") {
+        try {
+          const outros = await outrosMembrosDoLivro(supabase, userId);
+          if (outros.length > 0 && perfil.plano_ate) {
+            const { data: derrubados, error: erroProp } = await supabase.from("fp_perfil")
+              .update({ plano: "none", plano_ate: null })
+              .in("user_id", outros).eq("plano", "casal").eq("plano_ate", perfil.plano_ate)
+              .select("user_id");
+            if (erroProp) logErro(cid, "casal_revogacao_propagada_falhou", erroProp.message);
+            detalheCasal = ` | casal: ${derrubados?.length ?? 0} membro(s) revogado(s)`;
+          }
+        } catch (e) {
+          logErro(cid, "casal_revogacao_propagada_falhou", String(e));
+        }
+      }
+      const novoRevog = await registrar("revogado", `${event} -> plano none${detalheCasal}`, plano, userId);
       logInfo(cid, "revogado", { event, plano_anterior: plano });
       // Cancelamento/reembolso também precisa chegar — churn silencioso é tão ruim
       // quanto venda silenciosa. O CLIENTE não recebe nada aqui: quem cancelou não
       // quer mensagem do produto que acabou de deixar.
-      if (novoRevog) await avisarLucas(avisoVenda("cancelou", { plano, email, nome: data?.customer?.name }));
+      if (novoRevog && await primeiroDoPedido(["revogado"])) await avisarLucas(avisoVenda("cancelou", { plano, email, nome: data?.customer?.name }));
       return new Response("ok", { status: 200 });
     }
 
-    const { valor: planoAte, origem: origemData } = calcularPlanoAte(data);
-    const { data: linhas, error } = await supabase.from("fp_perfil")
-      .update({ plano, plano_ate: planoAte }).eq("user_id", userId).select("user_id");
-    if (error) {
-      await registrar("erro", `update de liberacao falhou: ${error.message}`, plano, userId);
-      logErro(cid, "liberacao_falhou", error.message);
+    const { valor: planoAteOferta, origem: origemData } = calcularPlanoAte(data);
+
+    // Plano atual primeiro: é ele que decide se a oferta sobe, renova ou é ignorada
+    // (ANTI-DOWNGRADE — ver decidirLiberacao em ./regras.ts).
+    const { data: perfilAtual, error: erroAtual } = await supabase
+      .from("fp_perfil").select("plano, plano_ate").eq("user_id", userId).maybeSingle();
+    if (erroAtual) {
+      await registrar("erro", `leitura do perfil falhou: ${erroAtual.message}`, plano, userId);
+      logErro(cid, "leitura_perfil_falhou", erroAtual.message);
       return new Response("ok", { status: 200 });
     }
 
     // auth.users existe mas fp_perfil não: conta criada fora do fluxo de cadastro do
     // app. Vira pendência em vez de inserir perfil pela metade (nome/telefone têm
     // constraint e o app depende deles).
-    if (!linhas || linhas.length === 0) {
-      await supabase.from("pendencias_assinatura").insert({ email, plano, event, event_id: eventId, motivo: "sem_fp_perfil" });
-      const novo = await registrar("sem_conta", "usuario existe mas nao tem linha em fp_perfil", plano, userId);
+    if (!perfilAtual) {
+      const { error: erroPend } = await supabase.from("pendencias_assinatura")
+        .insert({ email, plano, event, event_id: eventId, motivo: "sem_fp_perfil" });
+      if (erroPend) logErro(cid, "pendencia_insert_falhou", erroPend.message);
+      const novo = await registrar(
+        "sem_conta",
+        `usuario existe mas nao tem linha em fp_perfil${erroPend ? ` | ATENCAO: pendencia NAO gravada: ${erroPend.message}` : ""}`,
+        plano, userId,
+      );
       logInfo(cid, "sem_fp_perfil", { email, plano });
-      if (novo) {
+      if (novo && await primeiroDoPedido(["sem_conta"])) {
         await avisarLucas(avisoVenda("sem_conta", {
           plano, email, nome: data?.customer?.name, valor: data?.amount,
           motivo: "a conta existe mas não tem perfil (`fp_perfil`)",
@@ -524,12 +587,62 @@ Deno.serve(async (req: Request) => {
       return new Response("ok", { status: 200 });
     }
 
-    const novaVenda = await registrar("aplicado", `${event} -> ${plano} (plano_ate via ${origemData})`, plano, userId);
-    logInfo(cid, "aplicado", { event, plano, plano_ate: planoAte, origem_data: origemData, via_auth: auth.via });
+    const decisao = decidirLiberacao(perfilAtual, plano, planoAteOferta, new Date(), origemData.startsWith("subscription."));
+    const planoAte = decisao.plano_ate;
+    if (!decisao.manteveSuperior) {
+      const { error } = await supabase.from("fp_perfil")
+        .update({ plano: decisao.plano, plano_ate: planoAte }).eq("user_id", userId);
+      if (error) {
+        await registrar("erro", `update de liberacao falhou: ${error.message}`, plano, userId);
+        logErro(cid, "liberacao_falhou", error.message);
+        return new Response("ok", { status: 200 });
+      }
+    }
+
+    // Casal: o plano vale pros DOIS membros do livro do pagador. Propaga com o mesmo
+    // plano_ate (é essa igualdade que a revogação usa pra saber quem derrubar).
+    // Nunca rebaixa ninguém — casal é o nível mais alto — e nunca encurta um Casal
+    // próprio do parceiro com data maior.
+    let detalheCasal = "";
+    if (decisao.plano === "casal" && !decisao.manteveSuperior && planoAte) {
+      try {
+        const outros = await outrosMembrosDoLivro(supabase, userId);
+        let propagados = 0;
+        for (const outroId of outros) {
+          const { data: p } = await supabase
+            .from("fp_perfil").select("plano, plano_ate").eq("user_id", outroId).maybeSingle();
+          if (!p) continue;
+          if (p.plano === "casal" && p.plano_ate && new Date(p.plano_ate).getTime() > new Date(planoAte).getTime()) continue;
+          const { error: erroProp } = await supabase.from("fp_perfil")
+            .update({ plano: "casal", plano_ate: planoAte }).eq("user_id", outroId);
+          if (erroProp) logErro(cid, "casal_propagacao_falhou", erroProp.message);
+          else propagados++;
+        }
+        detalheCasal = ` | casal: propagado a ${propagados} membro(s)`;
+      } catch (e) {
+        logErro(cid, "casal_propagacao_falhou", String(e));
+      }
+    }
+
+    const novaVenda = await registrar(
+      "aplicado",
+      decisao.manteveSuperior
+        ? `${event} -> ${decisao.motivo}`
+        : `${event} -> ${plano} (plano_ate via ${origemData}; ${decisao.motivo})${detalheCasal}`,
+      plano, userId,
+    );
+    logInfo(cid, "aplicado", { event, plano, gravado: decisao.plano, manteve_superior: decisao.manteveSuperior, plano_ate: planoAte, origem_data: origemData, via_auth: auth.via });
 
     // ===== Os dois envios. Nada daqui pra baixo pode falhar o webhook: o plano já
     // está gravado, e a resposta já seria 200 mesmo sem nenhum destes blocos. =====
-    if (novaVenda) {
+    //
+    // DEDUPE POR PEDIDO (2026-09-25). A Cakto manda purchase_approved E
+    // subscription_created pro MESMO pedido (mesmo data.id), com segundos de
+    // diferença — visto em produção em 25/09. A idempotência por (event, event_id)
+    // tratava os dois como eventos novos, e o cliente recebia o kit duas vezes (e o
+    // Lucas, dois avisos de venda). Agora só o PRIMEIRO evento 'aplicado' do pedido
+    // dispara WhatsApp.
+    if (novaVenda && await primeiroDoPedido(["aplicado"])) {
       // O kit vai pro telefone do PERFIL, nunca pro que veio no evento da Cakto: o
       // número do app é o que o agente reconhece, e mandar pro outro entregaria um
       // "me manda gastei 50" numa conversa que não vai funcionar.
@@ -544,7 +657,11 @@ Deno.serve(async (req: Request) => {
         logErro(cid, "perfil_para_kit_falhou", String(e));
       }
 
-      if (telefone) {
+      // Anti-downgrade: quem já tem plano maior não recebe kit de um plano menor
+      // (a mensagem diria "seu Essencial está ativo" pra quem está no Assistente).
+      if (decisao.manteveSuperior) {
+        logInfo(cid, "kit_pulado_anti_downgrade", { atual: decisao.plano, oferta: plano });
+      } else if (telefone) {
         try {
           const r = await enviarZap(telefone, kitBoasVindas(nome, plano));
           logInfo(cid, "kit_boas_vindas", { ok: r.ok, detalhe: r.detalhe });
@@ -555,7 +672,12 @@ Deno.serve(async (req: Request) => {
         logErro(cid, "kit_sem_telefone", "perfil sem telefone — cliente pagou e nao recebeu o kit");
       }
 
-      await avisarLucas(avisoVenda("venda", { plano, email, nome, valor: data?.amount }));
+      await avisarLucas(avisoVenda("venda", {
+        plano, email, nome, valor: data?.amount,
+        nota: decisao.manteveSuperior
+          ? `⚠️ Cliente já tinha o *${ROTULO_PLANO[decisao.plano] ?? decisao.plano}* vigente — plano mantido, kit NÃO enviado. Conferir se é compra duplicada.`
+          : undefined,
+      }));
     }
 
     return new Response("ok", { status: 200 });

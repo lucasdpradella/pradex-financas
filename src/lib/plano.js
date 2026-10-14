@@ -3,25 +3,39 @@
 // Lógica pura de propósito: o App só pergunta, não decide. Isso mantém a matriz de
 // planos testável no Vitest sem montar componente (mesmo padrão de lancamentos.js).
 //
-// Fonte da verdade é a coluna `plano` de fp_perfil ('none' | 'essencial' | 'assistente').
+// Fonte da verdade é a coluna `plano` de fp_perfil ('none' | 'essencial' | 'assistente' | 'casal').
 
-export const PLANOS = ["none", "essencial", "assistente"];
+export const PLANOS = ["none", "essencial", "assistente", "casal"];
 
 // Os planos são ordinais: quem tem Assistente tem tudo do Essencial junto. É isso que
 // dispensa listar recurso por plano — basta comparar nível.
-const NIVEL = { none: 0, essencial: 1, assistente: 2 };
+//
+// Casal (2026-09-25) é o nível 3: tudo do Assistente, pago por UM e usado pelos dois
+// membros do mesmo livro. Não existe recurso exclusivo do Casal — o que ele vende é o
+// segundo acesso —, por isso nenhum item de RECURSOS aponta pra ele.
+const NIVEL = { none: 0, essencial: 1, assistente: 2, casal: 3 };
+
+// Nível ordinal do plano (desconhecido = 0). Exportado pra quem precisa comparar
+// plano com plano (convite, anti-downgrade) em vez de plano com recurso.
+export const nivelPlano = (plano) => NIVEL[normalizePlano(plano)];
 
 export const CHECKOUT = {
   essencial: "https://pay.cakto.com.br/a2xpq3u",
   assistente: "https://pay.cakto.com.br/4pteia8",
+  // Oferta do Casal criada em 2026-09-25. O webhook reconhece '344ridx' e
+  // '344ridx_1135957' (ver cakto-webhook/regras.ts). Se um dia virar null, o convite
+  // `?plano=casal` some sozinho (planoDaUrl) em vez de mostrar botão sem destino.
+  casal: "https://pay.cakto.com.br/344ridx_1135957",
 };
 
-// Preço só pra COPY — quem cobra é a Cakto. Se divergir do painel, o painel vence.
+// Preço só pra COPY — quem cobra é a Cakto. Casal: R$ 249,00/mês de tabela; a primeira
+// cobrança pode vir com cupom (ex.: rodri30, 12% → ~R$ 219,12). Nada no sistema
+// valida plano por valor — o plano sai SEMPRE da oferta. Se divergir do painel, o painel vence.
 // O Assistente ficou meses marcado como indefinido no vault; foi confirmado em
 // 2026-09-15 na aba "Minhas Assinaturas".
-export const PRECO = { essencial: "R$ 29,90", assistente: "R$ 79,90" };
+export const PRECO = { essencial: "R$ 29,90", assistente: "R$ 79,90", casal: "R$ 249,00" };
 
-// Plano pedido pela URL: `?plano=essencial` ou `?plano=assistente`.
+// Plano pedido pela URL: `?plano=essencial`, `?plano=assistente` ou `?plano=casal`.
 //
 // Existe pro Lucas mandar o link pra quem ele JÁ convenceu pessoalmente. Essa pessoa
 // não precisa de 14 dias pra decidir — precisa de botão. Qualquer outro valor (ou
@@ -33,7 +47,11 @@ export function planoDaUrl(search) {
   if (!m) return null;
   const valor = decodeURIComponent(m[1]).trim().toLowerCase();
   // 'none' entra em PLANOS mas não é plano vendável — convite pra ele é ruído.
-  return valor === "essencial" || valor === "assistente" ? valor : null;
+  if (valor === "essencial" || valor === "assistente") return valor;
+  // Casal só vira convite quando existe checkout pra ele — convite sem botão é pior
+  // que nenhum convite.
+  if (valor === "casal" && CHECKOUT.casal) return valor;
+  return null;
 }
 
 // Só recursos PAGOS entram aqui. O core do app (dashboard, lançar, histórico, cartões,
@@ -187,7 +205,7 @@ export function checkoutComEmail(url, email) {
   return `${url}${separador}email=${encodeURIComponent(limpo)}`;
 }
 
-const ROTULO = { essencial: "Essencial", assistente: "Assistente" };
+export const ROTULO = { essencial: "Essencial", assistente: "Assistente", casal: "Casal" };
 
 const COPY = {
   whatsapp: {
