@@ -9,3 +9,6 @@ verify_jwt = false
 
 [functions.agente-cutucada]
 verify_jwt = false
+
+[functions.excluir-conta]
+verify_jwt = true

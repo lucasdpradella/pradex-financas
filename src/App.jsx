@@ -221,6 +221,11 @@ export default function PradexFinancas() {
   const [senhaModalErro, setSenhaModalErro] = useState("");
   const [senhaModalOk, setSenhaModalOk] = useState(false);
   const [senhaModalLoading, setSenhaModalLoading] = useState(false);
+  // Excluir conta mora no mesmo modal da senha: é o "minha conta" que existe hoje.
+  const [excluindoConta, setExcluindoConta] = useState(false);
+  const [excluirTexto, setExcluirTexto] = useState("");
+  const [excluirErro, setExcluirErro] = useState("");
+  const [excluirLoading, setExcluirLoading] = useState(false);
   const [cadastroNome, setCadastroNome] = useState("");
   const [cadastroDataNasc, setCadastroDataNasc] = useState("");
   const [cadastroTelefone, setCadastroTelefone] = useState("");
@@ -595,6 +600,29 @@ export default function PradexFinancas() {
   const fecharModalSenha = () => {
     setModalSenha(false); setSenhaModalOk(false); setSenhaModalErro("");
     setSenhaModalNova(""); setSenhaModalRepetida("");
+    setExcluindoConta(false); setExcluirTexto(""); setExcluirErro("");
+  };
+
+  // A edge function excluir-conta resolve o Livro (casal: fica com o parceiro;
+  // sozinho: apagado), apaga o login e avisa o Lucas. Exigência da App Store.
+  const handleExcluirConta = async () => {
+    if (excluirTexto.trim().toUpperCase() !== "EXCLUIR") { setExcluirErro("Digite EXCLUIR para confirmar."); return; }
+    setExcluirLoading(true); setExcluirErro("");
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/excluir-conta`, {
+        method: "POST", headers: api(session?.token), body: JSON.stringify({ confirmar: "EXCLUIR" }),
+      });
+      if (!res.ok) {
+        setExcluirErro("Não foi possível excluir agora. Tente de novo em instantes.");
+        setExcluirLoading(false);
+        return;
+      }
+      setExcluirLoading(false);
+      handleLogout();
+    } catch (e) {
+      setExcluirErro("Erro de conexão.");
+      setExcluirLoading(false);
+    }
   };
 
   const handleLogout = () => {
@@ -2211,7 +2239,30 @@ export default function PradexFinancas() {
             onClick={e => e.stopPropagation()}
             style={{ background: "#151821", border: "1px solid #1E2330", borderRadius: "16px", padding: "1.5rem", width: "100%", maxWidth: "380px", boxSizing: "border-box" }}
           >
-            {senhaModalOk ? (
+            {excluindoConta ? (
+              <>
+                <h2 style={{ margin: "0 0 0.4rem", fontSize: "1.05rem", fontWeight: 700, color: "#F1F2F4" }}>Excluir conta</h2>
+                <p style={{ margin: "0 0 0.75rem", fontSize: "0.82rem", color: "#8B93A1", lineHeight: 1.5 }}>
+                  {membrosLivro.length > 1
+                    ? "Seu login e seus dados pessoais são apagados. Os lançamentos, cartões, bancos e metas do Livro continuam com a outra pessoa do casal."
+                    : "Seu login e todos os seus dados são apagados: lançamentos, cartões, bancos, metas e planejamento. Não dá para desfazer."}
+                </p>
+                {plano !== "none" && (
+                  <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#E8943A", lineHeight: 1.5 }}>
+                    Se você tem assinatura paga, nossa equipe cancela a cobrança na sequência.
+                  </p>
+                )}
+                <p style={{ margin: "0 0 0.5rem", fontSize: "0.78rem", color: "#8B93A1" }}>Digite <strong style={{ color: "#F1F2F4" }}>EXCLUIR</strong> para confirmar:</p>
+                <input type="text" autoComplete="off" value={excluirTexto} onChange={e => setExcluirTexto(e.target.value)} onKeyDown={e => e.key === "Enter" && handleExcluirConta()} style={inputStyle} />
+                {excluirErro && <p style={{ color: "#E06C65", fontSize: "0.8rem", marginBottom: "0.75rem" }}>{excluirErro}</p>}
+                <button onClick={handleExcluirConta} disabled={excluirLoading} style={{ width: "100%", padding: "0.85rem", border: "none", borderRadius: "10px", background: "#E06C65", color: "#fff", fontSize: "0.95rem", fontWeight: 700, cursor: excluirLoading ? "not-allowed" : "pointer", opacity: excluirLoading ? 0.7 : 1, fontFamily: "inherit", marginBottom: "0.6rem" }}>
+                  {excluirLoading ? "Excluindo..." : "Excluir minha conta"}
+                </button>
+                <button onClick={() => { setExcluindoConta(false); setExcluirTexto(""); setExcluirErro(""); }} style={{ width: "100%", padding: "0.6rem", border: "none", borderRadius: "10px", background: "transparent", color: "#8B93A1", fontSize: "0.82rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                  Voltar
+                </button>
+              </>
+            ) : senhaModalOk ? (
               <>
                 <h2 style={{ margin: "0 0 0.4rem", fontSize: "1.05rem", fontWeight: 700, color: "#F1F2F4" }}>Senha alterada</h2>
                 <p style={{ margin: "0 0 1.25rem", fontSize: "0.85rem", color: "#8B93A1", lineHeight: 1.5 }}>
@@ -2236,6 +2287,11 @@ export default function PradexFinancas() {
                 <button onClick={fecharModalSenha} style={{ width: "100%", padding: "0.6rem", border: "none", borderRadius: "10px", background: "transparent", color: "#8B93A1", fontSize: "0.82rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
                   Cancelar
                 </button>
+                <div style={{ borderTop: "1px solid #1E2330", marginTop: "0.9rem", paddingTop: "0.75rem", textAlign: "center" }}>
+                  <button onClick={() => setExcluindoConta(true)} style={{ background: "none", border: "none", color: "#5C6570", fontSize: "0.75rem", cursor: "pointer", fontFamily: "inherit", textDecoration: "underline" }}>
+                    Excluir minha conta
+                  </button>
+                </div>
               </>
             )}
           </div>
